@@ -1151,9 +1151,13 @@ public async Task<EducacaoTransporteRelatorioViagemDto> RelatorioViagemAsync(Edu
  }
   private sealed class EducacaoCentroCustoLinha{public long Id{get;set;} public long? EntidadeId{get;set;} public string? Status{get;set;}}
   private sealed class EducacaoIndicadoresMetricasLinha{public decimal Receitas{get;set;} public decimal Aplicacoes{get;set;} public decimal Custos{get;set;} public long Matriculas{get;set;} public long Inconsistencias{get;set;} public decimal? TaxaMinima{get;set;}}
+  // Ciclo 2 Sprint 5 (BR-5.3/BR-5.4): linhas de leitura do painel de conformidade FUNDEB e dos
+  // centros destino do rateio de custos.
+  private sealed class FundebConformidadeMetricasLinha{public decimal AplicacoesTotal{get;set;} public decimal AplicacoesMagisterio{get;set;} public decimal ReceitasTotal{get;set;} public DateTime? UltimoLancamento{get;set;} public decimal? TaxaMinimaTenant{get;set;}}
+  private sealed class CustoCentroRateioDestinoLinha{public long Id{get;set;} public long? EscolaId{get;set;} public string? Nome{get;set;}}
   private sealed class EducacaoIndicadorLinha{public long Id{get;set;} public long? EntidadeId{get;set;} public string? Status{get;set;}}
   private sealed class EducacaoEducacensoLoteLinha{public long Id{get;set;} public long? EntidadeId{get;set;} public string? Status{get;set;}}
-  private sealed class EducacaoEducacensoMetricasLinha{public long LotesAtivos{get;set;} public long InconsistenciasAbertas{get;set;} public long GravidadeAlta{get;set;} public long Eventos{get;set;}}
+  private sealed class EducacaoEducacensoMetricasLinha{public long LotesAtivos{get;set;} public long InconsistenciasAbertas{get;set;} public long GravidadeAlta{get;set;} public long Eventos{get;set;} public DateTime? UltimaSincronizacao{get;set;}}
   async Task<EducacaoCentroCustoLinha> CarregarCentroCustoNoEscopoAsync(EducacaoAvancadaContext x,long centroId,CancellationToken ct,NpgsqlConnection c){
     var r=await c.QueryFirstOrDefaultAsync<EducacaoCentroCustoLinha>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,status as Status from sigov.educacao_custo_centro where tenant_id=@TenantId and id=@Id and ativo and not is_deleted",new{TenantId=x.TenantId,Id=centroId},cancellationToken:ct)).ConfigureAwait(false);
     if(r is null)throw new CustoCentroInexistenteException(centroId);
@@ -1165,6 +1169,9 @@ public async Task<EducacaoTransporteRelatorioViagemDto> RelatorioViagemAsync(Edu
     if(r is null)throw new ArgumentException("Parâmetro FDEB é obrigatório.");
     if(string.IsNullOrWhiteSpace(r.Codigo))throw new ArgumentException("Parâmetro FDEB exige código.");
     if(r.Valor<0)throw new ArgumentException("Valor do parâmetro FDEB não pode ser negativo.");
+    // BR-5.1: vigencia anual do parametro (ano_letivo opcional, 2000-2100); trocar o ano exige encerrar
+    // o parametro vigente (estados terminais liberam a unicidade por codigo) e relancar para o novo ano.
+    if(r.Ano.HasValue&&r.Ano.Value is <2000 or >2100)throw new ArgumentException("Ano de vigência do parâmetro FDEB deve estar entre 2000 e 2100.");
     var codigo=r.Codigo.Trim().ToUpperInvariant();
     var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
     using var c=(NpgsqlConnection)_context.CreateConnection();
@@ -1174,13 +1181,19 @@ public async Task<EducacaoTransporteRelatorioViagemDto> RelatorioViagemAsync(Edu
     if(existe)throw new FundebParametroCodigoExistenteException(codigo);
     long id;
     try{
-      id=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_fundeb_parametro(tenant_id,entidade_id,codigo,nome,tipo,valor,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@Codigo,@Codigo,'FDEB_PARAMETRO',@Valor,'ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_PARAMETRO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Codigo=codigo,Valor=r.Valor,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+      id=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_fundeb_parametro(tenant_id,entidade_id,codigo,nome,tipo,valor,ano_letivo,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@Codigo,@Codigo,'FDEB_PARAMETRO',@Valor,@Ano,'ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_PARAMETRO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Codigo=codigo,Valor=r.Valor,Ano=r.Ano,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
     }catch(NpgsqlException npe){
       if(npe.SqlState=="23505")throw new FundebParametroCodigoExistenteException(codigo);
       throw;
     }
     await tx.CommitAsync(ct).ConfigureAwait(false);
     return id;
+  }
+  // Ciclo 2 Sprint 5 (BR-5.2): consulta da competencia fechada FUNDEB para o tenant (tabela ausente =
+  // recurso nao disponivel, falha explicita; sem linha FECHADA vigente para a data = competencia aberta).
+  async Task<bool> CompetenciaFundebFechadaAsync(NpgsqlConnection c,NpgsqlTransaction? tx,long tenantId,DateOnly competencia,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_fundeb_competencia",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_fundeb_competencia");
+    return await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_fundeb_competencia where tenant_id=@TenantId and competencia=@Competencia and ativo=true and is_deleted=false and status='FECHADA')",new{TenantId=tenantId,Competencia=competencia},tx,cancellationToken:ct)).ConfigureAwait(false);
   }
   public async Task<long> LancarReceitaAsync(EducacaoAvancadaContext x,EducacaoFundebLancarReceitaRequest r,CancellationToken ct){
     if(!await _inspector.TableExistsAsync("sigov","educacao_fundeb_receita",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_fundeb_receita");
@@ -1193,6 +1206,8 @@ public async Task<EducacaoTransporteRelatorioViagemDto> RelatorioViagemAsync(Edu
     using var c=(NpgsqlConnection)_context.CreateConnection();
     await c.OpenAsync(ct).ConfigureAwait(false);
     await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+    // BR-5.2: competencia fechada bloqueia novo lancamento de receita (COMPETENCIA_FUNDEB_FECHADA).
+    if(await CompetenciaFundebFechadaAsync(c,tx,x.TenantId,r.Competencia,ct).ConfigureAwait(false))throw new FundebCompetenciaFechadaException(r.Competencia);
     var existe=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_fundeb_receita where tenant_id=@TenantId and competencia=@Competencia and upper(coalesce(tipo,''))=@Fonte and ativo and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))",new{TenantId=x.TenantId,Competencia=r.Competencia,Fonte=fonte},tx,cancellationToken:ct)).ConfigureAwait(false);
     if(existe)throw new FundebReceitaDuplicadaException(r.Competencia.ToString("yyyy-MM-dd"),fonte);
     long id;
@@ -1211,12 +1226,27 @@ public async Task<EducacaoTransporteRelatorioViagemDto> RelatorioViagemAsync(Edu
     if(r is null)throw new ArgumentException("Aplicação FDEB é obrigatória.");
     if(r.CentroCustoId<=0)throw new ArgumentException("Aplicação FDEB exige centro de custo.");
     if(r.Valor<=0)throw new ArgumentException("Valor da aplicação FDEB deve ser positivo.");
+    // BR-5.2: competencia opcional (caminho legado = nula, agrupada na sentinela 2999-12-31); unica
+    // aplicacao vigente por competencia x centro e bloqueio por competencia fechada.
+    if(r.Competencia.HasValue&&r.Competencia.Value<=new DateOnly(2000,1,1))throw new ArgumentException("Aplicação FDEB exige competência válida (data) quando informada.");
     var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
     using var c=(NpgsqlConnection)_context.CreateConnection();
     await c.OpenAsync(ct).ConfigureAwait(false);
+    await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
     var centro=await CarregarCentroCustoNoEscopoAsync(x,r.CentroCustoId,ct,c).ConfigureAwait(false);
     if(centro.Status is not ("ATIVA" or "ATIVO"))throw new CustoCentroNaoVigenteException(r.CentroCustoId,centro.Status ?? "INDEFINIDO");
-    return await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_fundeb_aplicacao(tenant_id,entidade_id,centro_custo_id,valor,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@CentroCustoId,@Valor,'ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_APLICACAO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,CentroCustoId=r.CentroCustoId,Valor=r.Valor,CorrelationId=corr,UsuarioId=x.UsuarioId},cancellationToken:ct)).ConfigureAwait(false);
+    if(r.Competencia.HasValue&&await CompetenciaFundebFechadaAsync(c,tx,x.TenantId,r.Competencia.Value,ct).ConfigureAwait(false))throw new FundebCompetenciaFechadaException(r.Competencia.Value);
+    var existe=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_fundeb_aplicacao where tenant_id=@TenantId and centro_custo_id=@CentroCustoId and coalesce(competencia,'2999-12-31'::date)=coalesce(@Competencia::date,'2999-12-31'::date) and ativo=true and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO'))",new{TenantId=x.TenantId,CentroCustoId=r.CentroCustoId,Competencia=r.Competencia},tx,cancellationToken:ct)).ConfigureAwait(false);
+    if(existe)throw new FundebAplicacaoDuplicadaException(r.CentroCustoId,r.Competencia);
+    long id;
+    try{
+      id=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_fundeb_aplicacao(tenant_id,entidade_id,centro_custo_id,competencia,valor,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@CentroCustoId,@Competencia,@Valor,'ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_APLICACAO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,CentroCustoId=r.CentroCustoId,Competencia=r.Competencia,Valor=r.Valor,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+    }catch(NpgsqlException npe){
+      if(npe.SqlState=="23505")throw new FundebAplicacaoDuplicadaException(r.CentroCustoId,r.Competencia);
+      throw;
+    }
+    await tx.CommitAsync(ct).ConfigureAwait(false);
+    return id;
   }
   public async Task<long> LancarCentroCustoAsync(EducacaoAvancadaContext x,EducacaoCustoLancarCentroRequest r,CancellationToken ct){
     if(!await _inspector.TableExistsAsync("sigov","educacao_custo_centro",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_custo_centro");
@@ -1240,6 +1270,291 @@ public async Task<EducacaoTransporteRelatorioViagemDto> RelatorioViagemAsync(Edu
     await tx.CommitAsync(ct).ConfigureAwait(false);
     return id;
   }
+  // ============================================================================
+  // Ciclo 2 Sprint 5 (FUNDEB/custos/rateio + avaliacao do magisterio + Educacenso; BR-5.1 a BR-5.7)
+  // LC 114/2021 (FUNDEB), Lei 11.494/2007, Censo Escolar/INEP. Relogio unico (_clock); banco =
+  // autoridade de parametros (regra 11); multi-esfera por tenant x entidade (regras 21-24).
+  // ============================================================================
+
+  // BR-5.2: fecha a competencia FUNDEB (idempotente; REABERTA existente volta a FECHADA).
+  public async Task<long> FecharCompetenciaFundebAsync(EducacaoAvancadaContext x,EducacaoFundebCompetenciaOperarRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_fundeb_competencia",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_fundeb_competencia");
+    if(r is null)throw new ArgumentException("Operação de competência FUNDEB é obrigatória.");
+    if(r.Competencia<=new DateOnly(2000,1,1))throw new ArgumentException("Competência FUNDEB deve ser uma data válida.");
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+    var atual=await c.QueryFirstOrDefaultAsync<(long Id,string Status)>(new CommandDefinition("select id as Id,status as Status from sigov.educacao_fundeb_competencia where tenant_id=@TenantId and competencia=@Competencia and ativo=true and is_deleted=false order by id desc limit 1",new{TenantId=x.TenantId,Competencia=r.Competencia},tx,cancellationToken:ct)).ConfigureAwait(false);
+    if(atual.Id!=0&&atual.Status=="FECHADA")return atual.Id;
+    long id;
+    try{
+      if(atual.Id!=0){
+        await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_fundeb_competencia set status='FECHADA',justificativa=coalesce(@Justificativa,justificativa),reaberta_em=null,updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','FECHAR_COMPETENCIA','em',now())) where tenant_id=@TenantId and id=@Id",new{TenantId=x.TenantId,Id=atual.Id,Justificativa=string.IsNullOrWhiteSpace(r.Justificativa)?null:r.Justificativa.Trim(),UsuarioId=x.UsuarioId,CorrelationId=corr},tx,cancellationToken:ct)).ConfigureAwait(false);
+        id=atual.Id;
+      }else{
+        id=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_fundeb_competencia(tenant_id,entidade_id,competencia,status,justificativa,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@Competencia,'FECHADA',@Justificativa,jsonb_build_array(jsonb_build_object('acao','FECHAR_COMPETENCIA','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Competencia=r.Competencia,Justificativa=string.IsNullOrWhiteSpace(r.Justificativa)?null:r.Justificativa.Trim(),CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+      }
+    }catch(NpgsqlException npe){
+      if(npe.SqlState!="23505")throw;
+      await tx.RollbackAsync(ct).ConfigureAwait(false);
+      var outro=await c.ExecuteScalarAsync<long>(new CommandDefinition("select id from sigov.educacao_fundeb_competencia where tenant_id=@TenantId and competencia=@Competencia and ativo=true and is_deleted=false and status='FECHADA' order by id limit 1",new{TenantId=x.TenantId,Competencia=r.Competencia},cancellationToken:ct)).ConfigureAwait(false);
+      return outro>0?outro:(await FecharCompetenciaFundebAsync(x,r,ct).ConfigureAwait(false));
+    }
+    await tx.CommitAsync(ct).ConfigureAwait(false);
+    return id;
+  }
+  // BR-5.2: reabre competencia FECHADA com justificacao obrigatoria (libera novos lancamentos).
+  public async Task<long> ReabrirCompetenciaFundebAsync(EducacaoAvancadaContext x,EducacaoFundebCompetenciaOperarRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_fundeb_competencia",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_fundeb_competencia");
+    if(r is null)throw new ArgumentException("Operação de competência FUNDEB é obrigatória.");
+    if(r.Competencia<=new DateOnly(2000,1,1))throw new ArgumentException("Competência FUNDEB deve ser uma data válida.");
+    if(string.IsNullOrWhiteSpace(r.Justificativa))throw new FundebCompetenciaReaberturaJustificativaObrigatorioException();
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    var atual=await c.QueryFirstOrDefaultAsync<(long Id,string Status)>(new CommandDefinition("select id as Id,status as Status from sigov.educacao_fundeb_competencia where tenant_id=@TenantId and competencia=@Competencia and ativo=true and is_deleted=false order by id desc limit 1",new{TenantId=x.TenantId,Competencia=r.Competencia},cancellationToken:ct)).ConfigureAwait(false);
+    if(atual.Id==0||atual.Status!="FECHADA")throw new FundebCompetenciaNaoFechadaException(r.Competencia);
+    await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_fundeb_competencia set status='REABERTA',reaberta_em=now(),justificativa=@Justificativa,updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','REABRIR_COMPETENCIA','motivo',@Justificativa,'em',now())) where tenant_id=@TenantId and id=@Id",new{TenantId=x.TenantId,Id=atual.Id,Justificativa=r.Justificativa.Trim(),UsuarioId=x.UsuarioId,CorrelationId=corr},cancellationToken:ct)).ConfigureAwait(false);
+    return atual.Id;
+  }
+  // BR-5.3/BR-5.7: painel de conformidade FUNDEB em remuneracao basica do magisterio com recorte por
+  // unidade escolar e competencia, minimo parametrizado (banco) e custo/aluno projetado pela projecao.
+  public async Task<EducacaoFundebConformidadeDto> FundebConformidadeAsync(long tenantId,long? unidadeEscolaId,DateOnly? competencia,CancellationToken ct){
+    foreach(var t in new[]{"educacao_fundeb_receita","educacao_fundeb_aplicacao","educacao_custo_centro"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    var filtroEscola="(@EscolaId::bigint is null or coalesce(a.escola_id,cc.escola_id)=@EscolaId)";
+    var filtroComp="(@Competencia::date is null or a.competencia=@Competencia)";
+    var sql="select (select coalesce(sum(a.valor),0) from sigov.educacao_fundeb_aplicacao a left join sigov.educacao_custo_centro cc on cc.id=a.centro_custo_id and cc.tenant_id=a.tenant_id where a.tenant_id=@TenantId and a.ativo=true and a.is_deleted=false and a.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO') and "+filtroEscola+" and "+filtroComp+") as AplicacoesTotal,(select coalesce(sum(a.valor),0) from sigov.educacao_fundeb_aplicacao a inner join sigov.educacao_custo_centro cc on cc.id=a.centro_custo_id and cc.tenant_id=a.tenant_id where a.tenant_id=@TenantId and a.ativo=true and a.is_deleted=false and a.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO') and upper(coalesce(cc.categoria,''))='MAGISTERIO' and "+filtroEscola+" and "+filtroComp+") as AplicacoesMagisterio,(select coalesce(sum(r.valor),0) from sigov.educacao_fundeb_receita r where r.tenant_id=@TenantId and r.ativo=true and r.is_deleted=false and r.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO') and (@Competencia::date is null or r.competencia=@Competencia)) as ReceitasTotal,(select max(coalesce(a.updated_at,a.created_at)) from sigov.educacao_fundeb_aplicacao a left join sigov.educacao_custo_centro cc on cc.id=a.centro_custo_id and cc.tenant_id=a.tenant_id where a.tenant_id=@TenantId and a.ativo=true and a.is_deleted=false and a.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO') and "+filtroEscola+" and "+filtroComp+") as UltimoLancamento,(select valor from sigov.educacao_fundeb_parametro p where p.tenant_id=@TenantId and p.ativo=true and p.is_deleted=false and upper(coalesce(p.codigo,''))='TAXA_MINIMA_APLICACAO' and p.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO') limit 1) as TaxaMinimaTenant";
+    var m=await c.QueryFirstAsync<FundebConformidadeMetricasLinha>(new CommandDefinition(sql,new{TenantId=tenantId,EscolaId=unidadeEscolaId,Competencia=competencia},cancellationToken:ct)).ConfigureAwait(false);
+    decimal? minimo=m.TaxaMinimaTenant;
+    if(minimo is null||minimo.Value<=0m)minimo=await LireParametroEducaoAsync(c,null,tenantId,"FDEB_CONFORMIDADE_MINIMO_PCT",ct).ConfigureAwait(false);
+    decimal percentual=m.AplicacoesTotal>0m?Math.Round(m.AplicacoesMagisterio/m.AplicacoesTotal*100m,2,MidpointRounding.AwayFromZero):0m;
+    bool conforme=minimo is >0m&&m.AplicacoesTotal>0m&&percentual>=minimo.Value;
+    string? nota=m.AplicacoesTotal==0m?"sem aplicacoes no recorte apresentado (zero de aplicacao nao e indisponibilidade: percentual exibido como 0%)":(conforme?null:"aplicacao em remuneracao basica abaixo do minimo parametrizado");
+    return new EducacaoFundebConformidadeDto(m.ReceitasTotal,m.AplicacoesTotal,m.AplicacoesMagisterio,percentual,minimo,conforme,nota,m.UltimoLancamento);
+  }
+  // BR-5.2/BR-5.4: lancamento de custo tipado por centro x competencia (fecha o resíduo S10: sem este
+  // comando o total do rateio nao era auditavel por origem x competencia); competencia fechada bloqueia.
+  public async Task<long> LancarCustoLancamentoAsync(EducacaoAvancadaContext x,EducacaoCustoLancamentoLancarRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_custo_lancamento",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_custo_lancamento");
+    if(!await _inspector.TableExistsAsync("sigov","educacao_custo_centro",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_custo_centro");
+    if(r is null)throw new ArgumentException("Lançamento de custo é obrigatório.");
+    if(r.CentroCustoId<=0)throw new ArgumentException("Lançamento de custo exige centro de custo.");
+    if(r.Competencia<=new DateOnly(2000,1,1))throw new ArgumentException("Lançamento de custo exige competência válida (data).");
+    if(r.Valor<=0)throw new ArgumentException("Valor do lançamento de custo deve ser positivo.");
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+    var centro=await CarregarCentroCustoNoEscopoAsync(x,r.CentroCustoId,ct,c).ConfigureAwait(false);
+    if(centro.Status is not ("ATIVA" or "ATIVO"))throw new CustoCentroNaoVigenteException(r.CentroCustoId,centro.Status ?? "INDEFINIDO");
+    if(await CompetenciaFundebFechadaAsync(c,tx,x.TenantId,r.Competencia,ct).ConfigureAwait(false))throw new FundebCompetenciaFechadaException(r.Competencia);
+    var id=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_custo_lancamento(tenant_id,entidade_id,centro_custo_id,competencia,tipo,nome,valor,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@CentroCustoId,@Competencia,'LANCAMENTO_CUSTO','LANCAMENTO',@Valor,'ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_LANCAMENTO_CUSTO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,CentroCustoId=r.CentroCustoId,Competencia=r.Competencia,Valor=r.Valor,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+    await tx.CommitAsync(ct).ConfigureAwait(false);
+    return id;
+  }
+  // BR-5.4: rateio do total de lancamentos de custo da origem x competencia pelos destinos, com soma
+  // exata (centavo residual absorvido no maior peso) e lancamentos derivados atomicos com o cabecalho.
+  public async Task<long> LancarRateioCustoAsync(EducacaoAvancadaContext x,EducacaoCustoRateioLancarRequest r,CancellationToken ct){
+    foreach(var t in new[]{"educacao_custo_rateio","educacao_custo_lancamento","educacao_custo_centro"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+    if(r is null)throw new ArgumentException("Rateio de custos é obrigatório.");
+    if(r.CentroCustoIdOrigem<=0)throw new ArgumentException("Rateio exige centro de custo de origem.");
+    if(r.Competencia<=new DateOnly(2000,1,1))throw new ArgumentException("Rateio exige competência válida (data).");
+    var criterio=string.IsNullOrWhiteSpace(r.Criterio)?"":r.Criterio.Trim().ToUpperInvariant();
+    if(criterio is not ("MATRICULAS" or "RECEITA" or "PESO_MANUAL"))throw new CustoRateioCriterioInvalidoException(string.IsNullOrWhiteSpace(r.Criterio)?"":r.Criterio.Trim());
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    await using var tx=await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+    var origem=await CarregarCentroCustoNoEscopoAsync(x,r.CentroCustoIdOrigem,ct,c).ConfigureAwait(false);
+    if(origem.Status is not ("ATIVA" or "ATIVO"))throw new CustoCentroNaoVigenteException(r.CentroCustoIdOrigem,origem.Status ?? "INDEFINIDO");
+    if(await CompetenciaFundebFechadaAsync(c,tx,x.TenantId,r.Competencia,ct).ConfigureAwait(false))throw new FundebCompetenciaFechadaException(r.Competencia);
+    var total=await c.ExecuteScalarAsync<decimal>(new CommandDefinition("select coalesce(sum(valor),0) from sigov.educacao_custo_lancamento where tenant_id=@TenantId and centro_custo_id=@Origem and competencia=@Competencia and ativo=true and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')",new{TenantId=x.TenantId,Origem=r.CentroCustoIdOrigem,Competencia=r.Competencia},tx,cancellationToken:ct)).ConfigureAwait(false);
+    if(total<=0m)throw new CustoRateioTotalInvalidoException(r.CentroCustoIdOrigem,r.Competencia);
+    var duplicado=await c.ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.educacao_custo_rateio where tenant_id=@TenantId and centro_custo_id=@Origem and tipo=@Crit and coalesce(competencia,'2999-12-31'::date)=@Competencia and ativo=true and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO','ESTORNADO'))",new{TenantId=x.TenantId,Origem=r.CentroCustoIdOrigem,Crit=criterio,Competencia=r.Competencia},tx,cancellationToken:ct)).ConfigureAwait(false);
+    if(duplicado)throw new CustoRateioDuplicadoException(r.CentroCustoIdOrigem,criterio,r.Competencia);
+    var destinos=(await c.QueryAsync<CustoCentroRateioDestinoLinha>(new CommandDefinition("select id as Id,escola_id as EscolaId,nome as Nome from sigov.educacao_custo_centro where tenant_id=@TenantId and ativo=true and is_deleted=false and status in ('ATIVA','ATIVO') and id<>@Origem and (@EntidadeId::bigint is null or entidade_id is null or entidade_id=@EntidadeId) order by id",new{TenantId=x.TenantId,Origem=r.CentroCustoIdOrigem,EntidadeId=x.EntidadeId},tx,cancellationToken:ct)).ConfigureAwait(false)).ToList();
+    if(destinos.Count==0)throw new CustoRateioDestinosInexistentesException(criterio);
+    Dictionary<long,decimal> pesos;
+    if(criterio=="PESO_MANUAL"){
+      if(r.PesosManual is null||r.PesosManual.Count==0)throw new CustoRateioPesosInvalidosException();
+      pesos=new Dictionary<long,decimal>();
+      foreach(var kv in r.PesosManual){
+        if(kv.Value<=0m)throw new CustoRateioPesosInvalidosException();
+        if(!destinos.Any(d=>d.Id==kv.Key))throw new CustoRateioPesosInvalidosException();
+        pesos[kv.Key]=kv.Value;
+      }
+    }else if(criterio=="MATRICULAS"){
+      var contagem=(await c.QueryAsync<(long Escola,long Qtd)>(new CommandDefinition("select coalesce(escola_id,0) as Escola,count(1)::bigint as Qtd from sigov.matricula where tenant_id=@TenantId and ativo=true and is_deleted=false and status in ('ATIVA','CONFIRMADA') and escola_id is not null group by coalesce(escola_id,0)",new{TenantId=x.TenantId},tx,cancellationToken:ct)).ConfigureAwait(false)).ToDictionary(v=>v.Escola,v=>v.Qtd);
+      pesos=new Dictionary<long,decimal>();
+      foreach(var d in destinos)if(d.EscolaId.HasValue&&contagem.TryGetValue(d.EscolaId.Value,out var qtd)&&qtd>0)pesos[d.Id]=(decimal)qtd;
+      if(pesos.Count==0)throw new CustoRateioDestinosInexistentesException(criterio);
+    }else{
+      var somaAplic=(await c.QueryAsync<(long Centro,decimal Soma)>(new CommandDefinition("select centro_custo_id as Centro,sum(valor)::numeric(18,2) as Soma from sigov.educacao_fundeb_aplicacao where tenant_id=@TenantId and ativo=true and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO') and centro_custo_id is not null group by centro_custo_id having sum(valor)>0",new{TenantId=x.TenantId},tx,cancellationToken:ct)).ConfigureAwait(false)).ToDictionary(v=>v.Centro,v=>v.Soma);
+      pesos=new Dictionary<long,decimal>();
+      foreach(var d in destinos)if(somaAplic.TryGetValue(d.Id,out var soma)&&soma>0m)pesos[d.Id]=soma;
+      if(pesos.Count==0)throw new CustoRateioDestinosInexistentesException(criterio);
+    }
+    var somaPesos=pesos.Values.Sum();
+    var ordenado=pesos.OrderByDescending(kv=>kv.Value).ThenBy(kv=>kv.Key).ToList();
+    var valores=new Dictionary<long,decimal>();
+    decimal somado=0m;
+    foreach(var e in ordenado.Skip(1)){var v=Math.Round(total*e.Value/somaPesos,2,MidpointRounding.AwayFromZero);valores[e.Key]=v;somado+=v;}
+    valores[ordenado[0].Key]=Math.Round(total-somado,2,MidpointRounding.AwayFromZero);
+    var resumo=string.Join(", ",valores.OrderBy(kv=>kv.Key).Select(kv=>$"{kv.Key}={kv.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}"));
+    long rateioId;
+    try{
+      rateioId=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_custo_rateio(tenant_id,entidade_id,centro_custo_id,competencia,tipo,nome,descricao,valor,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@Origem,@Competencia,@Crit,@Nome,@Resumo,@Total,'ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_RATEIO_CUSTO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Origem=r.CentroCustoIdOrigem,Competencia=r.Competencia,Crit=criterio,Nome="RATEIO_"+criterio,Resumo=resumo,Total=total,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+    }catch(NpgsqlException npe){
+      if(npe.SqlState=="23505")throw new CustoRateioDuplicadoException(r.CentroCustoIdOrigem,criterio,r.Competencia);
+      throw;
+    }
+    foreach(var kv in valores.OrderBy(k=>k.Key)){
+      await c.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_custo_lancamento(tenant_id,entidade_id,centro_custo_id,competencia,referencia_id,tipo,nome,valor,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@Centro,@Competencia,@RateioId,'RATEIO_DERIVADO','RATEIO',@Valor,'ATIVA',jsonb_build_array(jsonb_build_object('acao','DERIVADO_DE_RATEIO','rateioId',@RateioId,'em',now())),@CorrelationId,@UsuarioId)",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Centro=kv.Key,Competencia=r.Competencia,RateioId=rateioId,Valor=kv.Value,CorrelationId=corr,UsuarioId=x.UsuarioId},tx,cancellationToken:ct)).ConfigureAwait(false);
+    }
+    await tx.CommitAsync(ct).ConfigureAwait(false);
+    return rateioId;
+  }
+  // BR-5.4: estorno comandado do rateio (cabecalho ESTORNADO + lancamentos derivados CANCELADOS).
+  public async Task<long> EstornarRateioCustoAsync(EducacaoAvancadaContext x,long rateioId,EducacaoCustoRateioEstornarRequest r,CancellationToken ct){
+    foreach(var t in new[]{"educacao_custo_rateio","educacao_custo_lancamento"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+    if(string.IsNullOrWhiteSpace(r?.Justificativa))throw new CustoRateioEstornoJustificativaObrigatorioException();
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    var head=await c.QueryFirstOrDefaultAsync<(long Id,long? EntidadeId,string Status)>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,status as Status from sigov.educacao_custo_rateio where tenant_id=@TenantId and id=@Id and ativo=true and is_deleted=false",new{TenantId=x.TenantId,Id=rateioId},cancellationToken:ct)).ConfigureAwait(false);
+    if(head.Id==0)throw new CustoRateioInexistenteException(rateioId);
+    if(x.EntidadeId.HasValue&&head.EntidadeId.HasValue&&head.EntidadeId.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_custo_rateio",rateioId,head.EntidadeId.Value,x.EntidadeId.Value);
+    if(head.Status=="ESTORNADO")return rateioId;
+    var just=r.Justificativa.Trim();
+    await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_custo_rateio set status='ESTORNADO',justificativa=@Justificativa,updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','ESTORNO_RATEIO','motivo',@Justificativa,'em',now())) where tenant_id=@TenantId and id=@Id",new{TenantId=x.TenantId,Id=rateioId,Justificativa=just,UsuarioId=x.UsuarioId,CorrelationId=corr},cancellationToken:ct)).ConfigureAwait(false);
+    await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_custo_lancamento set status='CANCELADA',justificativa=@Justificativa,updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','CANCELAR_LANCAMENTO_DERIVADO','rateioId',@Id,'em',now())) where tenant_id=@TenantId and referencia_id=@Id and tipo='RATEIO_DERIVADO' and ativo=true and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')",new{TenantId=x.TenantId,Id=rateioId,Justificativa="ESTORNO_RATEIO:"+rateioId,UsuarioId=x.UsuarioId,CorrelationId=corr},cancellationToken:ct)).ConfigureAwait(false);
+    return rateioId;
+  }
+  // BR-5.5: lancamento da avaliacao do magisterio (nome, periodo, instrumento, escopo opcional).
+  public async Task<long> LancarAvaliacaoMagisterioAsync(EducacaoAvancadaContext x,EducacaoAvaliacaoMagisterioLancarRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_avaliacao_magisterio",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_avaliacao_magisterio");
+    if(r is null)throw new ArgumentException("Avaliação do magistério é obrigatória.");
+    if(string.IsNullOrWhiteSpace(r.Nome))throw new ArgumentException("Avaliação do magistério exige nome.");
+    if(string.IsNullOrWhiteSpace(r.Instrumento))throw new AvaliacaoMagisterioInstrumentoObrigatorioException();
+    if(r.PeriodoFim<r.PeriodoInicio)throw new AvaliacaoMagisterioPeriodoInvalidoException(r.PeriodoInicio,r.PeriodoFim);
+    if(r.Ano.HasValue&&r.Ano.Value is <2000 or >2100)throw new ArgumentException("Ano da avaliação deve estar entre 2000 e 2100.");
+    if(r.UnidadeId.HasValue)await ValidarEscopoInstitucionalAsync(x.TenantId,x.EntidadeId,r.UnidadeId,r.Ano,ct).ConfigureAwait(false);
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    return await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_avaliacao_magisterio(tenant_id,entidade_id,escola_id,ano_letivo,nome,tipo,categoria,data_inicio,data_fim,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@UnidadeId,@Ano,@Nome,'AVALIACAO_MAGISTERIO',@Instrumento,@Inicio,@Fim,'ABERTA',jsonb_build_array(jsonb_build_object('acao','LANCAR_AVALIACAO_MAGISTERIO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,UnidadeId=r.UnidadeId,Ano=r.Ano,Nome=r.Nome.Trim(),Instrumento=r.Instrumento.Trim().ToUpperInvariant(),Inicio=r.PeriodoInicio,Fim=r.PeriodoFim,CorrelationId=corr,UsuarioId=x.UsuarioId},cancellationToken:ct)).ConfigureAwait(false);
+  }
+  // BR-5.5: resultado por servidor na avaliacao (nota 0..10; 1 vigente por servidor x avaliacao;
+  // avaliacao FECHADA bloqueia; servidor do tenant e escala canonica validados).
+  public async Task<long> LancarAvaliacaoResultadoAsync(EducacaoAvancadaContext x,long avaliacaoId,EducacaoAvaliacaoResultadoLancarRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_avaliacao_magisterio",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_avaliacao_magisterio");
+    if(!await _inspector.TableExistsAsync("sigov","educacao_avaliacao_resultado",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_avaliacao_resultado");
+    if(!await _inspector.TableExistsAsync("sigov","servidor",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("servidor");
+    if(r is null)throw new ArgumentException("Resultado da avaliação é obrigatório.");
+    if(r.ServidorId<=0)throw new ArgumentException("Resultado da avaliação exige servidor.");
+    if(r.Nota is <0m or >10m)throw new AvaliacaoNotaInvalidoException(r.Nota);
+    var servOk=await _context.CreateConnection().ExecuteScalarAsync<bool>(new CommandDefinition("select exists(select 1 from sigov.servidor where tenant_id=@TenantId and id=@Id and ativo and not is_deleted)",new{TenantId=x.TenantId,Id=r.ServidorId},cancellationToken:ct)).ConfigureAwait(false);
+    if(!servOk)throw new AvaliacaoServidorInexistenteException(r.ServidorId);
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    var av=await c.QueryFirstOrDefaultAsync<(long Id,long? EntidadeId,string Status)>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,status as Status from sigov.educacao_avaliacao_magisterio where tenant_id=@TenantId and id=@Id and ativo=true and is_deleted=false",new{TenantId=x.TenantId,Id=avaliacaoId},cancellationToken:ct)).ConfigureAwait(false);
+    if(av.Id==0)throw new AvaliacaoMagisterioInexistenteException(avaliacaoId);
+    if(x.EntidadeId.HasValue&&av.EntidadeId.HasValue&&av.EntidadeId.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_avaliacao_magisterio",avaliacaoId,av.EntidadeId.Value,x.EntidadeId.Value);
+    if(av.Status=="FECHADA")throw new AvaliacaoFechadaResultadosBloqueadosException(avaliacaoId);
+    long id;
+    try{
+      id=await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_avaliacao_resultado(tenant_id,entidade_id,referencia_id,servidor_id,valor,nome,tipo,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@AvaliacaoId,@ServidorId,@Nota,@Nome,'RESULTADO_AVALIACAO','ATIVA',jsonb_build_array(jsonb_build_object('acao','LANCAR_RESULTADO_AVALIACAO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,AvaliacaoId=avaliacaoId,ServidorId=r.ServidorId,Nota=r.Nota,Nome=string.IsNullOrWhiteSpace(r.CompetenciaAvaliada)?"RESULTADO":r.CompetenciaAvaliada.Trim(),CorrelationId=corr,UsuarioId=x.UsuarioId},cancellationToken:ct)).ConfigureAwait(false);
+    }catch(NpgsqlException npe){
+      if(npe.SqlState=="23505")throw new AvaliacaoResultadoExistenteException(avaliacaoId,r.ServidorId);
+      throw;
+    }
+    return id;
+  }
+  // BR-5.5: fechamento trava resultados e publica consolidado imutavel (media, participacao %) em
+  // dados->consolidado; idempotente; estados canonicos ABERTA/REABERTA -> FECHADA.
+  public async Task<long> FecharAvaliacaoMagisterioAsync(EducacaoAvancadaContext x,long avaliacaoId,EducacaoAvaliacaoFecharRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_avaliacao_magisterio",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_avaliacao_magisterio");
+    if(!await _inspector.TableExistsAsync("sigov","educacao_avaliacao_resultado",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_avaliacao_resultado");
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    var av=await c.QueryFirstOrDefaultAsync<(long Id,long? EntidadeId,string Status)>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,status as Status from sigov.educacao_avaliacao_magisterio where tenant_id=@TenantId and id=@Id and ativo=true and is_deleted=false",new{TenantId=x.TenantId,Id=avaliacaoId},cancellationToken:ct)).ConfigureAwait(false);
+    if(av.Id==0)throw new AvaliacaoMagisterioInexistenteException(avaliacaoId);
+    if(x.EntidadeId.HasValue&&av.EntidadeId.HasValue&&av.EntidadeId.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_avaliacao_magisterio",avaliacaoId,av.EntidadeId.Value,x.EntidadeId.Value);
+    if(av.Status=="FECHADA")return avaliacaoId;
+    if(av.Status is not ("ABERTA" or "REABERTA"))throw new AvaliacaoEstadoInvalidoException(avaliacaoId,"FECHAR",av.Status ?? "INDEFINIDO");
+    var agg=await c.QuerySingleAsync<(int Avaliados,int Distintos,decimal? Media)>(new CommandDefinition("select count(1)::integer as Avaliados,count(distinct servidor_id)::integer as Distintos,avg(valor) as Media from sigov.educacao_avaliacao_resultado where tenant_id=@TenantId and referencia_id=@Id and ativo=true and is_deleted=false and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO','ESTORNADO')",new{TenantId=x.TenantId,Id=avaliacaoId},cancellationToken:ct)).ConfigureAwait(false);
+    int servidoresEscopo=0;
+    if(await _inspector.TableExistsAsync("sigov","servidor",ct).ConfigureAwait(false)){
+      servidoresEscopo=await c.ExecuteScalarAsync<int>(new CommandDefinition("select count(1)::integer from sigov.servidor where tenant_id=@TenantId and ativo=true and is_deleted=false",new{TenantId=x.TenantId},cancellationToken:ct)).ConfigureAwait(false);
+    }
+    var participacao=servidoresEscopo>0?Math.Round((decimal)agg.Distintos/servidoresEscopo*100m,2,MidpointRounding.AwayFromZero):0m;
+    await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_avaliacao_magisterio set status='FECHADA',justificativa=coalesce(@Justificativa,justificativa),updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,dados=(case jsonb_typeof(dados) when 'object' then dados else '{}'::jsonb end)||jsonb_build_object('consolidado',jsonb_build_object('media',coalesce(@Media::numeric,null),'participacaoPct',@Participacao::numeric,'servidoresAvaliados',@Distintos::integer,'servidoresNoEscopo',@ServidoresEscopo::integer,'geradoEm',now())),auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','FECHAR_AVALIACAO_MAGISTERIO','em',now())) where tenant_id=@TenantId and id=@Id",new{TenantId=x.TenantId,Id=avaliacaoId,Justificativa=r?.Justificativa is { Length:>0 } j?j.Trim():null,Media=agg.Media,Participacao=participacao,Distintos=agg.Distintos,ServidoresEscopo=servidoresEscopo,UsuarioId=x.UsuarioId,CorrelationId=corr},cancellationToken:ct)).ConfigureAwait(false);
+    return avaliacaoId;
+  }
+  // BR-5.5: reabertura somente para retificacao, sempre com justificativa registrada.
+  public async Task<long> ReabrirAvaliacaoMagisterioAsync(EducacaoAvancadaContext x,long avaliacaoId,EducacaoAvaliacaoReabrirRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_avaliacao_magisterio",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_avaliacao_magisterio");
+    if(string.IsNullOrWhiteSpace(r?.Justificativa))throw new AvaliacaoReaberturaJustificativaObrigatorioException();
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    var av=await c.QueryFirstOrDefaultAsync<(long Id,long? EntidadeId,string Status)>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,status as Status from sigov.educacao_avaliacao_magisterio where tenant_id=@TenantId and id=@Id and ativo=true and is_deleted=false",new{TenantId=x.TenantId,Id=avaliacaoId},cancellationToken:ct)).ConfigureAwait(false);
+    if(av.Id==0)throw new AvaliacaoMagisterioInexistenteException(avaliacaoId);
+    if(x.EntidadeId.HasValue&&av.EntidadeId.HasValue&&av.EntidadeId.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_avaliacao_magisterio",avaliacaoId,av.EntidadeId.Value,x.EntidadeId.Value);
+    if(av.Status!="FECHADA")throw new AvaliacaoEstadoInvalidoException(avaliacaoId,"REABRIR",av.Status ?? "INDEFINIDO");
+    await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_avaliacao_magisterio set status='REABERTA',justificativa=@Justificativa,updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','REABRIR_AVALIACAO_MAGISTERIO','motivo',@Justificativa,'em',now())) where tenant_id=@TenantId and id=@Id",new{TenantId=x.TenantId,Id=avaliacaoId,Justificativa=r.Justificativa.Trim(),UsuarioId=x.UsuarioId,CorrelationId=corr},cancellationToken:ct)).ConfigureAwait(false);
+    return avaliacaoId;
+  }
+  // BR-5.6: decisao documentada de inconsistencia (CORRIGIDA ou ACEITE_COM_MOTIVO com motivo).
+  public async Task<long> DecidirInconsistenciaEducacensoAsync(EducacaoAvancadaContext x,long inconsistenciaId,EducacaoEducacensoInconsistenciaDecidirRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_educacenso_inconsistencia",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_educacenso_inconsistencia");
+    var desfecho=string.IsNullOrWhiteSpace(r?.Desfecho)?"":r.Desfecho.Trim().ToUpperInvariant();
+    var motivoBruto=r?.Motivo;
+    if(desfecho is not ("CORRIGIDA" or "ACEITE_COM_MOTIVO"))throw new EducacensoDesfechoInvalidoException(string.IsNullOrWhiteSpace(r?.Desfecho)?"":r.Desfecho.Trim());
+    if(desfecho=="ACEITE_COM_MOTIVO"&&string.IsNullOrWhiteSpace(motivoBruto))throw new EducacensoMotivoObrigatorioException();
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    var lin=await c.QueryFirstOrDefaultAsync<(long Id,long? EntidadeId,string Status)>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,status as Status from sigov.educacao_educacenso_inconsistencia where tenant_id=@TenantId and id=@Id and ativo=true and is_deleted=false",new{TenantId=x.TenantId,Id=inconsistenciaId},cancellationToken:ct)).ConfigureAwait(false);
+    if(lin.Id==0)throw new EducacensoInconsistenciaInexistenteException(inconsistenciaId);
+    if(x.EntidadeId.HasValue&&lin.EntidadeId.HasValue&&lin.EntidadeId.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_educacenso_inconsistencia",inconsistenciaId,lin.EntidadeId.Value,x.EntidadeId.Value);
+    if(lin.Status!="ABERTA")throw new EducacensoInconsistenciaJaDecididaException(inconsistenciaId,lin.Status ?? "INDEFINIDO");
+    var motivo=string.IsNullOrWhiteSpace(motivoBruto)?null:motivoBruto.Trim();
+    await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_educacenso_inconsistencia set status=@Status,justificativa=coalesce(@Motivo,'Corrigida no lote Educacenso'),updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,dados=(case jsonb_typeof(dados) when 'object' then dados else '{}'::jsonb end)||jsonb_build_object('desfecho',@Desfecho,'motivo',@Motivo,'decididaEm',now()),auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','DECIDIR_INCONSISTENCIA_EDUCACENSO','desfecho',@Desfecho,'em',now())) where tenant_id=@TenantId and id=@Id",new{TenantId=x.TenantId,Id=inconsistenciaId,Status=desfecho=="CORRIGIDA"?"CORRIGIDA":"ACEITA",Motivo=motivo,Desfecho=desfecho,UsuarioId=x.UsuarioId,CorrelationId=corr},cancellationToken:ct)).ConfigureAwait(false);
+    return inconsistenciaId;
+  }
+  // BR-5.6: encerramento do lote so com ALTA zerada e BAIXA/MEDIA decididas; registra evento.
+  public async Task<long> EncerrarLoteEducacensoAsync(EducacaoAvancadaContext x,long loteId,EducacaoEducacensoLoteEncerrarRequest r,CancellationToken ct){
+    foreach(var t in new[]{"educacao_educacenso_lote","educacao_educacenso_inconsistencia","educacao_educacenso_evento"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    var lote=await c.QueryFirstOrDefaultAsync<(long Id,long? EntidadeId,string Status)>(new CommandDefinition("select id as Id,entidade_id as EntidadeId,status as Status from sigov.educacao_educacenso_lote where tenant_id=@TenantId and id=@Id and ativo=true and is_deleted=false",new{TenantId=x.TenantId,Id=loteId},cancellationToken:ct)).ConfigureAwait(false);
+    if(lote.Id==0)throw new LoteEducacensoInexistenteException(loteId);
+    if(x.EntidadeId.HasValue&&lote.EntidadeId.HasValue&&lote.EntidadeId.Value!=x.EntidadeId.Value)throw new ContextoInstitucionalDivergenteException("educacao_educacenso_lote",loteId,lote.EntidadeId.Value,x.EntidadeId.Value);
+    if(lote.Status is not ("ATIVA" or "ATIVO"))throw new EducacensoLoteEstadoInvalidoException(loteId,"ENCERRAR",lote.Status ?? "INDEFINIDO");
+    var altas=await c.ExecuteScalarAsync<int>(new CommandDefinition("select count(1)::integer from sigov.educacao_educacenso_inconsistencia where tenant_id=@TenantId and referencia_id=@LoteId and ativo=true and is_deleted=false and status='ABERTA' and upper(coalesce(tipo,''))='ALTA'",new{TenantId=x.TenantId,LoteId=loteId},cancellationToken:ct)).ConfigureAwait(false);
+    if(altas>0)throw new EducacensoLoteAltaAbertaException(loteId,altas);
+    var outras=await c.ExecuteScalarAsync<int>(new CommandDefinition("select count(1)::integer from sigov.educacao_educacenso_inconsistencia where tenant_id=@TenantId and referencia_id=@LoteId and ativo=true and is_deleted=false and status='ABERTA' and upper(coalesce(tipo,''))<>'ALTA'",new{TenantId=x.TenantId,LoteId=loteId},cancellationToken:ct)).ConfigureAwait(false);
+    if(outras>0)throw new EducacensoLoteInconsistenciasAbertasException(loteId,outras);
+    await c.ExecuteAsync(new CommandDefinition("update sigov.educacao_educacenso_lote set status='ENCERRADA',justificativa=coalesce(@Justificativa,justificativa),updated_at=now(),updated_by=@UsuarioId,correlation_id=@CorrelationId,auditoria=(case jsonb_typeof(auditoria) when 'array' then auditoria else '[]'::jsonb end)||jsonb_build_array(jsonb_build_object('acao','ENCERRAR_LOTE_EDUCACENSO','em',now())) where tenant_id=@TenantId and id=@Id",new{TenantId=x.TenantId,Id=loteId,Justificativa=r?.Justificativa is { Length:>0 } j?j.Trim():null,UsuarioId=x.UsuarioId,CorrelationId=corr},cancellationToken:ct)).ConfigureAwait(false);
+    await c.ExecuteAsync(new CommandDefinition("insert into sigov.educacao_educacenso_evento(tenant_id,entidade_id,referencia_id,tipo,nome,descricao,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,@LoteId,'ENCERRAMENTO_LOTE','Encerramento de lote Educacenso','Lote @LoteId encerrado com todas as inconsistencias zeradas ou decididas','ATIVA',jsonb_build_array(jsonb_build_object('acao','REGISTRAR_EVENTO_EDUCACENSO','loteId',@LoteId,'em',now())),@CorrelationId,@UsuarioId)",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,LoteId=loteId,CorrelationId=corr,UsuarioId=x.UsuarioId},cancellationToken:ct)).ConfigureAwait(false);
+    return loteId;
+  }
+  // BR-5.6: registro de evento de sincronizacao (painel exibe a ultima sincronizacao).
+  public async Task<long> RegistrarSincronizacaoEducacensoAsync(EducacaoAvancadaContext x,EducacaoEducacensoSincronizarRequest r,CancellationToken ct){
+    if(!await _inspector.TableExistsAsync("sigov","educacao_educacenso_evento",ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException("educacao_educacenso_evento");
+    var corr=Guid.TryParse(x.CorrelationId,out var g)?g:Guid.NewGuid();
+    using var c=(NpgsqlConnection)_context.CreateConnection();
+    await c.OpenAsync(ct).ConfigureAwait(false);
+    return await c.ExecuteScalarAsync<long>(new CommandDefinition("insert into sigov.educacao_educacenso_evento(tenant_id,entidade_id,tipo,nome,descricao,status,auditoria,correlation_id,created_by) values(@TenantId,@EntidadeId,'SINCRONIZACAO','Sincronizacao Educacenso',coalesce(@Detalhe,'Sincronizacao com o sistema Educacenso/INEP registrada'),'ATIVA',jsonb_build_array(jsonb_build_object('acao','REGISTRAR_SINCRONIZACAO_EDUCACENSO','em',now())),@CorrelationId,@UsuarioId) returning id",new{TenantId=x.TenantId,EntidadeId=x.EntidadeId,Detalhe=string.IsNullOrWhiteSpace(r?.Detalhe)?null:r.Detalhe.Trim(),CorrelationId=corr,UsuarioId=x.UsuarioId},cancellationToken:ct)).ConfigureAwait(false);
+  }
+
   public async Task<EducacaoIndicadoresDashboardDto> IndicadoresDashboardAsync(long tenantId,CancellationToken ct){
     foreach(var t in new[]{"educacao_fundeb_receita","educacao_fundeb_aplicacao","educacao_custo_lancamento","educacao_educacenso_inconsistencia","matricula"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
     using var c=_context.CreateConnection();
@@ -1362,9 +1677,10 @@ public async Task<EducacaoTransporteRelatorioViagemDto> RelatorioViagemAsync(Edu
   public async Task<EducacaoEducacensoDashboardDto> EducacensoDashboardAsync(long tenantId,CancellationToken ct){
     foreach(var t in new[]{"educacao_educacenso_lote","educacao_educacenso_inconsistencia","educacao_educacenso_evento"})if(!await _inspector.TableExistsAsync("sigov",t,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(t);
     using var c=_context.CreateConnection();
-    var sql="select (select count(1) from sigov.educacao_educacenso_lote where tenant_id=@TenantId and ativo and not is_deleted and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as LotesAtivos,(select count(1) from sigov.educacao_educacenso_inconsistencia where tenant_id=@TenantId and ativo and not is_deleted and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as InconsistenciasAbertas,(select count(1) from sigov.educacao_educacenso_inconsistencia where tenant_id=@TenantId and ativo and not is_deleted and upper(coalesce(tipo,''))='ALTA' and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as GravidadeAlta,(select count(1) from sigov.educacao_educacenso_evento where tenant_id=@TenantId and not is_deleted) as Eventos";
+    // Ciclo 2 Sprint 5 (BR-5.6): painel exibe a ultima sincronizacao registrada (evento SINCRONIZACAO).
+    var sql="select (select count(1) from sigov.educacao_educacenso_lote where tenant_id=@TenantId and ativo and not is_deleted and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as LotesAtivos,(select count(1) from sigov.educacao_educacenso_inconsistencia where tenant_id=@TenantId and ativo and not is_deleted and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as InconsistenciasAbertas,(select count(1) from sigov.educacao_educacenso_inconsistencia where tenant_id=@TenantId and ativo and not is_deleted and upper(coalesce(tipo,''))='ALTA' and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')) as GravidadeAlta,(select count(1) from sigov.educacao_educacenso_evento where tenant_id=@TenantId and not is_deleted) as Eventos,(select max(coalesce(updated_at,created_at)) from sigov.educacao_educacenso_evento where tenant_id=@TenantId and not is_deleted and upper(coalesce(tipo,''))='SINCRONIZACAO') as UltimaSincronizacao";
     var m=await c.QueryFirstAsync<EducacaoEducacensoMetricasLinha>(new CommandDefinition(sql,new{TenantId=tenantId},cancellationToken:ct)).ConfigureAwait(false);
-    return new EducacaoEducacensoDashboardDto(m.LotesAtivos,m.InconsistenciasAbertas,m.GravidadeAlta,m.Eventos);
+    return new EducacaoEducacensoDashboardDto(m.LotesAtivos,m.InconsistenciasAbertas,m.GravidadeAlta,m.Eventos,m.UltimaSincronizacao);
   }
  public async Task<bool> AlterarStatusAsync(EducacaoAvancadaContext x,string recurso,long id,string status,string? justificativa,CancellationToken ct,DateTime? versaoAtual=null){recurso=Recurso(recurso);if(string.IsNullOrWhiteSpace(status))throw new ArgumentException("Status é obrigatório.");var alvo=status.Trim().ToUpperInvariant();if ((alvo is "CANCELADA" or "CANCELADO") && string.IsNullOrWhiteSpace(justificativa))throw new ArgumentException("Cancelamento exige justificativa.");if(!await _inspector.TableExistsAsync("sigov",recurso,ct).ConfigureAwait(false))throw new RecursoNaoDisponivelException(recurso);using var c=_context.CreateConnection();var de=await c.QueryFirstOrDefaultAsync<(string? Status,long LinhaEntidade,DateTime? LinhaUpdatedAt)>(new CommandDefinition($"select status,coalesce(entidade_id,-1) as LinhaEntidade,updated_at as LinhaUpdatedAt from sigov.{recurso} where tenant_id=@TenantId and id=@Id and is_deleted=false",new{x.TenantId,Id=id},cancellationToken:ct));if(de.Status is null)throw new RegistroNaoEncontradoException(recurso,id);if(de.LinhaEntidade>=0 && x.EntidadeId.HasValue && x.EntidadeId.Value!=de.LinhaEntidade)throw new ContextoInstitucionalDivergenteException(recurso,id,de.LinhaEntidade,x.EntidadeId.Value);var linhaDe=de.Status;if(!EducacaoStatusMaquina.TransicaoPermitida(linhaDe,alvo))throw new TransicaoDeStatusInvalidaException(linhaDe,alvo);
     // C2S2 BR-2.1: origem fora das familias canonicas = LEGADO_NAO_REGULARIZADO — regularizacao visivel e auditavel

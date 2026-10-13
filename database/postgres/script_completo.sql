@@ -262,7 +262,8 @@ select exists (
         ('20261011190000', array['0be3cea7b41b02c35dfafb457c03417843c31b7e3b1ff1b990bdf9d4592dd940']::text[]),
         ('20261012110000', array['f57772efa15c370fa693143ef242c1d7ba1df54068b5d2c1060c2668c98b5f8f']::text[]),
         ('20261012150000', array['6b726981945a4d790f5b469b7369bf4b37aed705dc932fb8e160d8d2f956e9cf']::text[]),
-        ('20261012160000', array['d6d3a34c915d6f1c9725e5aae3e82652039177b29736ced2882188c4a52e4571']::text[])
+        ('20261012160000', array['d6d3a34c915d6f1c9725e5aae3e82652039177b29736ced2882188c4a52e4571']::text[]),
+        ('20261013120000', array['9a31c32471c1f54a371f13f61489c8951f7c6b9ecb60d4f3561b4050a6291b02']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -34871,6 +34872,11 @@ end$$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261012150000', 'RC-EVO Ciclo 2 Sprint 3 (biblioteca circulacao completa): colunas prazo_original/renovacoes em sigov.educacao_biblioteca_emprestimo (BR-3.3, backfill para data_fim) e origem em sigov.educacao_biblioteca_acervo (BR-3.8 FNLI), inventario fisico sigov.educacao_biblioteca_inventario/_item com contagem idempotente por exemplar x inventario (indice unico parcial ux_biblioteca_inventario_item_tenant_inv_exemplar; BR-3.5), backstop unico de devolucao por emprestimo (ux_biblioteca_devolucao_tenant_emprestimo; BR-3.2) com dedupe legado preservando min(id), CONSUMIDA como estado terminal da reserva (recriacao idempotente de ux_biblioteca_reserva_tenant_exemplar_vigencia) e 4 parametros de circulacao no catalogo do modulo EDUCACAO (EMPRESTIMO_MAX_VIGENTES_TOMADOR=2, EMPRESTIMO_PRAZO_PADRAO_DIAS=14, RENOVACAO_MAX_POR_EMPRESTIMO=1, RENOVACAO_DIAS_ESTENDIMENTO=14; tenant sobrescreve via salvar_parametro_modulo; regra 11); pos-condicao explicita C2S3-POSTCOND; idempotente; multi-esfera', '6b726981945a4d790f5b469b7369bf4b37aed705dc932fb8e160d8d2f956e9cf', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
 -- ==================================================
 -- MIGRATION: 20261012160000_evo_c2s4_transporte_viagens_completa.sql
 -- CATEGORY: functional
@@ -34993,6 +34999,109 @@ end
 $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261012160000', 'RC-EVO Ciclo 2 Sprint 4 (transporte escolar da rota a viagem): colunas dedicadas de veiculo (placa/capacidade/situacao_documental/inspecao_validade; BR-4.1) e motorista (habilitacao_categoria/habilitacao_validade; BR-4.2), colunas de viagem (monitor_id/hora_inicio/hora_fim/km_estimado/km_percorridos/tarifa_km/combustivel_estimado/pedagio_previsto/versao/presenca_fechada; BR-4.3/BR-4.6/BR-4.7), backstops de substituicao sem sobreposicao por veiculo x data e motorista x data apenas para viagens vigentes PROGRAMADA/EM_ANDAMENTO (ux_transporte_viagem_tenant_veiculo_data/_motorista_data; BR-4.3), presenca por viagem em educacao_transporte_frequencia tipo PRESENCA_TRANSPORTE com dedupe legado min(id) e unico por viagem x aluno nao estornado (ux_transporte_presenca_tenant_viagem_aluno; BR-4.4), ocorrencia de viagem com gravidade/desfecho_relatorio/desfecho_em e unica ALTA vigente por viagem (ux_transporte_ocorrencia_tenant_viagem_grave; BR-4.5), custo REALIZADO unico por viagem com dedupe legado (ux_transporte_custo_tenant_viagem_realizado; BR-4.6), catalogo global configuravel sigov.transporte_categoria_compatibilidade categoria x classe (5 pares CONTRAN como referencia federal multi-esfera; BR-4.2/regra 11) e 4 parametros do modulo EDUCACAO (TRANSPORTE_INSPECCAO_VALIDADE_MESES=6, TRANSPORTE_INSPECCAO_MODO=BLOQUEIO, TRANSPORTE_MONITOR_OBRIGATORIO=FALSE, TRANSPORTE_OCORRENCIA_GRAVE_CARONA_HORAS=24; tenant sobrescreve via salvar_parametro_modulo; regra 11); pos-condicao explicita C2S4-POSTCOND; idempotente; multi-esfera', 'd6d3a34c915d6f1c9725e5aae3e82652039177b29736ced2882188c4a52e4571', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261013120000_evo_c2s5_fundeb_rateio_magisterio_educacenso.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: 9a31c32471c1f54a371f13f61489c8951f7c6b9ecb60d4f3561b4050a6291b02
+-- ==================================================
+-- RC-EVO Ciclo 2 Sprint 5 (FUNDEB/custos/rateio + avaliacao do magisterio + maturidade de
+-- indicadores/Educacenso) - incrementos BR-5.1 a BR-5.7. Legislagao: LC 114/2021 (FUNDEB),
+-- Lei 11.494/2007, Censo Escolar/INEP. Idempotente (regra 6); multi-esfera (regras 21-24):
+-- chaves por tenant x entidade, minimo de conformidade vem de parametro do banco (regra 11) e
+-- nada municipal hardcoded. As tabelas de dominio (fundeb/custo/rateio/avaliacao/educacenso/
+-- projecao) ja existem no schema generico; esta migration acrescenta a competencia fechada,
+-- os backstops de unicidade dos comandos tipados novos (aplicacao por competencia x centro,
+-- rateio por origem x criterio x competencia, resultado de avaliacao por avaliacao x servidor)
+-- com dedupe legado preservando min(id), e o parametro canonico do minimo de conformidade.
+
+-- 1) Competencia fechada FUNDEB (BR-5.2): 1 linha vigente FECHADA por tenant x data; enquanto a
+-- competencia estiver FECHADA novos lancamentos de receita/aplicacao/rateio nela sao bloqueados
+-- (COMPETENCIA_FUNDEB_FECHADA). Reabertura exige justificativa, libera a posicao (status
+-- REABERTA) e deixa rastro na auditoria; o fechamento pode ocorrer novamente.
+create table if not exists sigov.educacao_fundeb_competencia(id bigint generated by default as identity primary key,tenant_id bigint not null,entidade_id bigint,competencia date not null,status varchar(40) not null default 'FECHADA',justificativa text,reaberta_em timestamptz,auditoria jsonb not null default '{}'::jsonb,correlation_id uuid not null default gen_random_uuid(),ativo boolean not null default true,is_deleted boolean not null default false,created_at timestamptz not null default now(),updated_at timestamptz,deleted_at timestamptz,created_by bigint,updated_by bigint,deleted_by bigint);
+create unique index if not exists ux_fundeb_competencia_tenant_date on sigov.educacao_fundeb_competencia(tenant_id, competencia) where is_deleted=false and ativo=true and status='FECHADA';
+
+-- 2) Aplicacao FUNDEB por competencia x centro (BR-5.2): dedupe legado preservando min(id) e
+-- backstop unico. Competencia nula agrupa na sentinela 2999-12-31 (comportamento legado do
+-- comando sem competencia permanece permitido, mas unico por centro); estados terminais liberam.
+delete from sigov.educacao_fundeb_aplicacao d using sigov.educacao_fundeb_aplicacao k
+ where k.tenant_id=d.tenant_id
+   and k.centro_custo_id is not distinct from d.centro_custo_id
+   and k.competencia is not distinct from d.competencia
+   and d.ativo=true and d.is_deleted=false and k.ativo=true and k.is_deleted=false
+   and d.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')
+   and k.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO')
+   and k.centro_custo_id is not null and k.id < d.id;
+create unique index if not exists ux_fundeb_aplicacao_tenant_comp_centro on sigov.educacao_fundeb_aplicacao(tenant_id, coalesce(competencia,'2999-12-31'::date), coalesce(centro_custo_id,(0)::bigint)) where is_deleted=false and ativo=true and centro_custo_id is not null and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO');
+
+-- 3) Rateio de custos (BR-5.4): 1 rateio vigente por centro origem x criterio x competencia.
+-- O comando tipado grava o cabecalho nesta tabela (tipo = criterio MATRICULAS|RECEITA|PESO_MANUAL)
+-- e os lancamentos derivados em educacao_custo_lancamento (tipo RATEIO_DERIVADO, referencia_id =
+-- id do rateio); o estorno cancela o cabecalho (ESTORNADO) e os lancamentos derivados.
+delete from sigov.educacao_custo_rateio d using sigov.educacao_custo_rateio k
+ where k.tenant_id=d.tenant_id
+   and k.centro_custo_id is not distinct from d.centro_custo_id
+   and k.tipo is not distinct from d.tipo
+   and k.competencia is not distinct from d.competencia
+   and d.ativo=true and d.is_deleted=false and k.ativo=true and k.is_deleted=false
+   and d.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO','ESTORNADO')
+   and k.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO','ESTORNADO')
+   and k.tipo in ('MATRICULAS','RECEITA','PESO_MANUAL') and d.tipo in ('MATRICULAS','RECEITA','PESO_MANUAL')
+   and k.id < d.id;
+create unique index if not exists ux_custo_rateio_tenant_origem_criterio_comp on sigov.educacao_custo_rateio(tenant_id, coalesce(centro_custo_id,(0)::bigint), coalesce(tipo,''), coalesce(competencia,'2999-12-31'::date)) where is_deleted=false and ativo=true and tipo in ('MATRICULAS','RECEITA','PESO_MANUAL') and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO','ESTORNADO');
+
+-- 4) Resultado da avaliacao do magisterio (BR-5.5): 1 resultado vigente por avaliacao x servidor
+-- (periodicidade por ano da avaliacao); estorno/cancelamento do resultado libera a posicao para
+-- retificacao apos reabertura justificada.
+delete from sigov.educacao_avaliacao_resultado d using sigov.educacao_avaliacao_resultado k
+ where k.tenant_id=d.tenant_id
+   and k.referencia_id is not distinct from d.referencia_id
+   and k.servidor_id is not distinct from d.servidor_id
+   and d.ativo=true and d.is_deleted=false and k.ativo=true and k.is_deleted=false
+   and d.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO','ESTORNADO')
+   and k.status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO','ESTORNADO')
+   and k.referencia_id is not null and k.servidor_id is not null and k.id < d.id;
+create unique index if not exists ux_avaliacao_resultado_tenant_avaliacao_servidor on sigov.educacao_avaliacao_resultado(tenant_id, coalesce(referencia_id,(0)::bigint), coalesce(servidor_id,(0)::bigint)) where is_deleted=false and ativo=true and referencia_id is not null and servidor_id is not null and status not in ('ENCERRADA','ENCERRADO','CANCELADA','CANCELADO','ESTORNADO');
+
+-- 5) Parametro canonico do minimo de conformidade FUNDEB (BR-5.1/BR-5.3): default 70% segundo a
+-- LC 114/2021; parametrizavel por tenant via parametro_modulo_valor e com precedencia para o
+-- proprio parametro FUNDEB do tenant (codigo TAXA_MINIMA_APLICACAO em sigov.educacao_fundeb_parametro).
+insert into sigov.parametro_modulo(modulo,codigo,nome,descricao,tipo,valor_padrao,sensivel,ordem,ativo)
+values
+ ('EDUCACAO','FDEB_CONFORMIDADE_MINIMO_PCT','Minimo de aplicacao em remuneracao basica do magisterio (pct)','BR-5.3: minimo parametrizavel da taxa de aplicacao em remuneracao basica de profissionais da educacao em carreira (LC 114/2021, default 70%); a esfera do tenant pode sobrescrever','INTEGER','70',false,210,true)
+on conflict do nothing;
+
+-- C2S5-POSTCOND: falha explicita se faltar qualquer artefato do incremento (regra 13)
+do $$
+begin
+  if not exists(select 1 from information_schema.columns where table_schema='sigov' and table_name='educacao_fundeb_competencia' and column_name='competencia') then
+    raise exception 'C2S5-POSTCOND: tabela sigov.educacao_fundeb_competencia ausente';
+  end if;
+  if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_fundeb_competencia_tenant_date') then
+    raise exception 'C2S5-POSTCOND: indice ux_fundeb_competencia_tenant_date ausente';
+  end if;
+  if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_fundeb_aplicacao_tenant_comp_centro') then
+    raise exception 'C2S5-POSTCOND: indice ux_fundeb_aplicacao_tenant_comp_centro ausente';
+  end if;
+  if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_custo_rateio_tenant_origem_criterio_comp') then
+    raise exception 'C2S5-POSTCOND: indice ux_custo_rateio_tenant_origem_criterio_comp ausente';
+  end if;
+  if not exists(select 1 from pg_indexes where schemaname='sigov' and indexname='ux_avaliacao_resultado_tenant_avaliacao_servidor') then
+    raise exception 'C2S5-POSTCOND: indice ux_avaliacao_resultado_tenant_avaliacao_servidor ausente';
+  end if;
+  if (select count(1) from sigov.parametro_modulo where modulo='EDUCACAO' and codigo='FDEB_CONFORMIDADE_MINIMO_PCT' and ativo and not is_deleted)<>1 then
+    raise exception 'C2S5-POSTCOND: parametro FDEB_CONFORMIDADE_MINIMO_PCT ausente no catalogo';
+  end if;
+end
+$$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261013120000', 'RC-EVO Ciclo 2 Sprint 5 (FUNDEB/custos/rateio + avaliacao do magisterio + maturidade de indicadores/Educacenso; BR-5.1 a BR-5.7): tabela sigov.educacao_fundeb_competencia com backstop unico de competencia FECHADA por tenant x data (ux_fundeb_competencia_tenant_date; fechamento/reabertura justificada bloqueiam novos lancamentos - COMPETENCIA_FUNDEB_FECHADA; BR-5.2), dedupe legado min(id) + backstop unico de aplicacao FUNDEB por competencia x centro de custo (ux_fundeb_aplicacao_tenant_comp_centro, sentinel 2999-12-31 para competencia nula; BR-5.2), dedupe legado + backstop unico de rateio vigente por centro origem x criterio x competencia (ux_custo_rateio_tenant_origem_criterio_comp; cabecalho com tipo MATRICULAS/RECEITA/PESO_MANUAL e lancamentos derivados em educacao_custo_lancamento tipo RATEIO_DERIVADO; estorno cancela cabecalho+derivados; BR-5.4), dedupe legado + backstop unico de resultado da avaliacao do magisterio por avaliacao x servidor (ux_avaliacao_resultado_tenant_avaliacao_servidor; periodicidade por ano, trava no fechamento, reabertura justificada; BR-5.5) e parametro canonico FDEB_CONFORMIDADE_MINIMO_PCT=70 no catalogo do modulo EDUCACAO (minimo parametrizavel da conformidade LC 114/2021, sobrescrito por parametro_modulo_valor ou pelo parametro FUNDEB do tenant; BR-5.1/BR-5.3); pos-condicao explicita C2S5-POSTCOND; idempotente; multi-esfera', '9a31c32471c1f54a371f13f61489c8951f7c6b9ecb60d4f3561b4050a6291b02', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);

@@ -485,3 +485,116 @@ public sealed class TransporteViagemCancelamentoJustificativaObrigatorioExceptio
 /// <summary>Custo realizado já registrado para a viagem (HTTP 409, código CUSTO_REALIZADO_EXISTENTE; backstop ux_transporte_custo_tenant_viagem_realizado; BR-4.6).</summary>
 public sealed class TransporteCustoRealizadoExistenteException(long ViagemId)
     : Exception($"CUSTO_REALIZADO_EXISTENTE: a viagem {ViagemId} já possui custo REALIZADO registrado; o custo efetivo é imutável (sem edição manual) e o conjunto ESTIMADO permanece intocado para comparação no relatório.");
+
+// ============================================================================
+// Ciclo 2 Sprint 5 (FUNDEB/custos/rateio + avaliacao do magistério + Educacenso)
+// BR-5.1 a BR-5.7. LC 114/2021 (FUNDEB), Lei 11.494/2007, Censo Escolar/INEP.
+// ============================================================================
+
+/// <summary>Competência FUNDEB fechada bloqueia novo lançamento (HTTP 409, código COMPETENCIA_FUNDEB_FECHADA; BR-5.2).</summary>
+public sealed class FundebCompetenciaFechadaException(DateOnly Competencia)
+    : Exception($"COMPETENCIA_FUNDEB_FECHADA: a competência {Competencia:yyyy-MM-dd} está fechada para este tenant; reabra a competência com justificativa antes de lançar receita/aplicação/rateio nela (o fechamento do período é auditorável em sigov.educacao_fundeb_competencia).");
+
+/// <summary>Reabertura de competência que não está fechada (HTTP 409, código COMPETENCIA_FUNDEB_NAO_FECHADA; BR-5.2).</summary>
+public sealed class FundebCompetenciaNaoFechadaException(DateOnly Competencia)
+    : Exception($"COMPETENCIA_FUNDEB_NAO_FECHADA: a competência {Competencia:yyyy-MM-dd} não está fechada para este tenant; somente competências FECHADAS podem ser reabertas com justificativa.");
+
+/// <summary>Reabertura de competência sem justificativa registrada (HTTP 400, código COMPETENCIA_REABERTURA_JUSTIFICATIVA_OBRIGATORIA; BR-5.2).</summary>
+public sealed class FundebCompetenciaReaberturaJustificativaObrigatorioException()
+    : Exception("COMPETENCIA_REABERTURA_JUSTIFICATIVA_OBRIGATORIA: toda reabertura de competência FUNDEB exige justificativa registrada no rastro de auditoria (quem reabriu, por quê e quando).");
+
+/// <summary>Segunda aplicação FUNDEB vigente na mesma competência × centro de custo (HTTP 409, código FUNDEB_APLICACAO_DUPLICADA; backstop ux_fundeb_aplicacao_tenant_comp_centro; BR-5.2).</summary>
+public sealed class FundebAplicacaoDuplicadaException(long CentroCustoId, DateOnly? Competencia)
+    : Exception($"FUNDEB_APLICACAO_DUPLICADA: já existe aplicação FUNDEB vigente para o centro de custo {CentroCustoId} na competência {(Competencia?.ToString("yyyy-MM-dd") ?? "não informada (legado)")} neste tenant; cancele a aplicação existente ou lance em outra competência (estados terminais liberam a posição).");
+
+/// <summary>Rateio de custos inexistente/inativo para o tenant atual (HTTP 404, código RATEIO_CUSTO_INEXISTENTE; BR-5.4).</summary>
+public sealed class CustoRateioInexistenteException(long RateioId)
+    : Exception($"RATEIO_CUSTO_INEXISTENTE: o rateio {RateioId} não existe em sigov.educacao_custo_rateio para este tenant (ou está inativo).");
+
+/// <summary>Critério de rateio fora do conjunto canônico (HTTP 400, código RATEIO_CRITERIO_INVALIDO; BR-5.4).</summary>
+public sealed class CustoRateioCriterioInvalidoException(string Criterio)
+    : Exception($"RATEIO_CRITERIO_INVALIDO: critério '{Criterio}' inválido; os critérios canônicos de rateio são MATRICULAS, RECEITA e PESO_MANUAL.");
+
+/// <summary>Sem lançamentos de custo positivos na origem × competência para ratear (HTTP 400, código RATEIO_TOTAL_INVALIDO; BR-5.4).</summary>
+public sealed class CustoRateioTotalInvalidoException(long CentroCustoIdOrigem, DateOnly Competencia)
+    : Exception($"RATEIO_TOTAL_INVALIDO: não há total de lançamentos de custo positivo no centro de origem {CentroCustoIdOrigem} na competência {Competencia:yyyy-MM-dd}; lance os custos antes de rateá-los.");
+
+/// <summary>Nenhum centro destino elegível com peso positivo para o critério escolhido (HTTP 400, código RATEIO_DESTINOS_INEXISTENTES; BR-5.4).</summary>
+public sealed class CustoRateioDestinosInexistentesException(string Criterio)
+    : Exception($"RATEIO_DESTINOS_INEXISTENTES: nenhum centro de custo destino vigente possui peso positivo pelo critério {Criterio}; cadastre/ative centros destino (ou informe pesos manuais válidos) antes de ratear.");
+
+/// <summary>Pesos manuais inválidos no rateio (HTTP 400, código RATEIO_PESOS_INVALIDOS; BR-5.4).</summary>
+public sealed class CustoRateioPesosInvalidosException()
+    : Exception("RATEIO_PESOS_INVALIDOS: os pesos manuais do rateio devem ser positivos e mapeados exclusivamente para centros de custo destino vigentes do tenant.");
+
+/// <summary>Segundo rateio vigente na mesma origem × critério × competência (HTTP 409, código RATEIO_DUPLICADO; backstop ux_custo_rateio_tenant_origem_criterio_comp; BR-5.4).</summary>
+public sealed class CustoRateioDuplicadoException(long CentroCustoIdOrigem, string Criterio, DateOnly Competencia)
+    : Exception($"RATEIO_DUPLICADO: já existe rateio vigente por critério {Criterio} na competência {Competencia:yyyy-MM-dd} para o centro de origem {CentroCustoIdOrigem}; estorne o rateio existente antes de lançar outro (idempotência por origem × critério × competência).");
+
+/// <summary>Estorno de rateio sem justificativa (HTTP 400, código RATEIO_ESTORNO_JUSTIFICATIVA_OBRIGATORIA; BR-5.4).</summary>
+public sealed class CustoRateioEstornoJustificativaObrigatorioException()
+    : Exception("RATEIO_ESTORNO_JUSTIFICATIVA_OBRIGATORIA: todo estorno de rateio de custos exige justificativa; o estorno cancela o cabecalho e todos os lançamentos derivados (comando único, atômico).");
+
+/// <summary>Avaliação do magistério inexistente/inativa para o tenant atual (HTTP 404, código AVALIACAO_MAGISTERIO_INEXISTENTE; BR-5.5).</summary>
+public sealed class AvaliacaoMagisterioInexistenteException(long AvaliacaoId)
+    : Exception($"AVALIACAO_MAGISTERIO_INEXISTENTE: a avaliação {AvaliacaoId} não existe em sigov.educacao_avaliacao_magisterio para este tenant (ou está inativa).");
+
+/// <summary>Período da avaliação invertido (fim anterior ao início) (HTTP 400, código AVALIACAO_PERIODO_INVALIDO; BR-5.5).</summary>
+public sealed class AvaliacaoMagisterioPeriodoInvalidoException(DateOnly Inicio, DateOnly Fim)
+    : Exception($"AVALIACAO_PERIODO_INVALIDO: o período da avaliação é inválido — início {Inicio:yyyy-MM-dd} posterior ao fim {Fim:yyyy-MM-dd}.");
+
+/// <summary>Avaliação sem instrumento declarado (HTTP 400, código AVALIACAO_INSTRUMENTO_OBRIGATORIO; BR-5.5).</summary>
+public sealed class AvaliacaoMagisterioInstrumentoObrigatorioException()
+    : Exception("AVALIACAO_INSTRUMENTO_OBRIGATORIA: toda avaliação do magistério exige instrumento (instrumento/formulário de avaliação) que fundamenta as notas atribuídas.");
+
+/// <summary>Servidor inexistente/inativo para o lançamento de resultado (HTTP 404, código AVALIACAO_SERVIDOR_INEXISTENTE; BR-5.5).</summary>
+public sealed class AvaliacaoServidorInexistenteException(long ServidorId)
+    : Exception($"AVALIACAO_SERVIDOR_INEXISTENTE: o servidor {ServidorId} não existe em sigov.servidor para este tenant (ou está inativo); cadastre/ative o servidor antes de avaliá-lo.");
+
+/// <summary>Nota fora da escala 0..10 no resultado de avaliação (HTTP 400, código AVALIACAO_NOTA_INVALIDO; BR-5.5).</summary>
+public sealed class AvaliacaoNotaInvalidoException(decimal Nota)
+    : Exception($"AVALIACAO_NOTA_INVALIDO: nota {Nota:0.##} fora da escala canônica da avaliação (0 a 10).");
+
+/// <summary>Segundo resultado vigente para o mesmo servidor × avaliação (HTTP 409, código AVALIACAO_RESULTADO_EXISTENTE; backstop ux_avaliacao_resultado_tenant_avaliacao_servidor; BR-5.5).</summary>
+public sealed class AvaliacaoResultadoExistenteException(long AvaliacaoId, long ServidorId)
+    : Exception($"AVALIACAO_RESULTADO_EXISTENTE: o servidor {ServidorId} já possui resultado vigente na avaliação {AvaliacaoId} (periodicidade: 1 resultado por servidor × avaliação); estorne o resultado antes de relançar (retificação após reabertura justificada).");
+
+/// <summary>Avaliação fechada não aceita resultado novo (HTTP 409, código AVALIACAO_FECHADA_RESULTADOS_BLOQUEADOS; BR-5.5).</summary>
+public sealed class AvaliacaoFechadaResultadosBloqueadosException(long AvaliacaoId)
+    : Exception($"AVALIACAO_FECHADA_RESULTADOS_BLOQUEADOS: a avaliação {AvaliacaoId} está FECHADA com consolidado publicado; reabra com justificativa de retificação para lançar ou corrigir resultados.");
+
+/// <summary>Reabertura de avaliação sem justificativa (HTTP 400, código AVALIACAO_REABERTURA_JUSTIFICATIVA_OBRIGATORIA; BR-5.5).</summary>
+public sealed class AvaliacaoReaberturaJustificativaObrigatorioException()
+    : Exception("AVALIACAO_REABERTURA_JUSTIFICATIVA_OBRIGATORIA: a reabertura de uma avaliação fechada existe apenas para retificação e exige justificativa registrada na auditoria.");
+
+/// <summary>Operação de ciclo inválida na avaliação (fechar/reabrir em estado inesperado) (HTTP 409, código AVALIACAO_ESTADO_INVALIDO; BR-5.5).</summary>
+public sealed class AvaliacaoEstadoInvalidoException(long AvaliacaoId, string Operacao, string StatusAtual)
+    : Exception($"AVALIACAO_ESTADO_INVALIDO: a operação '{Operacao}' exige outra posição do ciclo da avaliação {AvaliacaoId} (status atual {StatusAtual}); o ciclo canônico é ABERTA -> FECHADA (consolidado imutável) -> REABERTA (retificação justificada) -> FECHADA.");
+
+/// <summary>Inconsistência Educacenso inexistente/inativa para o tenant atual (HTTP 404, código EDUCACENSO_INCONSISTENCIA_INEXISTENTE; BR-5.6).</summary>
+public sealed class EducacensoInconsistenciaInexistenteException(long InconsistenciaId)
+    : Exception($"EDUCACENSO_INCONSISTENCIA_INEXISTENTE: a inconsistência {InconsistenciaId} não existe em sigov.educacao_educacenso_inconsistencia para este tenant (ou está inativa).");
+
+/// <summary>Desfecho da inconsistência fora do conjunto canônico (HTTP 400, código EDUCACENSO_DESFECHO_INVALIDO; BR-5.6).</summary>
+public sealed class EducacensoDesfechoInvalidoException(string Desfecho)
+    : Exception($"EDUCACENSO_DESFECHO_INVALIDO: desfecho '{Desfecho}' inválido; os desfechos canônicos documentados são CORRIGIDA (correção efetivada) e ACEITE_COM_MOTIVO (aceite explícito com motivo registrado).");
+
+/// <summary>Aceite de inconsistência sem motivo documentado (HTTP 400, código EDUCACENSO_MOTIVO_OBRIGATORIO; BR-5.6).</summary>
+public sealed class EducacensoMotivoObrigatorioException()
+    : Exception("EDUCACENSO_MOTIVO_OBRIGATORIO: o desfecho ACEITE_COM_MOTIVO exige motivo documentado; o encerramento do lote só acontece quando todas as inconsistências ALTA estão zeradas e BAIXA/MÉDIA possuem decisão documentada (correção ou aceite com motivo).");
+
+/// <summary>Inconsistência já possui desfecho documentado (HTTP 409, código EDUCACENSO_JA_DECIDIDA; BR-5.6).</summary>
+public sealed class EducacensoInconsistenciaJaDecididaException(long InconsistenciaId, string StatusAtual)
+    : Exception($"EDUCACENSO_INCONSISTENCIA_JA_DECIDIDA: a inconsistência {InconsistenciaId} já possui decisão documentada (status {StatusAtual}); o desfecho é único e auditável por inconsistência.");
+
+/// <summary>Lote Educacenso fora do estado que permite a operação (HTTP 409, código EDUCACENSO_LOTE_ESTADO_INVALIDO; BR-5.6).</summary>
+public sealed class EducacensoLoteEstadoInvalidoException(long LoteId, string Operacao, string StatusAtual)
+    : Exception($"EDUCACENSO_LOTE_ESTADO_INVALIDO: a operação '{Operacao}' exige outra posição do ciclo do lote {LoteId} (status atual {StatusAtual}); somente lotes ATIVOS podem ser encerrados, e somente com inconsistências zeradas ou decididas.");
+
+/// <summary>Encerramento bloqueado por inconsistências ALTA ainda abertas (HTTP 409, código EDUCACENSO_LOTE_ALTA_ABERTA; BR-5.6).</summary>
+public sealed class EducacensoLoteAltaAbertaException(long LoteId, int AltasAbertas)
+    : Exception($"EDUCACENSO_LOTE_ALTA_ABERTA: o lote {LoteId} possui {AltasAbertas} inconsistência(s) ALTA ainda aberta(s); o censo só encerra quando as inconsistências ALTA estão zeradas.");
+
+/// <summary>Encerramento bloqueado por BAIXA/MÉDIA sem decisão documentada (HTTP 409, código EDUCACENSO_LOTE_INCONSISTENCIAS_ABERTAS; BR-5.6).</summary>
+public sealed class EducacensoLoteInconsistenciasAbertasException(long LoteId, int Abertas)
+    : Exception($"EDUCACENSO_LOTE_INCONSISTENCIAS_ABERTAS: o lote {LoteId} possui {Abertas} inconsistência(s) BAIXA/MÉDIA sem decisão documentada; registre o desfecho (CORRIGIDA ou ACEITE_COM_MOTIVO com motivo) de cada uma antes de encerrar o lote.");

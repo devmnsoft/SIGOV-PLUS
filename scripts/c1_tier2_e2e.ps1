@@ -1527,6 +1527,278 @@ Add-Check 'E18' 'relatorio.viagem-completa-com-desvio-de-custo' $e18relOk ("GET 
 $e18rel404 = Invoke-Api -Bearer $tk.token -Method GET -Path '/api/educacao/transporte/viagens/9999999999/relatorio' -Base $ApiBase
 Add-Check 'E18' 'relatorio.viagem-inexistente-404' (($e18rel404.code -eq 404) -and ($e18rel404.body -like '*TRANSPORTE_VIAGEM_INEXISTENTE*')) ("relatorio da viagem 9999999999 -> $($e18rel404.code) (404 TRANSPORTE_VIAGEM_INEXISTENTE nomeada)")
 
+# =============================================================================
+# --- E19 (Ciclo 2 Sprint 5): FUNDEB/custos/rateio + avaliacao do magisterio + Educacenso
+# =============================================================================
+# BR-5.1 parametro FUNDEB com vigencia anual (ano_letivo persistida); BR-5.2 competencia
+# fechada bloqueia receita/aplicacao/lancamento/rateio (COMPETENCIA_FUNDEB_FECHADA) e
+# aplicacao unica por competencia x centro (legado sem competencia = sentinela 2999-12-31);
+# BR-5.3 conformidade = aplicacoes MAGISTERIO / total vs minimo do BANCO (parametro tenant
+# TAXA_MINIMA_APLICACAO prevalece sobre FDEB_CONFORMIDADE_MINIMO_PCT; regra 11); BR-5.4 rateio
+# MATRICULAS|RECEITA|PESO_MANUAL com soma EXATA (residual no maior peso), idempotencia origem x
+# criterio x competencia (RATEIO_DUPLICADO) e estorno comandado; BR-5.5 avaliacao com resultado
+# unico por servidor x avaliacao, fechamento com consolidado imutavel e reabertura justificada;
+# BR-5.6 decisao documentada das inconsistencias e encerramento do lote so com ALTA zerada e
+# eventos de sincronizacao registrados; BR-5.7 projecao de matricula unica vigente por
+# escola x ano (alimenta custo/aluno projetado na S20). Fixture propria (marcadores
+# c1e26-c2s5-% / C2S5-% / 9999990006xx); estado fundeb/custo/avaliacao/educacenso do tenant
+# zerado no inicio para determinismo (bloco final da suíte; CX re-limpa o tenant).
+$fix19 = Get-Psql @"
+delete from sigov.educacao_fundeb_competencia where tenant_id=910001;
+delete from sigov.educacao_custo_rateio where tenant_id=910001;
+delete from sigov.educacao_custo_lancamento where tenant_id=910001;
+delete from sigov.educacao_avaliacao_resultado where tenant_id=910001;
+delete from sigov.educacao_avaliacao_magisterio where tenant_id=910001;
+delete from sigov.educacao_educacenso_evento where tenant_id=910001;
+delete from sigov.educacao_educacenso_inconsistencia where tenant_id=910001;
+delete from sigov.educacao_educacenso_lote where tenant_id=910001;
+delete from sigov.educacao_projecao_matricula where tenant_id=910001;
+delete from sigov.educacao_fundeb_aplicacao where tenant_id=910001;
+delete from sigov.educacao_fundeb_receita where tenant_id=910001;
+delete from sigov.educacao_fundeb_parametro where tenant_id=910001;
+delete from sigov.educacao_custo_centro where tenant_id=910001;
+insert into sigov.escola(tenant_id,entidade_id,codigo,nome,tipo_escola,situacao,created_by)
+select 910001,$($e7ent.text),'c1e26-c2s5-esc','Fixture C2 S5 Escola','OURO','ATIVA',910301
+where not exists(select 1 from sigov.escola where tenant_id=910001 and codigo='c1e26-c2s5-esc');
+insert into sigov.ano_letivo(tenant_id,entidade_id,escola_id,ano,data_inicio,data_fim,status,created_by)
+select 910001,$($e7ent.text),e.id,2026,'2026-02-02','2027-01-10','ABERTO',910301
+from sigov.escola e where e.tenant_id=910001 and e.codigo='c1e26-c2s5-esc'
+and not exists(select 1 from sigov.ano_letivo a where a.tenant_id=910001 and a.escola_id=e.id and a.ano=2026);
+insert into sigov.curso(tenant_id,entidade_id,codigo,nome,etapa_ensino,modalidade,created_by)
+select 910001,$($e7ent.text),'C2S5-CURSO','Fixture C2 S5 Curso','ENSINO_FUNDAMENTAL','REGULAR',910301
+where not exists(select 1 from sigov.curso where tenant_id=910001 and codigo='C2S5-CURSO');
+insert into sigov.serie_ano(tenant_id,entidade_id,curso_id,codigo,nome,ordem,created_by)
+select 910001,$($e7ent.text),c.id,'C2S5-SERIE','Fixture C2 S5 Serie',1,910301
+from sigov.curso c where c.tenant_id=910001 and c.codigo='C2S5-CURSO'
+and not exists(select 1 from sigov.serie_ano where tenant_id=910001 and codigo='C2S5-SERIE');
+insert into sigov.turma(tenant_id,entidade_id,escola_id,ano_letivo_id,curso_id,serie_ano_id,codigo,nome,turno,capacidade,vagas_ocupadas,status,created_by)
+select 910001,$($e7ent.text),e.id,l.id,c.id,s.id,'c1e26-c2s5-turma','Fixture C2 S5 Turma','MATUTINO',3,0,'ABERTA',910301
+from sigov.escola e join sigov.ano_letivo l on l.tenant_id=e.tenant_id and l.escola_id=e.id and l.ano=2026
+join sigov.curso c on c.tenant_id=910001 and c.codigo='C2S5-CURSO'
+join sigov.serie_ano s on s.tenant_id=910001 and s.codigo='C2S5-SERIE'
+where e.tenant_id=910001 and e.codigo='c1e26-c2s5-esc'
+and not exists(select 1 from sigov.turma where tenant_id=910001 and codigo='c1e26-c2s5-turma');
+insert into sigov.pessoa(tenant_id,entidade_id,tipo_pessoa,nome,documento,classificacao_lgpd,created_by)
+select 910001,$($e7ent.text),'F','Fixture C2 S5 Aluno A','999999000601','DADO_PESSOAL',910301
+where not exists(select 1 from sigov.pessoa where documento='999999000601');
+insert into sigov.pessoa(tenant_id,entidade_id,tipo_pessoa,nome,documento,classificacao_lgpd,created_by)
+select 910001,$($e7ent.text),'F','Fixture C2 S5 Aluno B','999999000602','DADO_PESSOAL',910301
+where not exists(select 1 from sigov.pessoa where documento='999999000602');
+insert into sigov.pessoa(tenant_id,entidade_id,tipo_pessoa,nome,documento,classificacao_lgpd,created_by)
+select 910001,$($e7ent.text),'F','Fixture C2 S5 Aluno C','999999000603','DADO_PESSOAL',910301
+where not exists(select 1 from sigov.pessoa where documento='999999000603');
+insert into sigov.aluno(tenant_id,entidade_id,pessoa_id,codigo_aluno,situacao,created_by)
+select 910001,$($e7ent.text),p.id,'C2S5-ALA','ATIVO',910301 from sigov.pessoa p where p.documento='999999000601'
+and not exists(select 1 from sigov.aluno where tenant_id=910001 and codigo_aluno='C2S5-ALA');
+insert into sigov.aluno(tenant_id,entidade_id,pessoa_id,codigo_aluno,situacao,created_by)
+select 910001,$($e7ent.text),p.id,'C2S5-ALB','ATIVO',910301 from sigov.pessoa p where p.documento='999999000602'
+and not exists(select 1 from sigov.aluno where tenant_id=910001 and codigo_aluno='C2S5-ALB');
+insert into sigov.aluno(tenant_id,entidade_id,pessoa_id,codigo_aluno,situacao,created_by)
+select 910001,$($e7ent.text),p.id,'C2S5-ALC','ATIVO',910301 from sigov.pessoa p where p.documento='999999000603'
+and not exists(select 1 from sigov.aluno where tenant_id=910001 and codigo_aluno='C2S5-ALC');
+insert into sigov.matricula(tenant_id,entidade_id,aluno_id,escola_id,ano_letivo_id,turma_id,numero_matricula,data_matricula,status,ativo,created_by)
+select 910001,$($e7ent.text),a.id,e.id,l.id,t.id,'C2S5-MAT-A',current_date,'ATIVA',true,910301
+from sigov.aluno a join sigov.escola e on e.tenant_id=910001 and e.codigo='c1e26-c2s5-esc'
+join sigov.ano_letivo l on l.tenant_id=910001 and l.escola_id=e.id and l.ano=2026
+join sigov.turma t on t.tenant_id=910001 and t.codigo='c1e26-c2s5-turma'
+where a.tenant_id=910001 and a.codigo_aluno='C2S5-ALA'
+and not exists(select 1 from sigov.matricula where numero_matricula='C2S5-MAT-A');
+insert into sigov.matricula(tenant_id,entidade_id,aluno_id,escola_id,ano_letivo_id,turma_id,numero_matricula,data_matricula,status,ativo,created_by)
+select 910001,$($e7ent.text),a.id,e.id,l.id,t.id,'C2S5-MAT-B',current_date,'ATIVA',true,910301
+from sigov.aluno a join sigov.escola e on e.tenant_id=910001 and e.codigo='c1e26-c2s5-esc'
+join sigov.ano_letivo l on l.tenant_id=910001 and l.escola_id=e.id and l.ano=2026
+join sigov.turma t on t.tenant_id=910001 and t.codigo='c1e26-c2s5-turma'
+where a.tenant_id=910001 and a.codigo_aluno='C2S5-ALB'
+and not exists(select 1 from sigov.matricula where numero_matricula='C2S5-MAT-B');
+insert into sigov.matricula(tenant_id,entidade_id,aluno_id,escola_id,ano_letivo_id,turma_id,numero_matricula,data_matricula,status,ativo,created_by)
+select 910001,$($e7ent.text),a.id,e.id,l.id,t.id,'C2S5-MAT-C',current_date,'ATIVA',true,910301
+from sigov.aluno a join sigov.escola e on e.tenant_id=910001 and e.codigo='c1e26-c2s5-esc'
+join sigov.ano_letivo l on l.tenant_id=910001 and l.escola_id=e.id and l.ano=2026
+join sigov.turma t on t.tenant_id=910001 and t.codigo='c1e26-c2s5-turma'
+where a.tenant_id=910001 and a.codigo_aluno='C2S5-ALC'
+and not exists(select 1 from sigov.matricula where numero_matricula='C2S5-MAT-C');
+insert into sigov.servidor(tenant_id,dados,created_by)
+select 910001,'{"matricula":"C2S5-SV1"}',910301 where not exists(select 1 from sigov.servidor where tenant_id=910001 and dados->>'matricula'='C2S5-SV1');
+insert into sigov.servidor(tenant_id,dados,created_by)
+select 910001,'{"matricula":"C2S5-SV2"}',910301 where not exists(select 1 from sigov.servidor where tenant_id=910001 and dados->>'matricula'='C2S5-SV2');
+insert into sigov.servidor(tenant_id,dados,created_by)
+select 910001,'{"matricula":"C2S5-SV3"}',910301 where not exists(select 1 from sigov.servidor where tenant_id=910001 and dados->>'matricula'='C2S5-SV3');
+insert into sigov.servidor(tenant_id,dados,created_by)
+select 910001,'{"matricula":"C2S5-SV4"}',910301 where not exists(select 1 from sigov.servidor where tenant_id=910001 and dados->>'matricula'='C2S5-SV4');
+insert into sigov.educacao_custo_centro(tenant_id,entidade_id,codigo,nome,categoria,escola_id,status,created_by)
+select 910001,$($e7ent.text),'C2S5-CENTRO-MAG','C2S5 Centro Magisterio','MAGISTERIO',e.id,'ATIVA',910301
+from sigov.escola e where e.tenant_id=910001 and e.codigo='c1e26-c2s5-esc'
+and not exists(select 1 from sigov.educacao_custo_centro where tenant_id=910001 and codigo='C2S5-CENTRO-MAG');
+insert into sigov.educacao_custo_centro(tenant_id,entidade_id,codigo,nome,categoria,status,created_by)
+select 910001,$($e7ent.text),'C2S5-CENTRO-OUTRO','C2S5 Centro Material','MATERIAL','ATIVA',910301
+where not exists(select 1 from sigov.educacao_custo_centro where tenant_id=910001 and codigo='C2S5-CENTRO-OUTRO');
+insert into sigov.educacao_custo_centro(tenant_id,entidade_id,codigo,nome,status,created_by)
+select 910001,$($e7ent.text),'C2S5-CENTRO-TERCEIRO','C2S5 Centro Sem Categoria','ATIVA',910301
+where not exists(select 1 from sigov.educacao_custo_centro where tenant_id=910001 and codigo='C2S5-CENTRO-TERCEIRO');
+insert into sigov.educacao_custo_centro(tenant_id,entidade_id,codigo,nome,categoria,status,created_by)
+select 910001,$($e7ent.text),'C2S5-CENTRO-ORIGEM','C2S5 Centro Origem Rateio','INFRAESTRUTURA','ATIVA',910301
+where not exists(select 1 from sigov.educacao_custo_centro where tenant_id=910001 and codigo='C2S5-CENTRO-ORIGEM');
+select count(*)::text from sigov.educacao_custo_centro where tenant_id=910001 and codigo like 'C2S5-%';
+"@
+$e19esc = Get-Psql "select id from sigov.escola where tenant_id=910001 and codigo='c1e26-c2s5-esc';"
+$e19cMag = Get-Psql "select id from sigov.educacao_custo_centro where tenant_id=910001 and codigo='C2S5-CENTRO-MAG';"
+$e19cOutro = Get-Psql "select id from sigov.educacao_custo_centro where tenant_id=910001 and codigo='C2S5-CENTRO-OUTRO';"
+$e19cTerceiro = Get-Psql "select id from sigov.educacao_custo_centro where tenant_id=910001 and codigo='C2S5-CENTRO-TERCEIRO';"
+$e19cOrigem = Get-Psql "select id from sigov.educacao_custo_centro where tenant_id=910001 and codigo='C2S5-CENTRO-ORIGEM';"
+$e19sv1 = Get-Psql "select id from sigov.servidor where tenant_id=910001 and dados->>'matricula'='C2S5-SV1';"
+$e19sv2 = Get-Psql "select id from sigov.servidor where tenant_id=910001 and dados->>'matricula'='C2S5-SV2';"
+$e19sv3 = Get-Psql "select id from sigov.servidor where tenant_id=910001 and dados->>'matricula'='C2S5-SV3';"
+$e19sv4 = Get-Psql "select id from sigov.servidor where tenant_id=910001 and dados->>'matricula'='C2S5-SV4';"
+function Get-E19Data { param([string]$Body) try { return ($Body | ConvertFrom-Json).data } catch { return $null } }
+Add-Check 'E19' 'fixture.c2s5-pronto' (($fix19.code -eq 0) -and [long]$e19esc.text -gt 0 -and [long]$e19cMag.text -gt 0 -and [long]$e19cOutro.text -gt 0 -and [long]$e19cTerceiro.text -gt 0 -and [long]$e19cOrigem.text -gt 0 -and [long]$e19sv1.text -gt 0 -and [long]$e19sv4.text -gt 0) ("escola+ano+curso+serie+turma+3 matriculas ATIVA+4 servidores+4 centros (MAGISTERIO/MATERIAL/sem categoria/origem) + estado fundeb/custo/avaliacao/educacenso/projecao zerado -> escola=$($e19esc.text) mag=$($e19cMag.text) outro=$($e19cOutro.text) terceiro=$($e19cTerceiro.text) origem=$($e19cOrigem.text) sv=$($e19sv1.text)..$($e19sv4.text) (dados ficticios, multi-esfera pela entidade do contexto, regras 21-24)")
+
+# --- E19.A: BR-5.1 parametro FUNDEB com vigencia anual -------------------------
+$e19p1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/parametros/lancar' -Base $ApiBase -Body '{"codigo":"TAXA_MINIMA_APLICACAO","valor":60,"ano":2026}'
+$e19pDb = Get-Psql "select coalesce(ano_letivo,-1)||'|'||valor::text from sigov.educacao_fundeb_parametro where tenant_id=910001 and upper(coalesce(codigo,''))='TAXA_MINIMA_APLICACAO' limit 1;"
+Add-Check 'E19' 'parametro.vigencia-anual-200' (($e19p1.code -eq 200) -and ($e19pDb.text -eq '2026|60.00')) ("POST parametros/lancar {TAXA_MINIMA_APLICACAO,60,2026} -> $($e19p1.code); banco ano_letivo|valor: $($e19pDb.text) (BR-5.1: vigencia anual persistida; minimo parametrizado != default 70 => parametrizavel pelo banco)")
+$e19p2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/parametros/lancar' -Base $ApiBase -Body '{"codigo":"TAXA_MINIMA_APLICACAO","valor":61,"ano":2026}'
+Add-Check 'E19' 'parametro.duplicado-vigente-409' (($e19p2.code -eq 409) -and ($e19p2.body -like '*FUNDEB_PARAMETRO_CODIGO_EXISTENTE*')) ("segundo parametro vigente com mesmo codigo -> $($e19p2.code) (unicidade vigente por codigo; trocar a vigencia exige encerrar o existente)")
+$e19p3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/parametros/lancar' -Base $ApiBase -Body '{"codigo":"C2S5-PARAANO","valor":5,"ano":1999}'
+Add-Check 'E19' 'parametro.ano-invalido-400' (($e19p3.code -eq 400)) ("ano 1999 fora da faixa canonica 2000-2100 -> $($e19p3.code) (validacao explicita, sem sucesso simulado - regra 13)")
+
+# --- E19.B: BR-5.2 competencia fechada + aplicacao unica por competencia x centro
+$e19a1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/aplicacoes/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e19cMag.text + ',"valor":4000}')
+Add-Check 'E19' 'aplicacao.sem-competencia-legado-200' (($e19a1.code -eq 200)) ("aplicacao 4000 no centro MAGISTERIO sem competencia (caminho legado, bucket sentinela 2999-12-31) -> $($e19a1.code)")
+$e19a2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/aplicacoes/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e19cMag.text + ',"valor":4000}')
+Add-Check 'E19' 'aplicacao.duplicada-mesmo-centro-409' (($e19a2.code -eq 409) -and ($e19a2.body -like '*FUNDEB_APLICACAO_DUPLICADA*')) ("segunda aplicacao vigente no mesmo centro/bucket -> $($e19a2.code) (backstop ux_fundeb_aplicacao_tenant_comp_centro + falha nomeada)")
+$e19r1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/receitas/lancar' -Base $ApiBase -Body ('{"competencia":"' + $hoje + '","fonte":"FPE","valor":10000}')
+$e19r2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/receitas/lancar' -Base $ApiBase -Body ('{"competencia":"' + $hoje + '","fonte":"FPE","valor":1}')
+Add-Check 'E19' 'receita.competencia-aberta-200-duplicada-409' (($e19r1.code -eq 200) -and ($e19r2.code -eq 409) -and ($e19r2.body -like '*FUNDEB_RECEITA_DUPLICADA*')) ("receita FPE@$hoje 10000 aberta -> $($e19r1.code); duplicada mesma competencia/fonte -> $($e19r2.code)")
+$e19a3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/aplicacoes/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e19cOutro.text + ',"valor":4000,"competencia":"' + $hoje + '"}')
+$e19a4 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/aplicacoes/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e19cOutro.text + ',"valor":4000,"competencia":"' + $hoje + '"}')
+Add-Check 'E19' 'aplicacao.competencia-200-duplicada-409' (($e19a3.code -eq 200) -and ($e19a4.code -eq 409) -and ($e19a4.body -like '*FUNDEB_APLICACAO_DUPLICADA*')) ("aplicacao 4000 centro OUTRO @ $hoje -> $($e19a3.code); segunda na mesma competencia x centro -> $($e19a4.code) (braco com competencia do indice parcial)")
+$e19f1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/competencias/fechar' -Base $ApiBase -Body ('{"competencia":"' + $hoje + '","justificativa":"Fechamento competencia homologacao C2S5"}')
+$e19fechId = Get-E19Data $e19f1.body
+$e19f2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/competencias/fechar' -Base $ApiBase -Body ('{"competencia":"' + $hoje + '"}')
+Add-Check 'E19' 'competencia.fechar-idempotente-200' (([long]$e19f1.code -eq 200) -and ($e19f2.code -eq 200) -and ((Get-E19Data $e19f2.body) -eq $e19fechId)) ("fechar $hoje -> $($e19f1.code) id=$e19fechId; repetir sem justificativa -> mesmo id $($e19fechId) (fechamento idempotente e auditoravel em educacao_fundeb_competencia)")
+$e19r3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/receitas/lancar' -Base $ApiBase -Body ('{"competencia":"' + $hoje + '","fonte":"FPE","valor":500}')
+$e19a5 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/aplicacoes/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e19cMag.text + ',"valor":100,"competencia":"' + $hoje + '"}')
+Add-Check 'E19' 'lancamentos.competencia-fechada-409' (($e19r3.code -eq 409) -and ($e19r3.body -like '*COMPETENCIA_FUNDEB_FECHADA*') -and ($e19a5.code -eq 409) -and ($e19a5.body -like '*COMPETENCIA_FUNDEB_FECHADA*')) ("receita e aplicacao novas na competencia fechada -> $($e19r3.code)/$($e19a5.code) (COMPETENCIA_FUNDEB_FECHADA nomeada; BR-5.2)")
+$e19rb1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/competencias/reabrir' -Base $ApiBase -Body ('{"competencia":"' + $hoje + '"}')
+$e19rb2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/competencias/reabrir' -Base $ApiBase -Body ('{"competencia":"' + $hoje + '","justificativa":"Retificacao homologacao C2S5"}')
+$e19rb3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/competencias/reabrir' -Base $ApiBase -Body ('{"competencia":"' + $hoje + '","justificativa":"x"}')
+$e19a6 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/aplicacoes/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e19cMag.text + ',"valor":4000,"competencia":"' + $hoje + '"}')
+Add-Check 'E19' 'competencia.reabrir-justificado-libera-200' (($e19rb1.code -eq 400) -and ($e19rb1.body -like '*COMPETENCIA_REABERTURA_JUSTIFICATIVA_OBRIGATORIA*') -and ($e19rb2.code -eq 200) -and ($e19rb3.code -eq 409) -and ($e19rb3.body -like '*COMPETENCIA_FUNDEB_NAO_FECHADA*') -and ($e19a6.code -eq 200)) ("reabrir sem justificativa -> $($e19rb1.code); com -> $($e19rb2.code); reabrir ja reaberta -> $($e19rb3.code); nova aplicacao apos reabertura -> $($e19a6.code) (magisterio total agora 8000)")
+
+# --- E19.C: BR-5.3 painel de conformidade -------------------------------------
+$e19cf1 = Invoke-Api -Bearer $tk.token -Method GET -Path '/api/educacao/fundeb/conformidade' -Base $ApiBase
+$jCf1 = $null; try { $jCf1 = ($e19cf1.body | ConvertFrom-Json).data } catch {}
+$dbCf = Get-Psql "select (select coalesce(sum(a.valor),0) from sigov.educacao_fundeb_aplicacao a inner join sigov.educacao_custo_centro cc on cc.id=a.centro_custo_id where a.tenant_id=910001 and a.ativo=true and a.is_deleted=false and upper(coalesce(cc.categoria,''))='MAGISTERIO')::text||'|'||(select coalesce(sum(valor),0) from sigov.educacao_fundeb_aplicacao where tenant_id=910001 and ativo=true and is_deleted=false)::text;"
+Add-Check 'E19' 'conformidade.magisterio-vs-minimo-banco-200' (($e19cf1.code -eq 200) -and $null -ne $jCf1 -and ([math]::Abs([double]$jCf1.aplicacoesMagisterio - 8000) -lt 0.001) -and ([math]::Abs([double]$jCf1.aplicacoesTotal - 12000) -lt 0.001) -and ([math]::Abs([double]$jCf1.receitasTotal - 10000) -lt 0.001) -and ([math]::Abs([double]$jCf1.percentual - 66.67) -lt 0.005) -and ([double]$jCf1.minimoPct -eq 60) -and ($jCf1.emConformidade -eq $true)) ("percentual=" + $jCf1.percentual + " minimo=" + $jCf1.minimoPct + " (parametro TENANT TAXA_MINIMA_APLICACAO=60 prevalece sobre o modulo 70; regra 11); mag|total no banco: " + $dbCf.text + " (BR-5.3: 8000/12000=66.67% >= 60% => em conformidade; LC 114/2021)")
+$e19cf2 = Invoke-Api -Bearer $tk.token -Method GET -Path '/api/educacao/fundeb/conformidade?competencia=2026-01-01' -Base $ApiBase
+$jCf2 = $null; try { $jCf2 = ($e19cf2.body | ConvertFrom-Json).data } catch {}
+Add-Check 'E19' 'conformidade.recorte-vazio-zero-por-cento-200' (($e19cf2.code -eq 200) -and $null -ne $jCf2 -and ([double]$jCf2.percentual -eq 0) -and ($jCf2.emConformidade -eq $false) -and ([string]$jCf2.nota -like '*sem aplicacoes*')) ("recorte 2026-01-01 sem aplicacoes -> percentual 0% com nota explicita e NAO indisponibilidade; nota=" + $jCf2.nota)
+$e19cf3 = Invoke-Api -Bearer $tk.token -Method GET -Path ("/api/educacao/fundeb/conformidade?unidadeEscolaId=" + $e19esc.text) -Base $ApiBase
+$jCf3 = $null; try { $jCf3 = ($e19cf3.body | ConvertFrom-Json).data } catch {}
+Add-Check 'E19' 'conformidade.recorte-unidade-escolar-200' (($e19cf3.code -eq 200) -and $null -ne $jCf3 -and ([math]::Abs([double]$jCf3.aplicacoesTotal - 8000) -lt 0.001) -and ([math]::Abs([double]$jCf3.percentual - 100) -lt 0.005) -and ($jCf3.emConformidade -eq $true)) ("recorte por unidade escolar: somente centros vinculados a escola (MAGISTERIO 8000) -> total=8000 pct=" + $jCf3.percentual + " (BR-5.3 recorte unidade escolar x competencia)")
+
+# --- E19.D: BR-5.4 lancamento tipado de custo + rateio com estorno -------------
+$e19lc1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/lancamentos/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e19cOrigem.text + ',"competencia":"' + $hoje + '","valor":100.04}')
+$e19lc2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/lancamentos/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e19cOrigem.text + ',"competencia":"' + $hoje + '","valor":-50}')
+Add-Check 'E19' 'lancamento.custo-tipado-200-valor-invalido-400' (($e19lc1.code -eq 200) -and ($e19lc2.code -eq 400)) ("lancamento 100.04 origem@$hoje -> $($e19lc1.code) (fecha o residuo S10: total do rateio auditavel por origem x competencia); valor -50 -> $($e19lc2.code)")
+$pmPesos = '{"' + $e19cMag.text + '":1,"' + $e19cOutro.text + '":1,"' + $e19cTerceiro.text + '":1}'
+$e19rm1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/rateios/lancar' -Base $ApiBase -Body ('{"centroCustoIdOrigem":' + $e19cOrigem.text + ',"competencia":"' + $hoje + '","criterio":"PESO_MANUAL","pesosManual":' + $pmPesos + '}')
+$e19rmId = Get-E19Data $e19rm1.body
+$dbRm = Get-Psql "select (select count(*) from sigov.educacao_custo_lancamento where tenant_id=910001 and referencia_id=$e19rmId and tipo='RATEIO_DERIVADO' and status='ATIVA')||'|'||(select coalesce(sum(valor),0)::numeric(18,2) from sigov.educacao_custo_lancamento where tenant_id=910001 and referencia_id=$e19rmId and tipo='RATEIO_DERIVADO' and status='ATIVA')::text||'|'||(select status||'|'||tipo||'|'||valor::text from sigov.educacao_custo_rateio where tenant_id=910001 and id=$e19rmId);"
+Add-Check 'E19' 'rateio.peso-manual-soma-exata-200' (($e19rm1.code -eq 200) -and ($dbRm.text -eq '3|100.04|ATIVA|PESO_MANUAL|100.04')) ("3 lancamentos derivados somam EXATAMENTE o total 100.04 (residual absorvido no maior peso); cabecalho ATIVA PESO_MANUAL 100.04 atomicamente (BR-5.4); banco: " + $dbRm.text)
+$e19rm2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/rateios/lancar' -Base $ApiBase -Body ('{"centroCustoIdOrigem":' + $e19cOrigem.text + ',"competencia":"' + $hoje + '","criterio":"PESO_MANUAL","pesosManual":' + $pmPesos + '}')
+$e19rm3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/rateios/lancar' -Base $ApiBase -Body ('{"centroCustoIdOrigem":' + $e19cOrigem.text + ',"competencia":"' + $hoje + '","criterio":"OUTRA","pesosManual":' + $pmPesos + '}')
+$e19rm4 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/rateios/lancar' -Base $ApiBase -Body ('{"centroCustoIdOrigem":' + $e19cOrigem.text + ',"competencia":"2026-01-01","criterio":"PESO_MANUAL","pesosManual":' + $pmPesos + '}')
+Add-Check 'E19' 'rateio.duplicado-criterio-total-4xx' (($e19rm2.code -eq 409) -and ($e19rm2.body -like '*RATEIO_DUPLICADO*') -and ($e19rm3.code -eq 400) -and ($e19rm3.body -like '*RATEIO_CRITERIO_INVALIDO*') -and ($e19rm4.code -eq 400) -and ($e19rm4.body -like '*RATEIO_TOTAL_INVALIDO*')) ("rateio repetido origem x PESO_MANUAL x $hoje -> $($e19rm2.code); criterio OUTRA -> $($e19rm3.code); sem lancamentos @2026-01-01 -> $($e19rm4.code) (BR-5.4 falhas nomeadas)")
+$e19rmt = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/rateios/lancar' -Base $ApiBase -Body ('{"centroCustoIdOrigem":' + $e19cOrigem.text + ',"competencia":"' + $hoje + '","criterio":"MATRICULAS"}')
+$e19rmtId = Get-E19Data $e19rmt.body
+$dbRt = Get-Psql "select (select count(*)||'|'||coalesce(sum(valor),0)::numeric(18,2)::text from sigov.educacao_custo_lancamento where tenant_id=910001 and referencia_id=$e19rmtId and tipo='RATEIO_DERIVADO' and status='ATIVA')||'|'||(select centro_custo_id from sigov.educacao_custo_lancamento where tenant_id=910001 and referencia_id=$e19rmtId and tipo='RATEIO_DERIVADO' and status='ATIVA' order by id limit 1);"
+Add-Check 'E19' 'rateio.matriculas-peso-por-escola-200' (($e19rmt.code -eq 200) -and ($dbRt.text -eq ('1|100.04|' + $e19cMag.text))) ("critério MATRICULAS: somente o centro com escola que tem matriculas ATIVA recebe o total 100.04 (3 matriculas); banco: " + $dbRt.text)
+$e19rr = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/rateios/lancar' -Base $ApiBase -Body ('{"centroCustoIdOrigem":' + $e19cOrigem.text + ',"competencia":"' + $hoje + '","criterio":"RECEITA"}')
+$e19rrId = Get-E19Data $e19rr.body
+$dbRr = Get-Psql "select count(*)||'|'||coalesce(sum(valor),0)::numeric(18,2)::text||'|'||count(distinct centro_custo_id) from sigov.educacao_custo_lancamento where tenant_id=910001 and referencia_id=$e19rrId and tipo='RATEIO_DERIVADO' and status='ATIVA';"
+Add-Check 'E19' 'rateio.receita-aplicacoes-fundeb-200' (($e19rr.code -eq 200) -and ($dbRr.text -eq '2|100.04|2')) ("critério RECEITA: pesos pelas aplicacoes FUNDEB dos destinos (mag 8000 x outro 4000; terceiro sem aplicacao fica fora); 2 derivados somam 100.04; banco: " + $dbRr.text)
+$e19est0 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/custos/rateios/" + $e19rmId + "/estornar") -Base $ApiBase -Body '{}'
+$e19est1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/custos/rateios/" + $e19rmId + "/estornar") -Base $ApiBase -Body '{"justificativa":"Estorno homologacao C2S5"}'
+$dbEst = Get-Psql "select (select status from sigov.educacao_custo_rateio where tenant_id=910001 and id=$e19rmId)||'|'||(select count(*) from sigov.educacao_custo_lancamento where tenant_id=910001 and referencia_id=$e19rmId and tipo='RATEIO_DERIVADO' and status='CANCELADA' and coalesce(justificativa,'') like 'ESTORNO_RATEIO:%')"
+$e19est2 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/custos/rateios/" + $e19rmId + "/estornar") -Base $ApiBase -Body '{"justificativa":"idempotente"}'
+Add-Check 'E19' 'rateio.estorno-comandado-idempotente-200' (($e19est0.code -eq 400) -and ($e19est0.body -like '*RATEIO_ESTORNO_JUSTIFICATIVA_OBRIGATORIA*') -and ($e19est1.code -eq 200) -and ($dbEst.text -eq 'ESTORNADO|3') -and ($e19est2.code -eq 200)) ("estorno sem justificativa -> $($e19est0.code); comandado -> cabecalho ESTORNADO + 3 derivados CANCELADOS com ESTORNO_RATEIO:$($e19rmId) (banco: " + $dbEst.text + "); repetir -> 200 idempotente (BR-5.4)")
+$e19rm5 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/rateios/lancar' -Base $ApiBase -Body ('{"centroCustoIdOrigem":' + $e19cOrigem.text + ',"competencia":"' + $hoje + '","criterio":"PESO_MANUAL","pesosManual":' + $pmPesos + '}')
+Add-Check 'E19' 'rateio.estorno-libera-unicidade-200' (($e19rm5.code -eq 200) -and ((Get-E19Data $e19rm5.body) -ne $e19rmId)) ("mesma origem x PESO_MANUAL x competencia relancada apos estorno -> 200 com novo id (ESTORNADO sai do indice parcial; estado terminal libera a posicao)")
+$e19est404 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/rateios/9999999999/estornar' -Base $ApiBase -Body '{"justificativa":"probe"}'
+Add-Check 'E19' 'rateio.inexistente-404' (($e19est404.code -eq 404) -and ($e19est404.body -like '*RATEIO_CUSTO_INEXISTENTE*')) ("estornar rateio 9999999999 -> $($e19est404.code) (404 nomeada)")
+$e19f3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/competencias/fechar' -Base $ApiBase -Body ('{"competencia":"' + $hoje + '"}')
+$e19lc3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/lancamentos/lancar' -Base $ApiBase -Body ('{"centroCustoId":' + $e19cOrigem.text + ',"competencia":"' + $hoje + '","valor":10}')
+$e19rm6 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/custos/rateios/lancar' -Base $ApiBase -Body ('{"centroCustoIdOrigem":' + $e19cOrigem.text + ',"competencia":"' + $hoje + '","criterio":"MATRICULAS"}')
+$e19rb4 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/fundeb/competencias/reabrir' -Base $ApiBase -Body ('{"competencia":"' + $hoje + '","justificativa":"Reabre para secao de avaliacao C2S5"}')
+Add-Check 'E19' 'rateio.competencia-fechada-bloqueia-409' (($e19f3.code -eq 200) -and ($e19lc3.code -eq 409) -and ($e19lc3.body -like '*COMPETENCIA_FUNDEB_FECHADA*') -and ($e19rm6.code -eq 409) -and ($e19rm6.body -like '*COMPETENCIA_FUNDEB_FECHADA*') -and ($e19rb4.code -eq 200)) ("re-fechada: lancamento de custo -> $($e19lc3.code) e novo rateio -> $($e19rm6.code) ambos COMPETENCIA_FUNDEB_FECHADA; reaberta de novo -> 200 (BR-5.2 x BR-5.4)")
+
+# --- E19.E: BR-5.5 avaliacao do magisterio ------------------------------------
+$e19av0 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/avaliacao-magisterio/lancar' -Base $ApiBase -Body ('{"nome":"C2S5 Aval Sem Instrumento","periodoInicio":"' + $hoje + '","periodoFim":"' + $hoje + '"}')
+$e19av0b = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/avaliacao-magisterio/lancar' -Base $ApiBase -Body '{"nome":"C2S5 Aval Periodo Inverso","periodoInicio":"2026-06-01","periodoFim":"2026-01-01","instrumento":"INSTRUMENTO_C2S5"}'
+$e19av1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/avaliacao-magisterio/lancar' -Base $ApiBase -Body ('{"nome":"C2S5 Avaliacao Magisterio 2026","periodoInicio":"' + $hoje + '","periodoFim":"' + $hoje + '","instrumento":"INSTRUMENTO_C2S5","unidadeId":' + $e19esc.text + ',"ano":2026}')
+$e19av1Id = Get-E19Data $e19av1.body
+Add-Check 'E19' 'avaliacao.lancar-instrumento-obrigatorio-200' (($e19av0.code -eq 400) -and ($e19av0.body -like '*AVALIACAO_INSTRUMENTO_OBRIGATORIA*') -and ($e19av0b.code -eq 400) -and ($e19av0b.body -like '*AVALIACAO_PERIODO_INVALIDO*') -and ($e19av1.code -eq 200)) ("sem instrumento -> $($e19av0.code); periodo invertido -> $($e19av0b.code); valido (nome+periodo+instrumento+unidade+ano, escopo validado) -> $($e19av1.code) id=$e19av1Id (BR-5.5)")
+$e19rt0 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/resultados/lancar") -Base $ApiBase -Body ('{"servidorId":' + $e19sv1.text + ',"nota":11}')
+$e19rt404 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/resultados/lancar") -Base $ApiBase -Body '{"servidorId":9999999999,"nota":5}'
+$e19rt1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/resultados/lancar") -Base $ApiBase -Body ('{"servidorId":' + $e19sv1.text + ',"nota":9}')
+$e19rt2 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/resultados/lancar") -Base $ApiBase -Body ('{"servidorId":' + $e19sv1.text + ',"nota":8}')
+Add-Check 'E19' 'avaliacao.resultado-validacao-servidor-200' (($e19rt0.code -eq 400) -and ($e19rt0.body -like '*AVALIACAO_NOTA_INVALIDO*') -and ($e19rt404.code -eq 404) -and ($e19rt404.body -like '*AVALIACAO_SERVIDOR_INEXISTENTE*') -and ($e19rt1.code -eq 200) -and ($e19rt2.code -eq 409) -and ($e19rt2.body -like '*AVALIACAO_RESULTADO_EXISTENTE*')) ("nota 11 fora da escala 0..10 -> $($e19rt0.code); servidor 9999999999 -> $($e19rt404.code); sv1 nota 9 -> 200; sv1 de novo -> 409 (1 resultado vigente por servidor x avaliacao; backstop + nomeada)")
+$e19rt3 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/resultados/lancar") -Base $ApiBase -Body ('{"servidorId":' + $e19sv2.text + ',"nota":7}')
+$e19rt4 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/resultados/lancar") -Base $ApiBase -Body ('{"servidorId":' + $e19sv3.text + ',"nota":5}')
+$e19fe1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/fechar") -Base $ApiBase -Body '{}'
+$e19fe2 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/fechar") -Base $ApiBase -Body '{}'
+$dbCons = Get-Psql "select status||'|'||round((dados->'consolidado'->>'media')::numeric,2)::text||'|'||coalesce(dados->'consolidado'->>'servidoresAvaliados','?')||'|'||((dados->'consolidado'->>'participacaoPct')::numeric between 0 and 100)::text from sigov.educacao_avaliacao_magisterio where tenant_id=910001 and id=$e19av1Id;"
+Add-Check 'E19' 'avaliacao.fechamento-consolidado-imutavel-200' (($e19rt3.code -eq 200) -and ($e19rt4.code -eq 200) -and ($e19fe1.code -eq 200) -and ($e19fe2.code -eq 200) -and ((Get-E19Data $e19fe2.body) -eq $e19av1Id) -and ($dbCons.text -eq 'FECHADA|7.00|3|true')) ("sv2 nota 7 e sv3 nota 5 -> 200; fechar -> FECHADA com consolidado imutavel: media 7.00=(9+7+5)/3, 3 servidores avaliados, participacaoPct dentro de 0..100 (escopo = servidores ativos do tenant); banco: " + $dbCons.text + " (BR-5.5)")
+$e19rt5 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/resultados/lancar") -Base $ApiBase -Body ('{"servidorId":' + $e19sv2.text + ',"nota":6}')
+Add-Check 'E19' 'avaliacao.fechada-bloqueia-resultados-409' (($e19rt5.code -eq 409) -and ($e19rt5.body -like '*AVALIACAO_FECHADA_RESULTADOS_BLOQUEADOS*')) ("resultado na avaliacao FECHADA -> $($e19rt5.code) (trava do fechamento; retificacao so via reabertura)")
+$e19ra0 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/reabrir") -Base $ApiBase -Body '{}'
+$e19ra1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/reabrir") -Base $ApiBase -Body '{"justificativa":"Retificacao homologacao C2S5"}'
+$e19rt6 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/resultados/lancar") -Base $ApiBase -Body ('{"servidorId":' + $e19sv1.text + ',"nota":9.5}')
+$e19rt7 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/resultados/lancar") -Base $ApiBase -Body ('{"servidorId":' + $e19sv4.text + ',"nota":8}')
+$e19fe3 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av1Id + "/fechar") -Base $ApiBase -Body '{}'
+$dbCons2 = Get-Psql "select status||'|'||round((dados->'consolidado'->>'media')::numeric,2)::text||'|'||coalesce(dados->'consolidado'->>'servidoresAvaliados','?') from sigov.educacao_avaliacao_magisterio where tenant_id=910001 and id=$e19av1Id;"
+Add-Check 'E19' 'avaliacao.reabertura-retificacao-200' (($e19ra0.code -eq 400) -and ($e19ra0.body -like '*AVALIACAO_REABERTURA_JUSTIFICATIVA_OBRIGATORIA*') -and ($e19ra1.code -eq 200) -and ($e19rt6.code -eq 409) -and ($e19rt6.body -like '*AVALIACAO_RESULTADO_EXISTENTE*') -and ($e19rt7.code -eq 200) -and ($e19fe3.code -eq 200) -and ($dbCons2.text -eq 'FECHADA|7.25|4')) ("reabrir sem just -> $($e19ra0.code); com just -> $($e19ra1.code); ja avaliado -> $($e19rt6.code) [$(if($e19rt6.body.Length -gt 90){$e19rt6.body.Substring(0,90)}else{$e19rt6.body})]; sv4 -> $($e19rt7.code) [$(if($e19rt7.body.Length -gt 90){$e19rt7.body.Substring(0,90)}else{$e19rt7.body})]; re-fechar -> $($e19fe3.code); banco: " + $dbCons2.text + " (esperado FECHADA|7.25|4)")
+$e19av2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/avaliacao-magisterio/lancar' -Base $ApiBase -Body ('{"nome":"C2S5 Aval Segunda Aberta","periodoInicio":"' + $hoje + '","periodoFim":"' + $hoje + '","instrumento":"INSTRUMENTO_C2S5"}')
+$e19av2Id = Get-E19Data $e19av2.body
+$e19ra2 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/avaliacao-magisterio/" + $e19av2Id + "/reabrir") -Base $ApiBase -Body '{"justificativa":"nao estava fechada"}'
+Add-Check 'E19' 'avaliacao.estado-invalido-reabrir-aberta-409' (($e19av2.code -eq 200) -and ($e19ra2.code -eq 409) -and ($e19ra2.body -like '*AVALIACAO_ESTADO_INVALIDO*')) ("reabrir avaliacao ABERTA -> $($e19ra2.code) (ciclo canonico ABERTA -> FECHADA -> REABERTA; operacao em estado inesperado e nomeada)")
+
+# --- E19.F: BR-5.6 Educacenso decisoes + encerramento + sincronizacao ----------
+$e19lo1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/educacenso/lotes/lancar' -Base $ApiBase -Body '{"ano":2026}'
+$e19loId = Get-E19Data $e19lo1.body
+$e19lo2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/educacenso/lotes/lancar' -Base $ApiBase -Body '{"ano":2026}'
+$e19ic1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/educacenso/inconsistencias/lancar' -Base $ApiBase -Body ('{"loteId":' + $e19loId + ',"gravidade":"ALTA","origem":"C2S5-HOMOLOGACAO","recomendacao":"Revisar duvida ficticia alta"}')
+$e19ic1Id = Get-E19Data $e19ic1.body
+$e19ic2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/educacenso/inconsistencias/lancar' -Base $ApiBase -Body ('{"loteId":' + $e19loId + ',"gravidade":"MEDIA","origem":"C2S5-HOMOLOGACAO"}')
+$e19ic2Id = Get-E19Data $e19ic2.body
+$e19ic3 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/educacenso/inconsistencias/lancar' -Base $ApiBase -Body ('{"loteId":' + $e19loId + ',"gravidade":"BAIXA","origem":"C2S5-HOMOLOGACAO"}')
+$e19ic3Id = Get-E19Data $e19ic3.body
+Add-Check 'E19' 'educacenso.lote-ano-unico-200' (($e19lo1.code -eq 200) -and ($e19lo2.code -eq 409) -and ($e19lo2.body -like '*LOTE_EDUCACENSO_ANO_EXISTENTE*') -and ($e19ic1.code -eq 200) -and ($e19ic2.code -eq 200) -and ($e19ic3.code -eq 200)) ("lote 2026 -> 200 id=$e19loId; segundo lote mesmo ano -> 409; inconsistencias ALTA/MEDIA/BAIXA ligadas ao lote -> 200 (BR-5.6)")
+$e19en1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/educacenso/lotes/" + $e19loId + "/encerrar") -Base $ApiBase -Body '{}'
+$e19dc1 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/educacenso/inconsistencias/" + $e19ic1Id + "/decidir") -Base $ApiBase -Body '{"desfecho":"OUTRO"}'
+$e19dc2 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/educacenso/inconsistencias/" + $e19ic1Id + "/decidir") -Base $ApiBase -Body '{"desfecho":"ACEITE_COM_MOTIVO"}'
+Add-Check 'E19' 'educacenso.encerramento-alta-aberta-409' (($e19en1.code -eq 409) -and ($e19en1.body -like '*EDUCACENSO_LOTE_ALTA_ABERTA*') -and ($e19dc1.code -eq 400) -and ($e19dc1.body -like '*EDUCACENSO_DESFECHO_INVALIDO*') -and ($e19dc2.code -eq 400) -and ($e19dc2.body -like '*EDUCACENSO_MOTIVO_OBRIGATORIO*')) ("encerrar com ALTA aberta -> $($e19en1.code); desfecho OUTRA -> $($e19dc1.code); ACEITE sem motivo -> $($e19dc2.code) (desfechos canonicos CORRIGIDA | ACEITE_COM_MOTIVO com motivo)")
+$e19dc3 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/educacenso/inconsistencias/" + $e19ic1Id + "/decidir") -Base $ApiBase -Body '{"desfecho":"CORRIGIDA"}'
+$e19dc4 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/educacenso/inconsistencias/" + $e19ic1Id + "/decidir") -Base $ApiBase -Body '{"desfecho":"CORRIGIDA"}'
+$e19en2 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/educacenso/lotes/" + $e19loId + "/encerrar") -Base $ApiBase -Body '{}'
+$e19dc5 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/educacenso/inconsistencias/" + $e19ic2Id + "/decidir") -Base $ApiBase -Body '{"desfecho":"ACEITE_COM_MOTIVO","motivo":"Aceite documentado homologacao C2S5"}'
+$e19dc6 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/educacenso/inconsistencias/" + $e19ic3Id + "/decidir") -Base $ApiBase -Body '{"desfecho":"CORRIGIDA"}'
+Add-Check 'E19' 'educacenso.decisao-documentada-200' (($e19dc3.code -eq 200) -and ($e19dc4.code -eq 409) -and ($e19dc4.body -like '*EDUCACENSO_INCONSISTENCIA_JA_DECIDIDA*') -and ($e19en2.code -eq 409) -and ($e19en2.body -like '*EDUCACENSO_LOTE_INCONSISTENCIAS_ABERTAS*') -and ($e19dc5.code -eq 200) -and ($e19dc6.code -eq 200)) ("ALTA CORRIGIDA -> $($e19dc3.code); de novo -> $($e19dc4.code) [$(if($e19dc4.body.Length -gt 90){$e19dc4.body.Substring(0,90)}else{$e19dc4.body})]; encerrar medias abertas -> $($e19en2.code) [$(if($e19en2.body.Length -gt 90){$e19en2.body.Substring(0,90)}else{$e19en2.body})]; MEDIA aceite -> $($e19dc5.code); BAIXA corrigida -> $($e19dc6.code) (BR-5.6)")
+$e19en3 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/educacenso/lotes/" + $e19loId + "/encerrar") -Base $ApiBase -Body '{"justificativa":"Lote 2026 homologacao encerrado"}'
+$dbEn = Get-Psql "select (select status from sigov.educacao_educacenso_lote where tenant_id=910001 and id=$e19loId)||'|'||(select count(*) from sigov.educacao_educacenso_evento where tenant_id=910001 and referencia_id=$e19loId and tipo='ENCERRAMENTO_LOTE')||'|'||(select string_agg(status||':'||(dados->>'desfecho'),',' order by id) from sigov.educacao_educacenso_inconsistencia where tenant_id=910001 and referencia_id=$e19loId);"
+$e19en4 = Invoke-Api -Bearer $tk.token -Method POST -Path ("/api/educacao/educacenso/lotes/" + $e19loId + "/encerrar") -Base $ApiBase -Body '{}'
+Add-Check 'E19' 'educacenso.lote-encerrado-consistente-200' (($e19en3.code -eq 200) -and ($dbEn.text -eq 'ENCERRADA|1|CORRIGIDA:CORRIGIDA,ACEITA:ACEITE_COM_MOTIVO,CORRIGIDA:CORRIGIDA') -and ($e19en4.code -eq 409) -and ($e19en4.body -like '*EDUCACENSO_LOTE_ESTADO_INVALIDO*')) ("encerrar -> ENCERRADA + evento ENCERRAMENTO_LOTE registrado + decisoes finais (ALTA CORRIGIDA, MEDIA ACEITA, BAIXA CORRIGIDA) no banco: " + $dbEn.text + "; encerrar de novo -> 409 (BR-5.6)")
+$e19sin = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/educacenso/eventos/sincronizar' -Base $ApiBase -Body '{"detalhe":"Sincronizacao lote 2026 homologacao C2S5"}'
+$e19dbd = Invoke-Api -Bearer $tk.token -Method GET -Path '/api/educacao/educacenso/dashboard' -Base $ApiBase
+$jDbd = $null; try { $jDbd = ($e19dbd.body | ConvertFrom-Json).data } catch {}
+Add-Check 'E19' 'educacenso.sincronizacao-registrada-200' (($e19sin.code -eq 200) -and ($e19dbd.code -eq 200) -and $null -ne $jDbd -and ([string]$jDbd.ultimaSincronizacao -ne '')) ("evento SINCRONIZACAO registrado -> 200; painel educacenso/dashboard agora exibe ultimaSincronizacao=" + $jDbd.ultimaSincronizacao + " (BR-5.6 eventos de sincronizacao)")
+
+# --- E19.G: BR-5.7 projecao de matricula unica por escola x ano -----------------
+$e19pr1 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/projecoes-matricula/lancar' -Base $ApiBase -Body ('{"escolaId":' + $e19esc.text + ',"ano":2026,"quantidade":120}')
+$e19pr2 = Invoke-Api -Bearer $tk.token -Method POST -Path '/api/educacao/projecoes-matricula/lancar' -Base $ApiBase -Body ('{"escolaId":' + $e19esc.text + ',"ano":2026,"quantidade":130}')
+Add-Check 'E19' 'projecao.matricula-unica-escola-ano-200' (($e19pr1.code -eq 200) -and ($e19pr2.code -eq 409) -and ($e19pr2.body -like '*PROJECAO_MATRICULA_EXISTENTE*')) ("projeção 120 matriculas 2026 -> 200; segunda projeção mesma escola x ano -> 409 (1 vigente por escola x ano; alimenta custo/aluno projetado na S20; BR-5.7)")
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);
@@ -1620,6 +1892,20 @@ delete from sigov.educacao_custo_lancamento where tenant_id=910001;
 delete from sigov.educacao_custo_centro where tenant_id=910001;
 delete from sigov.educacao_educacenso_inconsistencia where tenant_id=910001;
 delete from sigov.educacao_educacenso_lote where tenant_id=910001;
+delete from sigov.educacao_fundeb_competencia where tenant_id=910001;
+delete from sigov.educacao_custo_rateio where tenant_id=910001;
+delete from sigov.educacao_avaliacao_resultado where tenant_id=910001;
+delete from sigov.educacao_avaliacao_magisterio where tenant_id=910001;
+delete from sigov.educacao_educacenso_evento where tenant_id=910001;
+delete from sigov.matricula where tenant_id=910001 and numero_matricula like 'C2S5-%';
+delete from sigov.turma where tenant_id=910001 and codigo='c1e26-c2s5-turma';
+delete from sigov.serie_ano where tenant_id=910001 and codigo='C2S5-SERIE';
+delete from sigov.curso where tenant_id=910001 and codigo='C2S5-CURSO';
+delete from sigov.ano_letivo where tenant_id=910001 and escola_id=(select id from sigov.escola where tenant_id=910001 and codigo='c1e26-c2s5-esc');
+delete from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C2S5-%';
+delete from sigov.pessoa where documento in ('999999000601','999999000602','999999000603');
+delete from sigov.servidor where tenant_id=910001 and dados->>'matricula' like 'C2S5-%';
+delete from sigov.escola where tenant_id=910001 and codigo='c1e26-c2s5-esc';
 delete from sigov.educacao_indicador_valor where tenant_id=910001;
 delete from sigov.educacao_projecao_matricula where tenant_id=910001;
 delete from sigov.educacao_indicador where tenant_id=910001;
@@ -1677,9 +1963,21 @@ select (select count(*) from sigov.educacao_merenda_requisicao where tenant_id=9
             + (select count(*) from sigov.educacao_transporte_custo where tenant_id=910001)
             + (select count(*) from sigov.educacao_transporte_ocorrencia where tenant_id=910001)
             + (select count(*) from sigov.educacao_transporte_frequencia where tenant_id=910001 and tipo='PRESENCA_TRANSPORTE')
-            + (select count(*) from sigov.parametro_modulo_valor where tenant_id=910001 and parametro_id=(select id from sigov.parametro_modulo where modulo='EDUCACAO' and codigo='TRANSPORTE_MONITOR_OBRIGATORIO' limit 1)) as restantes;
+            + (select count(*) from sigov.parametro_modulo_valor where tenant_id=910001 and parametro_id=(select id from sigov.parametro_modulo where modulo='EDUCACAO' and codigo='TRANSPORTE_MONITOR_OBRIGATORIO' limit 1))
+             + (select count(*) from sigov.educacao_fundeb_competencia where tenant_id=910001)
+             + (select count(*) from sigov.educacao_custo_rateio where tenant_id=910001)
+             + (select count(*) from sigov.educacao_avaliacao_resultado where tenant_id=910001)
+             + (select count(*) from sigov.educacao_avaliacao_magisterio where tenant_id=910001)
+             + (select count(*) from sigov.educacao_educacenso_evento where tenant_id=910001)
+             + (select count(*) from sigov.matricula where tenant_id=910001 and numero_matricula like 'C2S5-%')
+             + (select count(*) from sigov.turma where tenant_id=910001 and codigo='c1e26-c2s5-turma')
+             + (select count(*) from sigov.curso where tenant_id=910001 and codigo='C2S5-CURSO')
+             + (select count(*) from sigov.aluno where tenant_id=910001 and codigo_aluno like 'C2S5-%')
+             + (select count(*) from sigov.pessoa where documento in ('999999000601','999999000602','999999000603'))
+             + (select count(*) from sigov.servidor where tenant_id=910001 and dados->>'matricula' like 'C2S5-%')
+             + (select count(*) from sigov.escola where tenant_id=910001 and codigo='c1e26-c2s5-esc') as restantes;
 "@
-Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos + S10 indicadores/valores/projecoes/lotescenso/inconsistencias/escola (tenant) + C2S2 requisicoes-legadas/produto-livre + C2S3 acervo-FNLI/ocorrencias/eventos/inventarios/items-inventario + C2S4 transporte veiculos/motoristas/viagens/custos/ocorrencias/presencas/parametro-monitor + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
+Add-Check 'CX' 'fixture.removido' ($cl.code -eq 0 -and $cl.text -eq '0') ("delete c1e26-%/C1S3-%/C1S7-%/C1S8-% (diario classe+aulas+conteudo+frequencia+fechamento+historico, frequencias, S4 historico-escolar+itens+vinculos+responsavel+pessoa do usuario, professor_turma, matriculas, turmas, ano, alunos, professor, pessoas, escola + S5 cardapio+itens+produtos + S6 distribuicoes+itens+movimentos+estoque + S7 biblioteca acervo/exemplares/emprestimos/reservas/devolucoes/aluno/escola + S8 transporte vinculos/pontos/rotas/alunos/escola + S9 fundeb parametros/receitas/aplicacoes + custo centros/lancamentos + S10 indicadores/valores/projecoes/lotescenso/inconsistencias/escola (tenant) + C2S2 requisicoes-legadas/produto-livre + C2S3 acervo-FNLI/ocorrencias/eventos/inventarios/items-inventario + C2S4 transporte veiculos/motoristas/viagens/custos/ocorrencias/presencas/parametro-monitor + C2S5 fundeb-competencia/rateios/avaliacoes/educacenso-eventos/matriculas/turma/curso/alunos/servidores/escola + merenda/biblioteca/entidade) tenant 910001 -> restantes=" + $cl.text)
 
 # --- artefatos -----------------------------------------------------------------
 $passed = @($checks | Where-Object passed).Count
