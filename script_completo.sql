@@ -263,7 +263,8 @@ select exists (
         ('20261012110000', array['f57772efa15c370fa693143ef242c1d7ba1df54068b5d2c1060c2668c98b5f8f']::text[]),
         ('20261012150000', array['6b726981945a4d790f5b469b7369bf4b37aed705dc932fb8e160d8d2f956e9cf']::text[]),
         ('20261012160000', array['d6d3a34c915d6f1c9725e5aae3e82652039177b29736ced2882188c4a52e4571']::text[]),
-        ('20261013120000', array['9a31c32471c1f54a371f13f61489c8951f7c6b9ecb60d4f3561b4050a6291b02']::text[])
+        ('20261013120000', array['9a31c32471c1f54a371f13f61489c8951f7c6b9ecb60d4f3561b4050a6291b02']::text[]),
+        ('20261013130000', array['e87e35090b21be795727aa8616231da8af6c2ab5326e06dcdf534ba5ba3de429']::text[])
     ) required(version, accepted_checksums)
     left join sigov.schema_migrations applied on applied.version = required.version
     where applied.version is null
@@ -35102,6 +35103,127 @@ end
 $$;
 
 insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261013120000', 'RC-EVO Ciclo 2 Sprint 5 (FUNDEB/custos/rateio + avaliacao do magisterio + maturidade de indicadores/Educacenso; BR-5.1 a BR-5.7): tabela sigov.educacao_fundeb_competencia com backstop unico de competencia FECHADA por tenant x data (ux_fundeb_competencia_tenant_date; fechamento/reabertura justificada bloqueiam novos lancamentos - COMPETENCIA_FUNDEB_FECHADA; BR-5.2), dedupe legado min(id) + backstop unico de aplicacao FUNDEB por competencia x centro de custo (ux_fundeb_aplicacao_tenant_comp_centro, sentinel 2999-12-31 para competencia nula; BR-5.2), dedupe legado + backstop unico de rateio vigente por centro origem x criterio x competencia (ux_custo_rateio_tenant_origem_criterio_comp; cabecalho com tipo MATRICULAS/RECEITA/PESO_MANUAL e lancamentos derivados em educacao_custo_lancamento tipo RATEIO_DERIVADO; estorno cancela cabecalho+derivados; BR-5.4), dedupe legado + backstop unico de resultado da avaliacao do magisterio por avaliacao x servidor (ux_avaliacao_resultado_tenant_avaliacao_servidor; periodicidade por ano, trava no fechamento, reabertura justificada; BR-5.5) e parametro canonico FDEB_CONFORMIDADE_MINIMO_PCT=70 no catalogo do modulo EDUCACAO (minimo parametrizavel da conformidade LC 114/2021, sobrescrito por parametro_modulo_valor ou pelo parametro FUNDEB do tenant; BR-5.1/BR-5.3); pos-condicao explicita C2S5-POSTCOND; idempotente; multi-esfera', '9a31c32471c1f54a371f13f61489c8951f7c6b9ecb60d4f3561b4050a6291b02', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
+
+-- Reset de helpers temporários entre migrations concatenadas.
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
+drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text,text);
+drop function if exists pg_temp.ensure_schema_safe_index(text,text,text,text[],text);
+
+-- ==================================================
+-- MIGRATION: 20261013130000_evo_c2s7_frente_administrativa_permissoes.sql
+-- CATEGORY: functional
+-- CHECKSUM_SHA256: e87e35090b21be795727aa8616231da8af6c2ab5326e06dcdf534ba5ba3de429
+-- ==================================================
+-- RC-EVO Ciclo 2 Sprint 7 (Mapa da frente administrativa - contratos de auditoria, sem
+-- implementacao) - catalogo de permissoes da frente, contrato BR-7.1 a BR-7.8. Legislacao:
+-- Lei 14.133/2021 (contratacoes publicas), LC 123/2006 (zona de preferencia ME/EPP).
+-- Idempotente (regra 6); multi-esfera (regras 21-24): a frente vale para orgaos e entidades
+-- municipais, estaduais e federais - nenhum ato, valor ou percentual e hardcoded aqui.
+-- Escopo deliberadamente NAO funcional (gate da S7: documento de contratos revisado +
+-- permissoes da frente catalogadas em seed + nenhuma implementacao fora do catalogo): esta
+-- migration registra no catalogo oficial sigov.permissao (banco como autoridade - regra 11;
+-- sem catalogo hardcoded - regra 12) uma chave canonica por ato da cadeia
+-- demanda -> procedimento -> adjudicacao/homologacao -> contrato -> fornecimento ->
+-- recebimento -> obrigacao financeira, e vincula o perfil sistemico SUPERADMIN. Os comandos
+-- tipados que executam cada chave serao implementados nas Sprints 8-10 cumprindo o contrato
+-- em docs/CONTRATOS-FRENTE-ADMINISTRATIVA-C2S7-MULTIESFERA.md. Sem alteracao de schema:
+-- somente dados do catalogo (manifest 232 -> 233 entradas; consolidados regenerados).
+-- Chaves ja catalogadas e mantidas SEM alteracao (reuso documentado no contrato):
+-- compras.requisicao.*, compras.processo.*, compras.cotacao.*, compras.julgamento.executar,
+-- compras.contrato.{visualizar,criar}, compras.ata.*, compras.recebimento.executar,
+-- compras.exportar, LICITACAO_*/CONTRATO_* legados (UPPER_SNAKE), almoxarifado.recebimento.confirmar,
+-- patrimonio.incorporacao.executar e patrimonio.bem.criar.
+
+-- 1) Catalogo das chaves canonicas dos atos novos da frente (BR-7.1 a BR-7.8).
+insert into sigov.permissao(modulo,chave,recurso,acao,descricao,ativo,is_deleted)
+select 'compras',v.chave,v.recurso,v.acao,v.descricao,true,false from (values
+ ('compras.demanda.visualizar','compras.demanda','visualizar','Visualizar demandas tipadas (item, quantidade, unidade, preco estimado, justificativa, centro de custo, urgencia) - BR-7.1'),
+ ('compras.demanda.criar','compras.demanda','criar','Criar demanda tipada com itens e aprovacao; 1 demanda = 1 processo administrativo unico (Lei 14.133 art. 128) - BR-7.1'),
+ ('compras.demanda.aprovar','compras.demanda','aprovar','Aprovar demanda (urgencia exige dupla aprovacao: ordenador + autoridade superior) - BR-7.1/BR-8.6'),
+ ('compras.demanda.reabrir','compras.demanda','reabrir','Reabrir demanda repelida com justificativa; apos aprovacao a alteracao so e por nova versao imutavel - BR-7.1/BR-8.1'),
+ ('compras.licitacao.abrir','compras.licitacao','abrir','Abrir procedimento: modalidade por objeto/valor (pregao eletronico default; concorrencia; consulta previa ate o teto vigente) - BR-7.2'),
+ ('compras.licitacao.modalidade.definir','compras.licitacao.modalidade','definir','Definir modalidade e criterio do procedimento conforme objeto e valor - BR-7.2'),
+ ('compras.licitacao.habilitacao.julgar','compras.licitacao.habilitacao','julgar','Julgar habilitacao (qualificacao juridica, fiscal/trabalhista, tecnica) - BR-7.2'),
+ ('compras.licitacao.lances.registrar','compras.licitacao.lances','registrar','Realizar sessao de lances com zona de preferencias ME/EPP (LC 123/2006 - margem parametrizavel, default 5%) - BR-7.2'),
+ ('compras.licitacao.preferencia.documentar','compras.licitacao.preferencia','documentar','Documentar direito de preferencia ME/EPP exercido ou desistencia fora da margem - BR-7.2'),
+ ('compras.adjudicacao.executar','compras.adjudicacao','executar','Executar adjudicacao: ato separado e ordenado, antecedente obrigatorio da homologacao - BR-7.3'),
+ ('compras.homologacao.executar','compras.homologacao','executar','Executar homologacao por ato superior distinto do adjudicador (separacao de funcoes); contrato so nasce de procedimento homologado - BR-7.3'),
+ ('compras.contrato.aditivo.criar','compras.contrato.aditivo','criar','Criar aditivo quantitativo (percentual parametrizado por tipo de objeto) ou valorativo/reajuste com indice identificado - BR-7.4'),
+ ('compras.contrato.aditivo.aprovar','compras.contrato.aditivo','aprovar','Aprovar aditivo contratual - BR-7.4'),
+ ('compras.contrato.prorrogar','compras.contrato','prorrogar','Prorrogar contrato (Lei 14.133 art. 106 - ate 5 anos + 5 prorrogacoes, parametrico) - BR-7.4'),
+ ('compras.contrato.rescindir','compras.contrato','rescindir','Rescindir contrato com ato e justificativa (unilateral por inadimplencia com notificacao; bilateral por comum acordo) - BR-7.4'),
+ ('compras.contrato.execucao.fiscalizar','compras.contrato.execucao','fiscalizar','Controlar execucao financeira x quantitativa (%) e teto de fornecimentos - BR-7.4'),
+ ('compras.fornecimento.criar','compras.fornecimento','criar','Criar pedido de fornecimento vinculado a item de contrato vigente (quantidade/valor disponiveis) - BR-7.5'),
+ ('compras.fornecimento.visualizar','compras.fornecimento','visualizar','Visualizar pedidos de fornecimento contra contrato/ata - BR-7.5'),
+ ('compras.recebimento.aprovar','compras.recebimento','aprovar','Aprovar recebimento parcial por fornecimento; total (aprovado+rejeitado = fornecido) fecha o fornecimento - BR-7.5'),
+ ('compras.recebimento.rejeitar','compras.recebimento','rejeitar','Rejeitar item recebido com motivo e prazo de substituicao (parametrico, default 5 dias uteis); desfecho obrigatorio - BR-7.5'),
+ ('compras.fatura.vincular','compras.fatura','vincular','Vincular NF-e/NFS-e ao fornecimento (fornecedor/CNPJ = contratado; conferencia de valor vs pedido) - BR-7.5'),
+ ('compras.obrigacao.visualizar','compras.obrigacao','visualizar','Visualizar obrigacoes financeiras geradas por fornecimento aprovado - BR-7.7'),
+ ('compras.obrigacao.liquidar','compras.obrigacao','liquidar','Liquidar obrigacao (alimenta tesouraria e compromisso orcamentario); pagamento so com liquida e documentos conferidos - BR-7.7'),
+ ('compras.contrapartida.registrar','compras.contrapartida','registrar','Registrar contrapartida de recurso proprio quando o instrumento do convenio assim definir (percentual parametrico) - BR-7.8'),
+ ('compras.auditoria.visualizar','compras.auditoria','visualizar','Visualizar trilha de auditoria ponta a ponta da frente (demanda -> processo -> contrato -> fornecimento -> recebimento -> destino -> obrigacao)'))
+ v(chave,recurso,acao,descricao) where not exists(select 1 from sigov.permissao p where p.chave=v.chave);
+
+-- 2) Vinculo dos perfis SUPERADMIN ativos as chaves novas (padrao FUNC03 com ajuste
+-- documentado: o filtro original `and pa.sistemico` nao casa com o estado atual de
+-- homologacao - as linhas SUPERADMIN tem sistemico=false no banco; a autoridade e o codigo
+-- externo SUPERADMIN ativo e nao excluido, 1 perfil por tenant).
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted)
+select pa.id,p.id,'PERMITIR',true,false
+ from sigov.perfil_acesso pa
+ cross join sigov.permissao p
+where pa.codigo_externo='SUPERADMIN' and pa.ativo and not pa.is_deleted
+  and p.modulo='compras' and p.ativo and not p.is_deleted
+  and p.chave in ('compras.demanda.visualizar','compras.demanda.criar','compras.demanda.aprovar','compras.demanda.reabrir',
+   'compras.licitacao.abrir','compras.licitacao.modalidade.definir','compras.licitacao.habilitacao.julgar','compras.licitacao.lances.registrar','compras.licitacao.preferencia.documentar',
+   'compras.adjudicacao.executar','compras.homologacao.executar',
+   'compras.contrato.aditivo.criar','compras.contrato.aditivo.aprovar','compras.contrato.prorrogar','compras.contrato.rescindir','compras.contrato.execucao.fiscalizar',
+   'compras.fornecimento.criar','compras.fornecimento.visualizar','compras.recebimento.aprovar','compras.recebimento.rejeitar','compras.fatura.vincular',
+   'compras.obrigacao.visualizar','compras.obrigacao.liquidar','compras.contrapartida.registrar','compras.auditoria.visualizar')
+on conflict (perfil_acesso_id,permissao_id) do update set efeito='PERMITIR',ativo=true,is_deleted=false;
+
+-- C2S7-POSTCOND: falha explicita se faltar qualquer artefato do incremento (regra 13)
+do $$
+declare
+  n_chaves int;
+  n_perfis int;
+  n_vinculos int;
+begin
+  select count(1) into n_chaves
+    from sigov.permissao
+   where modulo='compras' and ativo and not is_deleted
+     and chave in ('compras.demanda.visualizar','compras.demanda.criar','compras.demanda.aprovar','compras.demanda.reabrir',
+      'compras.licitacao.abrir','compras.licitacao.modalidade.definir','compras.licitacao.habilitacao.julgar','compras.licitacao.lances.registrar','compras.licitacao.preferencia.documentar',
+      'compras.adjudicacao.executar','compras.homologacao.executar',
+      'compras.contrato.aditivo.criar','compras.contrato.aditivo.aprovar','compras.contrato.prorrogar','compras.contrato.rescindir','compras.contrato.execucao.fiscalizar',
+      'compras.fornecimento.criar','compras.fornecimento.visualizar','compras.recebimento.aprovar','compras.recebimento.rejeitar','compras.fatura.vincular',
+      'compras.obrigacao.visualizar','compras.obrigacao.liquidar','compras.contrapartida.registrar','compras.auditoria.visualizar');
+  if n_chaves<>25 then
+    raise exception 'C2S7-POSTCOND: catalogo de permissoes da frente incompleto (% <> 25)', n_chaves;
+  end if;
+  select count(1) into n_perfis from sigov.perfil_acesso where codigo_externo='SUPERADMIN' and ativo and not is_deleted;
+  if n_perfis=0 then
+    raise exception 'C2S7-POSTCOND: nenhum perfil SUPERADMIN ativo no banco (autoridade ausente)';
+  end if;
+  select count(1) into n_vinculos
+    from sigov.perfil_permissao pp
+    join sigov.permissao p on p.id=pp.permissao_id
+    join sigov.perfil_acesso pa on pa.id=pp.perfil_acesso_id
+   where pa.codigo_externo='SUPERADMIN' and pa.ativo and not pa.is_deleted
+     and pp.ativo and not pp.is_deleted
+     and p.chave in ('compras.demanda.visualizar','compras.demanda.criar','compras.demanda.aprovar','compras.demanda.reabrir',
+      'compras.licitacao.abrir','compras.licitacao.modalidade.definir','compras.licitacao.habilitacao.julgar','compras.licitacao.lances.registrar','compras.licitacao.preferencia.documentar',
+      'compras.adjudicacao.executar','compras.homologacao.executar',
+      'compras.contrato.aditivo.criar','compras.contrato.aditivo.aprovar','compras.contrato.prorrogar','compras.contrato.rescindir','compras.contrato.execucao.fiscalizar',
+      'compras.fornecimento.criar','compras.fornecimento.visualizar','compras.recebimento.aprovar','compras.recebimento.rejeitar','compras.fatura.vincular',
+      'compras.obrigacao.visualizar','compras.obrigacao.liquidar','compras.contrapartida.registrar','compras.auditoria.visualizar');
+  if n_vinculos<>n_perfis*25 then
+    raise exception 'C2S7-POSTCOND: vinculos SUPERADMIN da frente incompletos (% <> %*25)', n_vinculos, n_perfis;
+  end if;
+end
+$$;
+
+insert into sigov.schema_migrations(version, description, checksum, category, source, success, execution_ms, applied_at) values ('20261013130000', 'RC-EVO Ciclo 2 Sprint 7 (Mapa da frente administrativa - contratos de auditoria sem implementacao; BR-7.1 a BR-7.8): seed idempotente apenas-de-dados do catalogo canonico de permissoes da frente em sigov.permissao (modulo ''compras''): 25 chaves novas por ato da cadeia demanda (criar/aprovar/reabrir) -> procedimento (abrir/modalidade/habilitacao/lances com zona ME-EPP/direito de preferencia documentado) -> adjudicacao -> homologacao (atos separados) -> contrato (aditivo quantitativo/valorativo criar+aprovar, prorrogar art. 106 parametrico, rescindir, controle de execucao financeira x quantitativa) -> fornecimento (criar/visualizar vs item de contrato) -> recebimento (aprovar parcial/rejeitar com prazo parametrico) -> fatura (vinculo NF-e/NFS-e) -> obrigacao financeira (visualizar/liquidar unica por fornecimento) -> contrapartida convenio registrar -> auditoria ponta a ponta visualizar; vinculo dos perfis SUPERADMIN ativos em perfil_permissao (1 por tenant; ajuste documentado: o filtro de origem FUNC03 usava pa.sistemico, que e false no estado atual de homologacao - autoridade = codigo externo SUPERADMIN ativo e nao excluido); sem alteracao de schema e sem implementacao funcional (gate S7: documento de contratos + permissoes catalogadas + nada fora do catalogo); pos-condicao explicita C2S7-POSTCOND; multi-esfera', 'e87e35090b21be795727aa8616231da8af6c2ab5326e06dcdf534ba5ba3de429', 'functional', 'script_completop', true, null, now()) on conflict (version) do update set description = excluded.description, checksum = excluded.checksum, category = excluded.category, source = excluded.source, success = true;
 
 -- Reset de helpers temporários entre migrations concatenadas.
 drop function if exists pg_temp.create_index_when_columns_exist(text,text,text,text[],text);
