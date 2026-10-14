@@ -173,6 +173,8 @@ public sealed class ComprasIntegradasController(IComprasIntegradasService s, ICu
         catch (FaturaFornecedorDiscrepanteException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
         catch (FaturaValorDivergenteException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
         catch (DestinoTipoInvalidoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        // Sprint 11: estorno sem justificativa e falha de validacao (400), nao conflito de estado (409)
+        catch (ObrigacaoEstornoSemJustificativaException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
         catch (DemandaEstadoInvalidoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
         catch (DemandaUrgenciaSemDuplaAprovacaoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
         catch (DemandaAposAprovacaoImutavelException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }

@@ -2921,6 +2921,646 @@ select
 "@
 Add-Check 'S10' 'fixture.removido-auto-limpeza' (($s10cl.code -eq 0) -and ($s10cl.text -eq '0')) ("cascade delete S10 (medicoes+aprovacoes, projetos, vinculos contrato x obra, obra, prestacoes, contrapartidas, repasses, etapas, metas, projetos de convenio, instrumentos, orgao concedente, contenciosos+movimentos, ledger de vinculos externos, condicoes, pareceres, consultas+filiais, ledgers de consulta, contratos+items+historico, homologacoes, adjudicacoes+items, propostas, habilitacoes, lances, licitacao_items, licitacoes, processos+items, demandas+items, fornecedores, CCs, sessoes/auditorias do usuario, grants sentinel cf58c2ab-...010, usuario c2s10.admin+grupo, entidade C2S10-ENT) tenant 910001 -> restantes=" + $s10cl.text)
 
+# ============================================================================
+# BLOCO S11 - Homologacao integrada multi-tenant/multi-esfera + cenarios transversais
+# (Ciclo 2 Sprint 11: BR-11.1 jornadas por perfil em 2 tenants de esferas diferentes;
+#  BR-11.2 cenarios transversais obrigatorios sobre a superficie nova da frente)
+# Invariantes validadas ao vivo: a MESMA jornada vertical da frente administrativa
+# (demanda -> dispensa -> adjudicacao -> homologacao -> contrato -> fornecimento ->
+# recebimento/rejeicao -> desfecho -> fatura -> obrigacao -> liquidacao -> estorno ->
+# destinacao estoque) e executada em tenant 910001 (entidade esfera MUNICIPAL) e em
+# tenant 910002 (entidade esfera ESTADUAL), com perfis distintos resolvidos pelo banco
+# (administracao, tesouraria/financeiro, juridico, sem-grupo). Regra 21 observavel
+# nos dados: o mesmo ato (recebimento com rejeicao em 2026-11-12) deriva prazos
+# DIFERENTES por tenant porque o parametro RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS
+# e parametrizado (padrao 5 no 910001; override 10 no 910002 via
+# parametro_modulo_valor — banco = autoridade, regra 11). Cenarios transversais:
+# concorrencia de dois clientes simultaneos na chave idempotente (efeto unico no
+# banco), reenvio idempotente nos dois tenants, estorno repetido (estado terminal),
+# cancelamento com efeito (demanda APROVADA imutavel), schema ausente (tabela
+# renomeada -> 404 nomeada nos caminhos), permissao ausente (fail-closed 403) e
+# isolamento cross-tenant (escopo + dados). Marcadores C2S11A-% / C2S11B-%;
+# o bloco se auto-limpa ao final (regra 9).
+# ============================================================================
+$s11fix = Get-Psql @"
+-- pre-clean reentravel: remove estado de rodada anterior abortada (escopo igual ao da limpeza final do bloco S11; tenants 910001/910002 sao do driver neste ciclo)
+delete from sigov.compras_destinacao_integrada where tenant_id in (910001,910002) and fornecimento_recebimento_id in (select id from sigov.compras_fornecimento_recebimento where fornecimento_id in (select id from sigov.compras_fornecimento where tenant_id in (910001,910002)));
+delete from sigov.almoxarifado_movimentacao where tenant_id in (910001,910002) and documento_origem like 'FORN-%';
+delete from sigov.compras_fatura_integrada where tenant_id in (910001,910002);
+delete from sigov.compras_obrigacao where tenant_id in (910001,910002);
+delete from sigov.compras_recebimento_item where recebimento_id in (select id from sigov.compras_recebimento where tenant_id in (910001,910002));
+delete from sigov.compras_recebimento where tenant_id in (910001,910002);
+delete from sigov.compras_fornecimento_recebimento where fornecimento_id in (select id from sigov.compras_fornecimento where tenant_id in (910001,910002));
+delete from sigov.compras_fornecimento where tenant_id in (910001,910002);
+delete from sigov.compras_contrato_item where contrato_id in (select id from sigov.compras_contrato where tenant_id in (910001,910002));
+delete from sigov.compras_contrato_historico where contrato_id in (select id from sigov.compras_contrato where tenant_id in (910001,910002));
+delete from sigov.compras_contrato where tenant_id in (910001,910002);
+delete from sigov.compras_homologacao where licitacao_id in (select id from sigov.compras_licitacao where tenant_id in (910001,910002));
+delete from sigov.compras_adjudicacao_item where adjudicacao_id in (select id from sigov.compras_adjudicacao where licitacao_id in (select id from sigov.compras_licitacao where tenant_id in (910001,910002)));
+delete from sigov.compras_adjudicacao where licitacao_id in (select id from sigov.compras_licitacao where tenant_id in (910001,910002));
+delete from sigov.compras_proposta where licitacao_id in (select id from sigov.compras_licitacao where tenant_id in (910001,910002));
+delete from sigov.compras_habilitacao where licitacao_id in (select id from sigov.compras_licitacao where tenant_id in (910001,910002));
+delete from sigov.compras_lance where licitacao_id in (select id from sigov.compras_licitacao where tenant_id in (910001,910002));
+delete from sigov.compras_licitacao_item where licitacao_id in (select id from sigov.compras_licitacao where tenant_id in (910001,910002));
+delete from sigov.compras_licitacao where tenant_id in (910001,910002);
+delete from sigov.compras_processo_item where tenant_id in (910001,910002) and processo_id in (select id from sigov.compras_processo where tenant_id in (910001,910002));
+delete from sigov.compras_processo where tenant_id in (910001,910002);
+delete from sigov.compras_demanda_item where demanda_id in (select id from sigov.compras_demanda where tenant_id in (910001,910002));
+delete from sigov.compras_demanda where tenant_id in (910001,910002);
+delete from sigov.juridico_parecer_condicao where parecer_id in (select id from sigov.juridico_parecer where tenant_id=910001 and consulta_id in (select consulta_id from sigov.compras_juridico_consulta_vinculo where tenant_id=910001 and referencia_numero like 'ATO-C2S11A-%'));
+delete from sigov.juridico_parecer where tenant_id=910001 and consulta_id in (select consulta_id from sigov.compras_juridico_consulta_vinculo where tenant_id=910001 and referencia_numero like 'ATO-C2S11A-%');
+delete from sigov.juridico_consulta where id in (select consulta_id from sigov.compras_juridico_consulta_vinculo where tenant_id=910001 and referencia_numero like 'ATO-C2S11A-%');
+delete from sigov.compras_juridico_consulta_vinculo where tenant_id=910001 and referencia_numero like 'ATO-C2S11A-%';
+delete from sigov.compras_fornecedor where (tenant_id=910001 and nome like 'Forneadora C2S11A %') or (tenant_id=910002 and nome like 'Forneadora C2S11B %');
+delete from sigov.financeiro_centro_custo where codigo in ('C2S11A-CC1','C2S11B-CC1');
+delete from sigov.almoxarifado_material where tenant_id=910001 and codigo='C2S11A-MAT';
+delete from sigov.almoxarifado_local where tenant_id=910001 and codigo like 'C2S11A-LOC%';
+delete from sigov.parametro_modulo_valor where tenant_id=910002 and correlation_id='c2s11-prazo-override-e2e';
+delete from sigov.autorizacao_decisao_auditoria where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.auditoria_evento where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.identidade_sessao where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.sessao_usuario where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.sessao_contexto_usuario where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.contexto_operacional_auditoria where usuario_executor_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.usuario_contexto_global_log where usuario_global_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.historico_login where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.trilha_auditoria where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.token_mfa where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.senha_redefinicao_token where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.fila_assinatura where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.usuario_preferencia where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.usuario_filtro_salvo where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.perfil_permissao where correlation_id in ('cf58c2ab-1c20-4a90-88f8-0c2000000011','cf58c2ab-1c20-4a90-88f8-0c2000000012','cf58c2ab-1c20-4a90-88f8-0c2000000013','cf58c2ab-1c20-4a90-88f8-0c2000000014','cf58c2ab-1c20-4a90-88f8-0c2000000015','cf58c2ab-1c20-4a90-88f8-0c2000000016');
+delete from sigov.usuario_grupo where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%');
+delete from sigov.grupo_perfil where grupo_acesso_id in (select id from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo in ('C2S11A-FIN','C2S11A-JUR','C2S11A-SEMP')) or (tenant_id=910002 and codigo_externo in ('C2S11B-ADM','C2S11B-SEMP')));
+delete from sigov.perfil_acesso where (tenant_id=910001 and nome in ('C2S11A Perfil Tesouraria','C2S11A Perfil Juridico','C2S11A Perfil SemFrente')) or (tenant_id=910002 and nome in ('C2S11B Perfil Administracao','C2S11B Perfil SemFrente'));
+delete from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo in ('C2S11A-FIN','C2S11A-JUR','C2S11A-SEMP')) or (tenant_id=910002 and codigo_externo in ('C2S11B-ADM','C2S11B-SEMP'));
+delete from sigov.entidade where (tenant_id=910001 and codigo_externo='C2S11A-ENT') or (tenant_id=910002 and codigo_externo='C2S11B-ENT');
+-- TENANT A = 910001 (jornada na esfera MUNICIPAL)
+insert into sigov.entidade(tenant_id,nome,cnpj,codigo_externo,esfera_governo,tipo_entidade,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S11A Entidade Municipal','00.000.000/0001-94','C2S11A-ENT','municipal','SECRETARIA',true,false,now(),910301
+where not exists(select 1 from sigov.entidade where tenant_id=910001 and codigo_externo='C2S11A-ENT');
+-- TENANT B = 910002 (jornada na esfera ESTADUAL)
+insert into sigov.entidade(tenant_id,nome,cnpj,codigo_externo,esfera_governo,tipo_entidade,ativo,is_deleted,created_at,created_by)
+select 910002,'C2S11B Entidade Estadual','00.000.000/0001-95','C2S11B-ENT','estadual','SECRETARIA',true,false,now(),910301
+where not exists(select 1 from sigov.entidade where tenant_id=910002 and codigo_externo='C2S11B-ENT');
+-- Perfis/grupos dedicados dos perfis nao-administrativos (A) e da administracao do tenant B
+insert into sigov.grupo_acesso(tenant_id,nome,codigo_externo,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S11A Grupo Tesouraria','C2S11A-FIN',true,false,now(),910301
+where not exists(select 1 from sigov.grupo_acesso where tenant_id=910001 and codigo_externo='C2S11A-FIN');
+insert into sigov.grupo_acesso(tenant_id,nome,codigo_externo,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S11A Grupo Juridico','C2S11A-JUR',true,false,now(),910301
+where not exists(select 1 from sigov.grupo_acesso where tenant_id=910001 and codigo_externo='C2S11A-JUR');
+insert into sigov.grupo_acesso(tenant_id,nome,codigo_externo,ativo,is_deleted,created_at,created_by)
+select 910002,'C2S11B Grupo Administracao','C2S11B-ADM',true,false,now(),910301
+where not exists(select 1 from sigov.grupo_acesso where tenant_id=910002 and codigo_externo='C2S11B-ADM');
+-- Grupos SemFrente dos usuarios 'semperm': o AuthController (Web) exige roles>0 E permissoes>0
+-- por candidato p/ autenticar (L88); sem acesso minimo o usuario nunca loga e o 403 fail-closed
+-- da frente de compras nunca e observavel. Cada grupo carrega 1 chave inofensiva FORA da frente.
+insert into sigov.grupo_acesso(tenant_id,nome,codigo_externo,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S11A Grupo SemFrente','C2S11A-SEMP',true,false,now(),910301
+where not exists(select 1 from sigov.grupo_acesso where tenant_id=910001 and codigo_externo='C2S11A-SEMP');
+insert into sigov.grupo_acesso(tenant_id,nome,codigo_externo,ativo,is_deleted,created_at,created_by)
+select 910002,'C2S11B Grupo SemFrente','C2S11B-SEMP',true,false,now(),910301
+where not exists(select 1 from sigov.grupo_acesso where tenant_id=910002 and codigo_externo='C2S11B-SEMP');
+insert into sigov.perfil_acesso(tenant_id,nome,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S11A Perfil Tesouraria',true,false,now(),910301
+where not exists(select 1 from sigov.perfil_acesso where tenant_id=910001 and nome='C2S11A Perfil Tesouraria');
+insert into sigov.perfil_acesso(tenant_id,nome,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S11A Perfil Juridico',true,false,now(),910301
+where not exists(select 1 from sigov.perfil_acesso where tenant_id=910001 and nome='C2S11A Perfil Juridico');
+insert into sigov.perfil_acesso(tenant_id,nome,ativo,is_deleted,created_at,created_by)
+select 910002,'C2S11B Perfil Administracao',true,false,now(),910301
+where not exists(select 1 from sigov.perfil_acesso where tenant_id=910002 and nome='C2S11B Perfil Administracao');
+insert into sigov.perfil_acesso(tenant_id,nome,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S11A Perfil SemFrente',true,false,now(),910301
+where not exists(select 1 from sigov.perfil_acesso where tenant_id=910001 and nome='C2S11A Perfil SemFrente');
+insert into sigov.perfil_acesso(tenant_id,nome,ativo,is_deleted,created_at,created_by)
+select 910002,'C2S11B Perfil SemFrente',true,false,now(),910301
+where not exists(select 1 from sigov.perfil_acesso where tenant_id=910002 and nome='C2S11B Perfil SemFrente');
+insert into sigov.grupo_perfil(grupo_acesso_id,perfil_acesso_id,tenant_id,ativo,is_deleted,created_at,created_by)
+select g.id,p.id,g.tenant_id,true,false,now(),910301
+from sigov.grupo_acesso g cross join sigov.perfil_acesso p
+where ((g.tenant_id=910001 and g.codigo_externo='C2S11A-FIN' and p.tenant_id=910001 and p.nome='C2S11A Perfil Tesouraria')
+   or (g.tenant_id=910001 and g.codigo_externo='C2S11A-JUR' and p.tenant_id=910001 and p.nome='C2S11A Perfil Juridico')
+   or (g.tenant_id=910002 and g.codigo_externo='C2S11B-ADM' and p.tenant_id=910002 and p.nome='C2S11B Perfil Administracao'))
+and not exists(select 1 from sigov.grupo_perfil gp where gp.grupo_acesso_id=g.id and gp.perfil_acesso_id=p.id and gp.ativo);
+insert into sigov.grupo_perfil(grupo_acesso_id,perfil_acesso_id,tenant_id,ativo,is_deleted,created_at,created_by)
+select g.id,p.id,g.tenant_id,true,false,now(),910301
+from sigov.grupo_acesso g cross join sigov.perfil_acesso p
+where ((g.tenant_id=910001 and g.codigo_externo='C2S11A-SEMP' and p.tenant_id=910001 and p.nome='C2S11A Perfil SemFrente')
+   or (g.tenant_id=910002 and g.codigo_externo='C2S11B-SEMP' and p.tenant_id=910002 and p.nome='C2S11B Perfil SemFrente'))
+and not exists(select 1 from sigov.grupo_perfil gp where gp.grupo_acesso_id=g.id and gp.perfil_acesso_id=p.id and gp.ativo);
+-- Usuarios (senha_hash copiado do admin 910301; login unico por tenant)
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910001,e.id,1,'C2S11A Administrador','c2s11a.admin','c2s11a.admin@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910001 and e.codigo_externo='C2S11A-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910001 and x.login='c2s11a.admin');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910001,e.id,1,'C2S11A Gestor Solicitante','c2s11a.gestor','c2s11a.gestor@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910001 and e.codigo_externo='C2S11A-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910001 and x.login='c2s11a.gestor');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910001,e.id,1,'C2S11A Tesoureiro','c2s11a.fin','c2s11a.fin@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910001 and e.codigo_externo='C2S11A-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910001 and x.login='c2s11a.fin');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910001,e.id,1,'C2S11A Advogado','c2s11a.jur','c2s11a.jur@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910001 and e.codigo_externo='C2S11A-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910001 and x.login='c2s11a.jur');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910001,e.id,1,'C2S11A Sem Grupo','c2s11a.semperm','c2s11a.semperm@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910001 and e.codigo_externo='C2S11A-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910001 and x.login='c2s11a.semperm');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910002,e.id,1,'C2S11B Administrador','c2s11b.admin','c2s11b.admin@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910002 and e.codigo_externo='C2S11B-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910002 and x.login='c2s11b.admin');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910002,e.id,1,'C2S11B Gestor Solicitante','c2s11b.gestor','c2s11b.gestor@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910002 and e.codigo_externo='C2S11B-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910002 and x.login='c2s11b.gestor');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910002,e.id,1,'C2S11B Sem Grupo','c2s11b.semperm','c2s11b.semperm@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910002 and e.codigo_externo='C2S11B-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910002 and x.login='c2s11b.semperm');
+-- Vinculo usuario x grupo (o admin A reutiliza o grupo 910401 existente do tenant; gestores ficam SEM grupo; semperm -> grupo SemFrente)
+insert into sigov.usuario_grupo(usuario_id,grupo_acesso_id,tenant_id,ativo,created_at,created_by)
+select u.id,910401,910001,true,now(),910301
+from sigov.usuario u
+where u.tenant_id=910001 and u.login='c2s11a.admin'
+and not exists(select 1 from sigov.usuario_grupo g where g.usuario_id=u.id and g.grupo_acesso_id=910401 and g.ativo);
+insert into sigov.usuario_grupo(usuario_id,grupo_acesso_id,tenant_id,ativo,created_at,created_by)
+select u.id,g.id,u.tenant_id,true,now(),910301
+from sigov.usuario u cross join sigov.grupo_acesso g
+where ((u.tenant_id=910001 and u.login='c2s11a.fin' and g.tenant_id=910001 and g.codigo_externo='C2S11A-FIN')
+   or (u.tenant_id=910001 and u.login='c2s11a.jur' and g.tenant_id=910001 and g.codigo_externo='C2S11A-JUR')
+   or (u.tenant_id=910002 and u.login='c2s11b.admin' and g.tenant_id=910002 and g.codigo_externo='C2S11B-ADM'))
+and not exists(select 1 from sigov.usuario_grupo gu where gu.usuario_id=u.id and gu.grupo_acesso_id=g.id and gu.ativo);
+-- SemFrente: vinculo dos usuarios semperm aos grupos dedicados (login viavel, sem permissao na frente)
+insert into sigov.usuario_grupo(usuario_id,grupo_acesso_id,tenant_id,ativo,created_at,created_by)
+select u.id,g.id,u.tenant_id,true,now(),910301
+from sigov.usuario u cross join sigov.grupo_acesso g
+where ((u.tenant_id=910001 and u.login='c2s11a.semperm' and g.tenant_id=910001 and g.codigo_externo='C2S11A-SEMP')
+   or (u.tenant_id=910002 and u.login='c2s11b.semperm' and g.tenant_id=910002 and g.codigo_externo='C2S11B-SEMP'))
+and not exists(select 1 from sigov.usuario_grupo gu where gu.usuario_id=u.id and gu.grupo_acesso_id=g.id and gu.ativo);
+-- Grants sentinel (limpeza cirurgica por correlation_id): 24 chaves da frente (mesmo conjunto da S9)
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910001,'cf58c2ab-1c20-4a90-88f8-0c2000000011'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.id=(select gp.perfil_acesso_id from sigov.grupo_perfil gp where gp.grupo_acesso_id=910401 limit 1)
+  and p.ativo and not p.is_deleted
+  and ((p.modulo='compras' and p.chave in ('compras.demanda.visualizar','compras.demanda.criar','compras.demanda.aprovar','compras.demanda.reabrir','compras.licitacao.abrir','compras.licitacao.habilitacao.julgar','compras.licitacao.lances.registrar','compras.licitacao.preferencia.documentar','compras.julgamento.executar','compras.adjudicacao.executar','compras.homologacao.executar','compras.contrato.criar','compras.contrato.prorrogar','compras.contrato.rescindir','compras.contrato.execucao.fiscalizar','compras.fornecimento.criar','compras.fornecimento.visualizar','compras.recebimento.aprovar','compras.recebimento.rejeitar','compras.fatura.vincular','compras.obrigacao.visualizar','compras.obrigacao.liquidar'))
+    or (p.chave='almoxarifado.recebimento.confirmar' and p.modulo='almoxarifado')
+    or (p.chave='patrimonio.bem.criar' and p.modulo='patrimonio'))
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+-- Perfil tesouraria (A): somente fatura/obrigacao/liquidacao/visualizar fornecimento (4 chaves)
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910001,'cf58c2ab-1c20-4a90-88f8-0c2000000012'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.tenant_id=910001 and pa.nome='C2S11A Perfil Tesouraria'
+  and p.modulo='compras' and p.ativo and not p.is_deleted
+  and p.chave in ('compras.fatura.vincular','compras.obrigacao.visualizar','compras.obrigacao.liquidar','compras.fornecimento.visualizar')
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+-- Perfil juridico (A): somente a moda juridica (2 chaves)
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910001,'cf58c2ab-1c20-4a90-88f8-0c2000000013'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.tenant_id=910001 and pa.nome='C2S11A Perfil Juridico'
+  and p.modulo='juridico' and p.ativo and not p.is_deleted
+  and p.chave in ('juridico.consulta.criar','juridico.parecer.emitir')
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+-- Administracao do tenant B: mesmas 24 chaves da frente (tenant_id 910002)
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910002,'cf58c2ab-1c20-4a90-88f8-0c2000000014'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.tenant_id=910002 and pa.nome='C2S11B Perfil Administracao'
+  and p.ativo and not p.is_deleted
+  and ((p.modulo='compras' and p.chave in ('compras.demanda.visualizar','compras.demanda.criar','compras.demanda.aprovar','compras.demanda.reabrir','compras.licitacao.abrir','compras.licitacao.habilitacao.julgar','compras.licitacao.lances.registrar','compras.licitacao.preferencia.documentar','compras.julgamento.executar','compras.adjudicacao.executar','compras.homologacao.executar','compras.contrato.criar','compras.contrato.prorrogar','compras.contrato.rescindir','compras.contrato.execucao.fiscalizar','compras.fornecimento.criar','compras.fornecimento.visualizar','compras.recebimento.aprovar','compras.recebimento.rejeitar','compras.fatura.vincular','compras.obrigacao.visualizar','compras.obrigacao.liquidar'))
+    or (p.chave='almoxarifado.recebimento.confirmar' and p.modulo='almoxarifado')
+    or (p.chave='patrimonio.bem.criar' and p.modulo='patrimonio'))
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+-- Perfis SemFrente: 1 chave inofensiva FORA da frente (necessaria p/ o login autenticar - AuthController L88)
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910001,'cf58c2ab-1c20-4a90-88f8-0c2000000015'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.tenant_id=910001 and pa.nome='C2S11A Perfil SemFrente'
+  and p.modulo='patrimonio' and p.chave='patrimonio.bem.criar' and p.ativo and not p.is_deleted
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910002,'cf58c2ab-1c20-4a90-88f8-0c2000000016'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.tenant_id=910002 and pa.nome='C2S11B Perfil SemFrente'
+  and p.modulo='almoxarifado' and p.chave='almoxarifado.recebimento.confirmar' and p.ativo and not p.is_deleted
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+do `$`$
+begin
+  if (select count(1) from sigov.tenant t where t.id in (910001,910002) and t.ativo and not t.is_deleted) <> 2 then
+    raise exception 'C2S11-FIXTURE: tenants 910001/910002 ausentes ou inativos';
+  end if;
+  if (select coalesce(valor_padrao::text,'') from sigov.parametro_modulo where modulo='COMPRAS' and codigo='RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS' and ativo and not is_deleted limit 1) <> '5' then
+    raise exception 'C2S11-FIXTURE: parametro padrao COMPRAS.RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS <> 5';
+  end if;
+  if (select count(1) from sigov.permissao p where p.ativo and not p.is_deleted
+      and ((p.modulo='compras' and p.chave in ('compras.demanda.visualizar','compras.demanda.criar','compras.demanda.aprovar','compras.demanda.reabrir','compras.licitacao.abrir','compras.licitacao.habilitacao.julgar','compras.licitacao.lances.registrar','compras.licitacao.preferencia.documentar','compras.julgamento.executar','compras.adjudicacao.executar','compras.homologacao.executar','compras.contrato.criar','compras.contrato.prorrogar','compras.contrato.rescindir','compras.contrato.execucao.fiscalizar','compras.fornecimento.criar','compras.fornecimento.visualizar','compras.recebimento.aprovar','compras.recebimento.rejeitar','compras.fatura.vincular','compras.obrigacao.visualizar','compras.obrigacao.liquidar'))
+        or (p.chave in ('almoxarifado.recebimento.confirmar','patrimonio.bem.criar'))
+        or (p.modulo='juridico' and p.chave in ('juridico.consulta.criar','juridico.parecer.emitir')))) <> 26 then
+    raise exception 'C2S11-FIXTURE: catalogo de permissoes incompleto (esperado 26 chaves ativas no banco)';
+  end if;
+end
+`$`$;
+-- Catalogo ficticio por tenant (dados homogeneos, esferas distintas — regra 9/21)
+insert into sigov.financeiro_centro_custo(tenant_id,codigo,nome,descricao,ativo,created_at,updated_at)
+select 910001,'C2S11A-CC1','CC C2S11A Ativo','centro de custo ficticio ativo (homologacao)',true,now(),now()
+where not exists(select 1 from sigov.financeiro_centro_custo where tenant_id=910001 and codigo='C2S11A-CC1');
+insert into sigov.financeiro_centro_custo(tenant_id,codigo,nome,descricao,ativo,created_at,updated_at)
+select 910002,'C2S11B-CC1','CC C2S11B Ativo','centro de custo ficticio ativo (homologacao)',true,now(),now()
+where not exists(select 1 from sigov.financeiro_centro_custo where tenant_id=910002 and codigo='C2S11B-CC1');
+insert into sigov.compras_fornecedor(tenant_id,entidade_id,nome,tipo_pessoa,documento,status,categoria_me_epp,created_at,updated_at,created_by)
+select 910001,e.id,'Forneadora C2S11A Alfa','JURIDICA','99.999.000/0006-06','ATIVO',null,now(),now(),910301
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S11A-ENT'
+and not exists(select 1 from sigov.compras_fornecedor f where f.tenant_id=910001 and f.documento='99.999.000/0006-06');
+insert into sigov.compras_fornecedor(tenant_id,entidade_id,nome,tipo_pessoa,documento,status,categoria_me_epp,created_at,updated_at,created_by)
+select 910002,e.id,'Forneadora C2S11B Beta','JURIDICA','99.999.000/0007-07','ATIVO',null,now(),now(),910301
+from sigov.entidade e where e.tenant_id=910002 and e.codigo_externo='C2S11B-ENT'
+and not exists(select 1 from sigov.compras_fornecedor f where f.tenant_id=910002 and f.documento='99.999.000/0007-07');
+insert into sigov.almoxarifado_local(tenant_id,entidade_id,codigo,nome,ativo,created_at,updated_at)
+select 910001,e.id,'C2S11A-LOC1','Local C2S11A Ativo',true,now(),now()
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S11A-ENT'
+and not exists(select 1 from sigov.almoxarifado_local l where l.tenant_id=910001 and l.codigo='C2S11A-LOC1');
+insert into sigov.almoxarifado_material(tenant_id,entidade_id,codigo,descricao,tipo_material,unidade_medida,estoque_minimo,controla_lote,controla_validade,ativo,created_at,updated_at)
+select 910001,e.id,'C2S11A-MAT','Material C2S11A homologacao','CONSUMO','un',0,false,false,true,now(),now()
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S11A-ENT'
+and not exists(select 1 from sigov.almoxarifado_material m where m.tenant_id=910001 and m.codigo='C2S11A-MAT');
+-- Override parametrico do tenant B (regra 11/21): prazo de substituicao 10 dias uteis (padrao 5)
+insert into sigov.parametro_modulo_valor(tenant_id,parametro_id,valor,correlation_id,created_by,is_deleted)
+select 910002,id,'10'::jsonb,'c2s11-prazo-override-e2e',910301,false
+from sigov.parametro_modulo
+where modulo='COMPRAS' and codigo='RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS'
+and not exists(select 1 from sigov.parametro_modulo_valor val where val.tenant_id=910002 and val.parametro_id=(select id from sigov.parametro_modulo where modulo='COMPRAS' and codigo='RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS'));
+select coalesce((select id::text from sigov.entidade where tenant_id=910001 and codigo_externo='C2S11A-ENT'),'0') || '|'
+     || coalesce((select id::text from sigov.usuario where tenant_id=910001 and login='c2s11a.admin'),'0') || '|'
+     || coalesce((select id::text from sigov.usuario where tenant_id=910001 and login='c2s11a.gestor'),'0') || '|'
+     || coalesce((select id::text from sigov.usuario where tenant_id=910001 and login='c2s11a.fin'),'0') || '|'
+     || coalesce((select id::text from sigov.usuario where tenant_id=910001 and login='c2s11a.jur'),'0') || '|'
+     || coalesce((select id::text from sigov.usuario where tenant_id=910001 and login='c2s11a.semperm'),'0') || '|'
+     || coalesce((select id::text from sigov.financeiro_centro_custo where tenant_id=910001 and codigo='C2S11A-CC1'),'0') || '|'
+     || coalesce((select id::text from sigov.compras_fornecedor where tenant_id=910001 and documento='99.999.000/0006-06'),'0') || '|'
+     || coalesce((select id::text from sigov.almoxarifado_local where tenant_id=910001 and codigo='C2S11A-LOC1'),'0') || '|'
+     || coalesce((select id::text from sigov.almoxarifado_material where tenant_id=910001 and codigo='C2S11A-MAT'),'0') || '|'
+     || coalesce((select id::text from sigov.entidade where tenant_id=910002 and codigo_externo='C2S11B-ENT'),'0') || '|'
+     || coalesce((select id::text from sigov.usuario where tenant_id=910002 and login='c2s11b.admin'),'0') || '|'
+     || coalesce((select id::text from sigov.usuario where tenant_id=910002 and login='c2s11b.gestor'),'0') || '|'
+     || coalesce((select id::text from sigov.usuario where tenant_id=910002 and login='c2s11b.semperm'),'0') || '|'
+     || coalesce((select id::text from sigov.financeiro_centro_custo where tenant_id=910002 and codigo='C2S11B-CC1'),'0') || '|'
+     || coalesce((select id::text from sigov.compras_fornecedor where tenant_id=910002 and documento='99.999.000/0007-07'),'0');
+"@
+$s11p = if ($s11fix.code -eq 0 -and ($s11fix.text -ne '')) { @($s11fix.text.Trim() -split '\|') } else { @('0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0') }
+while ($s11p.Count -lt 16) { $s11p += '0' }
+$s11entA=[long]$s11p[0]; $s11uidA=[long]$s11p[1]; $s11gestorA=[long]$s11p[2]; $s11finA=[long]$s11p[3]; $s11jurA=[long]$s11p[4]; $s11semA=[long]$s11p[5]; $s11ccA=[long]$s11p[6]; $s11fornA=[long]$s11p[7]; $s11locA=[long]$s11p[8]; $s11matA=[long]$s11p[9]
+$s11entB=[long]$s11p[10]; $s11uidB=[long]$s11p[11]; $s11gestorB=[long]$s11p[12]; $s11semB=[long]$s11p[13]; $s11ccB=[long]$s11p[14]; $s11fornB=[long]$s11p[15]
+$s11db = Get-Psql "select coalesce((select esfera_governo from sigov.entidade where tenant_id=910001 and codigo_externo='C2S11A-ENT'),'NULL')||'|'||coalesce((select esfera_governo from sigov.entidade where tenant_id=910002 and codigo_externo='C2S11B-ENT'),'NULL')||'|'||coalesce((select val.valor::text from sigov.parametro_modulo_valor val join sigov.parametro_modulo pm on pm.id=val.parametro_id where val.tenant_id=910001 and pm.modulo='COMPRAS' and pm.codigo='RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS' and not val.is_deleted limit 1),'PADRAO')||'|'||coalesce((select val.valor::text from sigov.parametro_modulo_valor val join sigov.parametro_modulo pm on pm.id=val.parametro_id where val.tenant_id=910002 and pm.modulo='COMPRAS' and pm.codigo='RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS' and not val.is_deleted limit 1),(select valor_padrao::text from sigov.parametro_modulo where modulo='COMPRAS' and codigo='RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS' and ativo and not is_deleted))"
+Add-Check 'S11' 'fixture.dois-tenants-duas-esferas-quatro-perfis-parametro-override' (($s11fix.code -eq 0) -and ($s11entA -gt 0) -and ($s11uidA -gt 0) -and ($s11gestorA -gt 0) -and ($s11finA -gt 0) -and ($s11jurA -gt 0) -and ($s11semA -gt 0) -and ($s11ccA -gt 0) -and ($s11fornA -gt 0) -and ($s11locA -gt 0) -and ($s11matA -gt 0) -and ($s11entB -gt 0) -and ($s11uidB -gt 0) -and ($s11gestorB -gt 0) -and ($s11semB -gt 0) -and ($s11ccB -gt 0) -and ($s11fornB -gt 0) -and ($s11db.text -eq 'municipal|estadual|PADRAO|10')) ("fixture S11 (tenant 910001: entidade esfera MUNICIPAL + admin c/ grupo 910401 + gestor solicitante + perfis dedicados TESOURARIA e JURIDICO + usuario SemFrente sem permissao na frente; tenant 910002: entidade esfera ESTADUAL + grupo/perfil administracao proprio + gestor + usuario SemFrente; grants sentinel cf58c2ab-...011/012/013/014 + 015/016 das chaves inofensiveis SemFrente — login exige permissoes>0, AuthController L88; postcond exige tenants ativos, padrao RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS=5 e 26 chaves ativas no banco — falha explicita, regras 11/13/21) exit=$($s11fix.code); banco esferaA|esferaB|param-efetivo-A|param-efetivo-B: $($s11db.text); sql-err-tail=$($s11fix.text.Substring([Math]::Max(0,$s11fix.text.Length-500)))")
+
+# --- 6 logins reais: duas esferas, quatro perfis (BR-11.1) ---------------------
+$lgA = New-SigovLogin -User 'c2s11a.admin' -Pass $Password -Base $WebBase
+$tkA = if ($lgA.ok) { Get-ApiToken -Jar $lgA.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+$lgFin = New-SigovLogin -User 'c2s11a.fin' -Pass $Password -Base $WebBase
+$tkFin = if ($lgFin.ok) { Get-ApiToken -Jar $lgFin.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+$lgJur = New-SigovLogin -User 'c2s11a.jur' -Pass $Password -Base $WebBase
+$tkJur = if ($lgJur.ok) { Get-ApiToken -Jar $lgJur.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+$lgSemA = New-SigovLogin -User 'c2s11a.semperm' -Pass $Password -Base $WebBase
+$tkSemA = if ($lgSemA.ok) { Get-ApiToken -Jar $lgSemA.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+$lgB = New-SigovLogin -User 'c2s11b.admin' -Pass $Password -Base $WebBase
+$tkB = if ($lgB.ok) { Get-ApiToken -Jar $lgB.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+$lgSemB = New-SigovLogin -User 'c2s11b.semperm' -Pass $Password -Base $WebBase
+$tkSemB = if ($lgSemB.ok) { Get-ApiToken -Jar $lgSemB.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+Add-Check 'S11' 'auth.seis-logins-duas-esferas-token-mint' (($lgA.ok -eq $true) -and ($tkA.token.Length -eq 64) -and ($lgFin.ok -eq $true) -and ($tkFin.token.Length -eq 64) -and ($lgJur.ok -eq $true) -and ($tkJur.token.Length -eq 64) -and ($lgSemA.ok -eq $true) -and ($tkSemA.token.Length -eq 64) -and ($lgB.ok -eq $true) -and ($tkB.token.Length -eq 64) -and ($lgSemB.ok -eq $true) -and ($tkSemB.token.Length -eq 64)) ("6 logins web reais na mesma rodada: c2s11a.admin/fin/jur/semperm (tenant 910001, esfera municipal) + c2s11b.admin/semperm (tenant 910002, esfera estadual) -> todos 302 MinhaCentral com ApiToken len=64 (contexto institucional multi-esfera resolvido pela entidade do usuario; autorizacao 100% banco, regras 11/22)")
+
+# --- jornada A (municipal): cadeia completa ate contrato (perfil administracao) --
+$s11dAb = ('{"objeto":"C2S11A-Aquisicao de equipamentos para a unidade municipal","justificativa":"necessidade operacional homologacao c2s11a","itens":[{"descricao":"Equipamento C2S11A","quantidade":20,"unidade":"un","tipoObjeto":"BEM","precoEstimado":100,"centroCustoId":' + $s11ccA + '}],"urgencia":false}')
+$s11dA = Invoke-Api -Bearer $tkA.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body $s11dAb
+$s11dAj = $null; try { $s11dAj = ($s11dA.body | ConvertFrom-Json) } catch {}
+$s11dAid = 0; if ($s11dAj -and $null -ne $s11dAj.data) { $s11dAid = [long]$s11dAj.data.id }
+$s11dAdb = Get-Psql ("select status||'|'||to_char(valor_estimado,'FM999990.00')||'|'||urgencia||'|'||prioridade from sigov.compras_demanda where id=" + $s11dAid + ";")
+$null = Get-Psql ("update sigov.compras_demanda set created_by=" + $s11gestorA + " where id=" + $s11dAid + ";")
+$s11apA = Invoke-Api -Bearer $tkA.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s11dAid + '/aprovar') -Base $ApiBase
+$s11apAdb = Get-Psql ("select min(id)||'|'||count(*)||'|'||min(status)||'|'||case when min(numero) like 'PI-%' then 'PI' else 'NAO' end from sigov.compras_processo where tenant_id=910001 and demanda_id=" + $s11dAid + ";")
+$s11apAp = if ($s11apAdb.code -eq 0 -and $s11apAdb.text -ne '') { @($s11apAdb.text -split '\|') } else { @('0','0','NAO','NAO') }
+$s11procA = [long]$s11apAp[0]
+$s11cx0 = Invoke-Api -Bearer $tkA.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s11dAid + '/cancelar') -Base $ApiBase -Body '{"justificativa":"cancelamento generico com efeito ja registrado no processo"}'
+$s11dpA0 = Invoke-Api -Bearer $tkA.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s11dAid + ',"modalidadeCodigo":"DISPENSA"}')
+$s11dpA1 = Invoke-Api -Bearer $tkA.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s11dAid + ',"modalidadeCodigo":"DISPENSA","dispensaBaseLegalCodigo":"ART_75_I"}')
+$s11dpA1j = $null; try { $s11dpA1j = ($s11dpA1.body | ConvertFrom-Json) } catch {}
+$s11licA = 0
+if ($s11dpA1j -and $null -ne $s11dpA1j.data) { $s11licA = [long]$s11dpA1j.data.licitacaoId }
+$s11liA = Get-Psql ("insert into sigov.compras_licitacao_item(tenant_id,entidade_id,licitacao_id,numero,descricao,quantidade,unidade,valor_estimado,created_at,updated_at,created_by,updated_by) select 910001," + $s11entA + "," + $s11licA + ",1,'Equipamento C2S11A',20,'un',100.00,now(),now(),910301,910301 where not exists(select 1 from sigov.compras_licitacao_item i where i.licitacao_id=" + $s11licA + "); select count(*) from sigov.compras_licitacao_item where licitacao_id=" + $s11licA + ";")
+$s11daA1 = Invoke-Api -Bearer $tkA.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s11licA + '/adjudicar') -Base $ApiBase -Body ('{"fornecedorId":' + $s11fornA + ',"observacao":"contratacao direta c2s11a"}')
+$s11daA1j = $null; try { $s11daA1j = ($s11daA1.body | ConvertFrom-Json) } catch {}
+$s11daAdb = Get-Psql ("select to_char(a.valor_total,'FM999990.00')||'|'||(select status from sigov.compras_licitacao where id=" + $s11licA + ")||'|'||(select p.fornecedor_id::text from sigov.compras_proposta p where p.id=a.proposta_vencedora_id) from sigov.compras_adjudicacao a where tenant_id=910001 and licitacao_id=" + $s11licA + ";")
+$null = Get-Psql ("update sigov.compras_adjudicacao set responsavel_id=" + $s11gestorA + " where tenant_id=910001 and licitacao_id=" + $s11licA + ";")
+$s11hoA = Invoke-Api -Bearer $tkA.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s11licA + '/homologar') -Base $ApiBase
+$s11hoAj = $null; try { $s11hoAj = ($s11hoA.body | ConvertFrom-Json) } catch {}
+$s11hoAid = 0; if ($s11hoAj -and $null -ne $s11hoAj.data) { $s11hoAid = [long]$s11hoAj.data.id }
+$s11ctAb = ('{"homologacaoId":' + $s11hoAid + ',"dataEficacia":"2026-11-10","dataFim":"2027-11-09","assinaturaModo":"FISICA","gestor":"Gestor C2S11A","fiscal":"Fiscal C2S11A"}')
+$s11ctA = Invoke-Api -Bearer $tkA.token -Method POST -Path '/api/compras/integradas/contratos' -Base $ApiBase -Body $s11ctAb
+$s11ctAj = $null; try { $s11ctAj = ($s11ctA.body | ConvertFrom-Json) } catch {}
+$s11ctAid = 0; if ($s11ctAj -and $null -ne $s11ctAj.data) { $s11ctAid = [long]$s11ctAj.data.contratoId }
+$s11ctAdb = Get-Psql ("select status||'|'||to_char(valor_contratado,'FM999990.00') from sigov.compras_contrato where id=" + $s11ctAid + ";")
+$s11itAr = Get-Psql ("select id::text from sigov.compras_contrato_item where contrato_id=" + $s11ctAid + " limit 1;")
+$s11itA = 0; if ($s11itAr.code -eq 0 -and $s11itAr.text -ne '') { $s11itA = [long]$s11itAr.text.Trim() }
+Add-Check 'S11' 'jornada-a.municipal-cadeia-completa-cancelamento-com-efeito' (($s11dA.code -eq 200) -and ($s11dAid -gt 0) -and ($s11dAdb.text -eq 'SOLICITADA|2000.00|false|NORMAL') -and ($s11apA.code -eq 200) -and ($s11procA -gt 0) -and ($s11apAp[1] -eq '1') -and ($s11apAp[2] -eq 'ABERTO') -and ($s11apAp[3] -eq 'PI') -and ($s11cx0.code -eq 409) -and ($s11cx0.body -like '*DEMANDA_APOS_APROVACAO_IMUTAVEL*') -and ($s11dpA0.code -eq 400) -and ($s11dpA0.body -like '*DISPENSA_BASE_LEGAL_OBRIGATORIA*') -and ($s11dpA1.code -eq 200) -and ([long]$s11dpA1j.data.processoId -eq $s11procA) -and ($s11liA.text -eq '1') -and ($s11daA1.code -eq 200) -and ([decimal]$s11daA1j.data.valorTotal -eq 2000) -and ($s11daAdb.text -like ("2000.00|ADJUDICADA|" + $s11fornA)) -and ($s11hoA.code -eq 200) -and ($s11hoAid -gt 0) -and ($s11ctA.code -eq 200) -and ($s11ctAid -gt 0) -and ([decimal]$s11ctAj.data.valorContratado -eq 2000) -and ($s11ctAdb.text -eq 'VIGENTE|2000.00') -and ($s11itA -gt 0)) ("ESFERA MUNICIPAL (tenant 910001, perfil administracao): demanda 20 un x 100.00 -> $($s11dA.code) banco SOLICITADA|2000.00 (separation-of-duties: created_by reposicionado ao gestor id=$s11gestorA antes de aprovar); aprovar -> $($s11apA.code) processo unico $s11procA $($s11apAp[1..3] -join '|'); CANCELAMENTO COM EFEITO: cancelar a demanda APROVADA -> $($s11cx0.code) (409 DEMANDA_APOS_APROVACAO_IMUTAVEL nomeada — o efeito ja registrado no processo bloqueia o cancelamento generico, BR-11.2); dispensa sem base legal 400 nomeada / ART_75_I 200 (processoId=$($s11dpA1j.data.processoId)); adjudicacao direta c/ fornecedor -> $($s11daA1.code) valor 2000.00 banco: $($s11daAdb.text) (responsavel reposicionado ao gestor antes de homologar); homologar -> $($s11hoA.code) id=$s11hoAid; contrato -> $($s11ctA.code) id=$s11ctAid banco: $($s11ctAdb.text) item=$s11itA")
+
+# --- BR-11.2: concorrencia + reenvio idempotente (mesma chave, dois clientes) ---
+function Invoke-ApiConcorrencia {
+  param([string]$Bearer,[string]$Path,[string]$Body)
+  # Concorrencia real SEM processo extra e SEM runspace extra: dois Process curl.exe
+  # iniciados em sequencia rapida rodam em paralelo; ReadToEnd(stdOut) aguarda cada um.
+  # Round 4: Start-Job (2 shells powershell) respondia vazio sob pressao de RAM.
+  # Round 5: Task.Run com scriptblock falha com "No runspace available" neste host.
+  # Corpo inline (-d) evita lock do antivírus em %TEMP% sobre arquivo novo.
+  $h1 = 'Authorization: Bearer ' + $Bearer
+  $h2 = 'Content-Type: application/json'
+  $u = $ApiBase + $Path
+  function Esc-Arg([string]$a) {
+    if ($a -match '^[A-Za-z0-9_\-.:/@?=,%+]*$') { return $a }
+    return '"' + ($a -replace '\\','\\\\').Replace('"','\"') + '"'
+  }
+  function Split-CodeBody([string]$t) {
+    $code = 0; $body = $t
+    $i = $t.LastIndexOf("`n".ToCharArray()[0])
+    if ($i -ge 0) { $body = $t.Substring(0,$i); $c = $t.Substring($i+1).Trim() -replace '\D',''; try { $code = [int]$c } catch {} }
+    return [pscustomobject]@{ code=$code; body=$body }
+  }
+  $argline = (@('-s','--max-time','60','-X','POST','-H',$h2,'-H',$h1,'-d',$Body,'-w',("`n%{http_code}"),$u) | ForEach-Object { Esc-Arg ([string]$_) }) -join ' '
+  $procs = @(); $errs = @()
+  foreach ($k in 1..2) {
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'curl.exe'
+    $psi.Arguments = $argline
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.CreateNoWindow = $true
+    try { $procs += ,([System.Diagnostics.Process]::Start($psi)) } catch { $procs += ,$null; $errs += ('ERRO_START_' + $k + ': ' + $_.Exception.Message) }
+  }
+  $outs = @()
+  foreach ($i in 0..1) {
+    if ($null -eq $procs[$i]) { $outs += ,($errs[$i]); continue }
+    $s = $procs[$i].StandardOutput.ReadToEnd()
+    $procs[$i].WaitForExit()
+    if ($procs[$i].ExitCode -ne 0) { $s = 'CURL_EXIT_' + $procs[$i].ExitCode + ': ' + $s }
+    $outs += ,[string]$s
+  }
+  $p1 = Split-CodeBody $outs[0]
+  $p2 = Split-CodeBody $outs[1]
+  return [pscustomobject]@{ code1=$p1.code; body1=$p1.body; code2=$p2.code; body2=$p2.body }
+}
+$s11f1b = ('{"contratoId":' + $s11ctAid + ',"contratoItemId":' + $s11itA + ',"quantidade":15,"chaveIdempotencia":"K-C2S11A-F1"}')
+$s11f1 = Invoke-Api -Bearer $tkA.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body $s11f1b
+$s11f1j = $null; try { $s11f1j = ($s11f1.body | ConvertFrom-Json) } catch {}
+$s11f1id = 0; if ($s11f1j -and $null -ne $s11f1j.data) { $s11f1id = [long]$s11f1j.data.id }
+$s11f1r = Invoke-Api -Bearer $tkA.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body $s11f1b
+$s11f1rj = $null; try { $s11f1rj = ($s11f1r.body | ConvertFrom-Json) } catch {}
+$s11f1rid = 0; if ($s11f1rj -and $null -ne $s11f1rj.data) { $s11f1rid = [long]$s11f1rj.data.id }
+$s11parb = ('{"contratoId":' + $s11ctAid + ',"contratoItemId":' + $s11itA + ',"quantidade":5,"chaveIdempotencia":"K-C2S11A-PAR"}')
+$s11par = Invoke-ApiConcorrencia -Bearer $tkA.token -Path '/api/compras/integradas/fornecimentos' -Body $s11parb
+$s11parJ1 = $null; try { $s11parJ1 = ($s11par.body1 | ConvertFrom-Json) } catch {}
+$s11parI1 = 0; if ($s11parJ1 -and $null -ne $s11parJ1.data) { $s11parI1 = [long]$s11parJ1.data.id }
+$s11parJ2 = $null; try { $s11parJ2 = ($s11par.body2 | ConvertFrom-Json) } catch {}
+$s11parI2 = 0; if ($s11parJ2 -and $null -ne $s11parJ2.data) { $s11parI2 = [long]$s11parJ2.data.id }
+$s11pardb = Get-Psql ("select count(*)::text||'|'||coalesce(min(id)::text,'0') from sigov.compras_fornecimento where tenant_id=910001 and chave_idempotencia='K-C2S11A-PAR';")
+$s11parPd = if ($s11pardb.code -eq 0 -and $s11pardb.text -ne '') { @($s11pardb.text.Trim() -split '\|') } else { @('0','0') }
+$s11parN = 0; try { $s11parN = [int]$s11parPd[0] } catch {}
+$s11parId = 0; try { $s11parId = [long]$s11parPd[1] } catch {}
+$s11f3 = Invoke-Api -Bearer $tkA.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body $s11parb
+$s11f3j = $null; try { $s11f3j = ($s11f3.body | ConvertFrom-Json) } catch {}
+$s11f3id = 0; if ($s11f3j -and $null -ne $s11f3j.data) { $s11f3id = [long]$s11f3j.data.id }
+Add-Check 'S11' 'fornecimento.concorrencia-efeto-unico-reenvio-idempotente' (($s11f1.code -eq 200) -and ($s11f1id -gt 0) -and ($s11f1r.code -eq 200) -and ($s11f1rid -eq $s11f1id) -and ((($s11par.code1 -eq 200) -and ($s11parI1 -eq $s11parId)) -or ($s11par.code1 -eq 409)) -and ((($s11par.code2 -eq 200) -and ($s11parI2 -eq $s11parId)) -or ($s11par.code2 -eq 409)) -and ($s11parN -eq 1) -and ($s11parId -gt 0) -and ($s11f3.code -eq 200) -and ($s11f3id -eq $s11parId)) ("fornecimento 15 un c/ chave K-C2S11A-F1 -> $($s11f1.code) id=$s11f1id; REENVIO IDEMPOTENTE: replay identico -> $($s11f1r.code) mesmo id (nada duplica); CONCORRENCIA (BR-11.2): dois clientes SIMULTANEOS (jobs paralelos) com a mesma chave K-C2S11A-PAR e mesmo conteudo -> respostas $($s11par.code1)/$($s11par.code2) (200 idempotente e/ou 409 nomeada da race) e banco count|id: $($s11pardb.text) — EXATAMENTE 1 fornecimento (efeto unico apesar da corrida sobre ux_compras_fornecimento_chave); 3o reenvio sequencial -> $($s11f3.code) mesmo id=$s11f3id")
+
+# --- jornada A: recebimento c/ rejeicao, prazo parametrico e desfecho -----------
+$s11rA = Invoke-Api -Bearer $tkA.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s11f1id + '/recebimentos') -Base $ApiBase -Body '{"quantidadeAprovada":14,"quantidadeRejeitada":1,"dataRecebimento":"2026-11-12","motivoRejeicao":"qualidade abaixo do padrao c2s11a"}'
+$s11rAj = $null; try { $s11rAj = ($s11rA.body | ConvertFrom-Json) } catch {}
+$s11rAid = 0; if ($s11rAj -and $null -ne $s11rAj.data) { $s11rAid = [long]$s11rAj.data.id }
+$s11rAdb = Get-Psql ("select r.status||'|'||to_char(r.quantidade_aprovada,'FM9990.000')||'|'||to_char(r.quantidade_rejeitada,'FM9990.000')||'|'||to_char(r.data_prazo_substituicao,'YYYY-MM-DD') from sigov.compras_fornecimento_recebimento r where r.id=" + $s11rAid + ";")
+$s11dfA0 = Invoke-Api -Bearer $tkA.token -Method POST -Path ('/api/compras/integradas/recebimentos/' + $s11rAid + '/desfecho') -Base $ApiBase -Body '{"desfecho":"SUBSTITUIDO","justificativa":"fornecedor subira a unidade ate o prazo parametrico"}'
+$s11dfAdb = Get-Psql ("select f.status||'|'||coalesce(r.desfecho,'NULL') from sigov.compras_fornecimento f, sigov.compras_fornecimento_recebimento r where f.id=" + $s11f1id + " and r.id=" + $s11rAid + ";")
+$s11dfA1 = Invoke-Api -Bearer $tkA.token -Method POST -Path ('/api/compras/integradas/recebimentos/' + $s11rAid + '/desfecho') -Base $ApiBase -Body '{"desfecho":"ACATADO","justificativa":"tentativa de 2o desfecho c2s11a"}'
+Add-Check 'S11' 'jornada-a.recebimento-rejeicao-prazo-parametrico-desfecho-unico' (($s11rA.code -eq 200) -and ($s11rAid -gt 0) -and ($s11rAdb.text -eq 'PARCIAL|14.000|1.000|2026-11-19') -and ($s11dfA0.code -eq 200) -and ($s11dfAdb.text -eq 'CONCLUIDO|SUBSTITUIDO') -and ($s11dfA1.code -eq 409) -and ($s11dfA1.body -like '*REJEICAO_DESFECO_JA_REGISTRADO*')) ("recebimento aprov 14 + reje 1 (motivo) em 2026-11-12 -> $($s11rA.code) id=$s11rAid; banco status|aprov|reje|prazo: $($s11rAdb.text) (prazo = 2026-11-12 + RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS=5 dias uteis lidos do banco do tenant 910001 = 2026-11-19); desfecho SUBSTITUIDO -> $($s11dfA0.code) banco fornecimento|desfecho: $($s11dfAdb.text) (CONCLUIDO); 2o desfecho -> $($s11dfA1.code) (409 REJEICAO_DESFECO_JA_REGISTRADO nomeada: ato unico)")
+$s11prazoA = 'NAO'
+if ($s11rAdb.text -match '\|([^|]+)$') { $s11prazoA = $Matches[1] }
+
+# --- perfil tesouraria/financeiro (A): fatura + obrigacao + liquidacao ---------
+$s11faA = Invoke-Api -Bearer $tkFin.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s11f1id + '/fatura') -Base $ApiBase -Body '{"numero":"NF-C2S11A-001","natureza":"NFE","serie":"1","cnpjFornecedor":"99.999.000/0006-06","valor":1500,"dataEmissao":"2026-11-15"}'
+$s11obA = Invoke-Api -Bearer $tkFin.token -Method POST -Path '/api/compras/integradas/obrigacoes/gerar' -Base $ApiBase -Body ('{"fornecimentoId":' + $s11f1id + ',"referenciaIdempotencia":"OB-C2S11A-F1"}')
+$s11obAj = $null; try { $s11obAj = ($s11obA.body | ConvertFrom-Json) } catch {}
+$s11oA = 0; if ($s11obAj -and $null -ne $s11obAj.data) { $s11oA = [long]$s11obAj.data.id }
+$s11obAdb = Get-Psql ("select to_char(valor_liquidado,'FM99990.00')||'|'||status||'|'||case when data_liquidacao is null then 'NULL' else 'SET' end from sigov.compras_obrigacao where id=" + $s11oA + ";")
+$s11liqA = Invoke-Api -Bearer $tkFin.token -Method POST -Path ('/api/compras/integradas/obrigacoes/' + $s11oA + '/liquidar') -Base $ApiBase
+$s11liqAdb = Get-Psql ("select status||'|'||case when data_liquidacao is null then 'NULL' else 'SET' end from sigov.compras_obrigacao where id=" + $s11oA + ";")
+$s11dmZ1 = Invoke-Api -Bearer $tkFin.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body $s11dAb
+$s11dmZ2 = Invoke-Api -Bearer $tkFin.token -Method GET -Path '/api/compras/integradas/demandas' -Base $ApiBase
+Add-Check 'S11' 'perfil.tesoureiro-fatura-obrigacao-liquidacao-chave-propria' (($s11faA.code -eq 200) -and ($s11obA.code -eq 200) -and ($s11oA -gt 0) -and ($s11obAdb.text -eq '1400.00|REGISTRADA|NULL') -and ($s11liqA.code -eq 200) -and ($s11liqAdb.text -eq 'LIQUIDADA|SET') -and ($s11dmZ1.code -eq 403) -and ($s11dmZ2.code -eq 403)) ("TESOURARIA/FINANCEIRO (c2s11a.fin, somente chaves fatura.vincular/obrigacao.visualizar/obrigacao.liquidar/fornecimento.visualizar): vincular NFE conferida -> $($s11faA.code); gerar obrigacao -> $($s11obA.code) id=$s11oA banco valor|status|liq: $($s11obAdb.text) (14 un aprovadas x 100.00 = 1400.00, a unidade rejeitada fora — BR-7.7); LIQUIDAR -> $($s11liqA.code) banco: $($s11liqAdb.text) (terminal); o MESMO usuario CRIAR demanda -> $($s11dmZ1.code) e LISTAR demanda -> $($s11dmZ2.code) (403 fail-closed: a modality dele nao alcanca a moda administrativa, autorizacao 100% banco — BR-11.1 jornada por perfil)")
+
+# --- estorno repetido: compensacao unica, estado terminal (BR-11.2) -------------
+$s11es0 = Invoke-Api -Bearer $tkFin.token -Method POST -Path ('/api/compras/integradas/obrigacoes/' + $s11oA + '/estornar') -Base $ApiBase -Body '{"justificativa":""}'
+$s11es1 = Invoke-Api -Bearer $tkFin.token -Method POST -Path ('/api/compras/integradas/obrigacoes/' + $s11oA + '/estornar') -Base $ApiBase -Body '{"justificativa":"compensacao por duplicidade c2s11a"}'
+$s11es1db = Get-Psql ("select status||'|'||case when coalesce(justificativa_estorno,'NAO') like '%duplicidade%' then 'JUS' else 'NAO' end||'|'||coalesce(valor_liquidado::text,'NULL') from sigov.compras_obrigacao where id=" + $s11oA + ";")
+$s11es2 = Invoke-Api -Bearer $tkFin.token -Method POST -Path ('/api/compras/integradas/obrigacoes/' + $s11oA + '/estornar') -Base $ApiBase -Body '{"justificativa":"segundo estorno c2s11a"}'
+Add-Check 'S11' 'obrigacao.estorno-repetido-compensacao-unico-terminal' (($s11es0.code -eq 400) -and ($s11es0.body -like '*OBRIGACAO_ESTORNO_SEM_JUSTIFICATIVA*') -and ($s11es1.code -eq 200) -and ($s11es1db.text -eq 'ESTORNADA|JUS|1400.00') -and ($s11es2.code -eq 409) -and ($s11es2.body -like '*OBRIGACAO_JA_LIQUIDADA*')) ("ESTORNO REPETIDO (BR-11.2): estorno sem justificativa -> $($s11es0.code) (400 OBRIGACAO_ESTORNO_SEM_JUSTIFICATIVA nomeada); estorno por compensacao c/ justificativa -> $($s11es1.code); banco status|justificativa|valor-intacto: $($s11es1db.text) (append-only, sem delete fisico); 2o estorno sobre o estado terminal ESTORNADA -> $($s11es2.code) (409 OBRIGACAO_JA_LIQUIDADA nomeada: o estorno e unico, como o cancelamento/liquidacao — efeito nunca duplica)")
+
+# --- jornada A encerra com destinacao em estoque (efeito no almoxarifado) -------
+$s11ddA1 = Invoke-Api -Bearer $tkA.token -Method POST -Path '/api/compras/integradas/destinacoes' -Base $ApiBase -Body ('{"fornecimentoRecebimentoId":' + $s11rAid + ',"alvoTipo":"ESTOQUE","quantidade":2,"referencia":"D-C2S11A-01","localId":' + $s11locA + ',"materialId":' + $s11matA + '}')
+$s11ddA1db = Get-Psql ("select count(*)::text||'|'||min(motivo)||'|'||min(to_char(saldo_antes,'FM9990.000'))||'|'||min(to_char(saldo_depois,'FM9990.000'))||'|'||min(documento_origem) from sigov.almoxarifado_movimentacao where tenant_id=910001 and almoxarifado_id=" + $s11locA + " and material_id=" + $s11matA + ";")
+$s11ddA2 = Invoke-Api -Bearer $tkA.token -Method POST -Path '/api/compras/integradas/destinacoes' -Base $ApiBase -Body ('{"fornecimentoRecebimentoId":' + $s11rAid + ',"alvoTipo":"ESTOQUE","quantidade":2,"referencia":"D-C2S11A-01","localId":' + $s11locA + ',"materialId":' + $s11matA + '}')
+$s11ddA2db = Get-Psql ("select count(*)::text from sigov.almoxarifado_movimentacao where tenant_id=910001 and almoxarifado_id=" + $s11locA + " and material_id=" + $s11matA + ";")
+Add-Check 'S11' 'jornada-a.destino-estoque-movimento-unico-efetivo' (($s11ddA1.code -eq 200) -and ($s11ddA1db.text -eq ('1|FORNECIMENTO|0.000|2.000|FORN-' + $s11f1id + '-REC-' + $s11rAid)) -and ($s11ddA2.code -eq 200) -and ($s11ddA2db.text -eq '1')) ("a jornada municipal se FECHA com efeito real no almoxarifado: destinar 2 un do recebimento aprovado -> $($s11ddA1.code); banco movimento count|motivo|saldo-antes|saldo-depois|documento_origem: $($s11ddA1db.text) (referenciado FORN-<f>-REC-<r>); replay MESMA referencia -> $($s11ddA2.code) e o movimento permanece 1 (idempotente, BR-7.6 x BR-11.2)")
+
+# --- perfil juridico (A): consulta tipada + parecer, sem acesso a compra --------
+$s11cjA = Invoke-Api -Bearer $tkJur.token -Method POST -Path '/api/compras/integradas/juridico/consultas' -Base $ApiBase -Body ('{"processoComprasId":' + $s11procA + ',"tipoConsulta":"PARECER","referenciaNumero":"ATO-C2S11A-01","descricao":"Analisar regularidade da contratacao C2S11A","secretariaSetor":"Setor de Compras C2S11A","dataSolicitacao":"2026-10-14","solicitante":"Analista C2S11A","custoHonorario":100,"chaveIdempotencia":"K-CJ-A"}')
+$s11cjAj = $null; try { $s11cjAj = ($s11cjA.body | ConvertFrom-Json) } catch {}
+$s11cjAid = 0; if ($s11cjAj -and $null -ne $s11cjAj.data) { $s11cjAid = [long]$s11cjAj.data.consultaId }
+$s11cjAdb = Get-Psql ("select cs.status||'|'||v.referencia_numero from sigov.juridico_consulta cs join sigov.compras_juridico_consulta_vinculo v on v.consulta_id=cs.id and v.tenant_id=cs.tenant_id where cs.id=" + $s11cjAid + ";")
+$s11paAf = Invoke-Api -Bearer $tkJur.token -Method POST -Path ('/api/compras/integradas/juridico/consultas/' + $s11cjAid + '/parecer') -Base $ApiBase -Body '{"conclusao":"FAVORECIMENTO","resumo":"Contratacao C2S11A regular sob o aspecto analisado"}'
+$s11paAdbb = Get-Psql ("select pr.status||'|'||cs.status from sigov.juridico_parecer pr join sigov.juridico_consulta cs on cs.id=pr.consulta_id and cs.tenant_id=pr.tenant_id where pr.consulta_id=" + $s11cjAid + " limit 1;")
+$s11dmZ3 = Invoke-Api -Bearer $tkJur.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body $s11dAb
+Add-Check 'S11' 'perfil.juridico-moda-juridica-sem-acesso-a-compra' (($s11cjA.code -eq 200) -and ($s11cjAid -gt 0) -and ($s11cjAdb.text -eq 'ABERTA|ATO-C2S11A-01') -and ($s11paAf.code -eq 200) -and ($s11paAdbb.text -eq 'EMITIDO|RESOLVIDA') -and ($s11dmZ3.code -eq 403)) ("JURIDICO (c2s11a.jur, somente juridico.consulta.criar + juridico.parecer.emitir): consulta PARECER x processo de contratacao $s11procA -> $($s11cjA.code) id=$s11cjAid banco status|ref-ledger: $($s11cjAdb.text); parecer FAVORECIMENTO emitido -> $($s11paAf.code) banco parecer|consulta: $($s11paAdbb.text) (jornada juridica completa dentro da propria moda); criar demanda -> $($s11dmZ3.code) (403 fail-closed: a chave da moda administrativa nao esta no perfil, BR-11.1)")
+
+# --- jornada B (estadual): mesma cadeia no tenant 910002 ------------------------
+$s11dBb = ('{"objeto":"C2S11B-Aquisicao de equipamentos para a unidade estadual","justificativa":"necessidade operacional homologacao c2s11b","itens":[{"descricao":"Equipamento C2S11B","quantidade":15,"unidade":"un","tipoObjeto":"BEM","precoEstimado":80,"centroCustoId":' + $s11ccB + '}],"urgencia":false}')
+$s11dB = Invoke-Api -Bearer $tkB.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body $s11dBb
+$s11dBj = $null; try { $s11dBj = ($s11dB.body | ConvertFrom-Json) } catch {}
+$s11dBid = 0; if ($s11dBj -and $null -ne $s11dBj.data) { $s11dBid = [long]$s11dBj.data.id }
+$s11dBdb = Get-Psql ("select status||'|'||to_char(valor_estimado,'FM999990.00') from sigov.compras_demanda where id=" + $s11dBid + ";")
+$null = Get-Psql ("update sigov.compras_demanda set created_by=" + $s11gestorB + " where id=" + $s11dBid + ";")
+$s11apB = Invoke-Api -Bearer $tkB.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s11dBid + '/aprovar') -Base $ApiBase
+$s11apBdb = Get-Psql ("select min(id)||'|'||count(*)||'|'||min(status)||'|'||case when min(numero) like 'PI-%' then 'PI' else 'NAO' end from sigov.compras_processo where tenant_id=910002 and demanda_id=" + $s11dBid + ";")
+$s11apBp = if ($s11apBdb.code -eq 0 -and $s11apBdb.text -ne '') { @($s11apBdb.text -split '\|') } else { @('0','0','NAO','NAO') }
+$s11procB = [long]$s11apBp[0]
+$s11dpB1 = Invoke-Api -Bearer $tkB.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s11dBid + ',"modalidadeCodigo":"DISPENSA","dispensaBaseLegalCodigo":"ART_75_I"}')
+$s11dpB1j = $null; try { $s11dpB1j = ($s11dpB1.body | ConvertFrom-Json) } catch {}
+$s11licB = 0
+if ($s11dpB1j -and $null -ne $s11dpB1j.data) { $s11licB = [long]$s11dpB1j.data.licitacaoId }
+$s11liB = Get-Psql ("insert into sigov.compras_licitacao_item(tenant_id,entidade_id,licitacao_id,numero,descricao,quantidade,unidade,valor_estimado,created_at,updated_at,created_by,updated_by) select 910002," + $s11entB + "," + $s11licB + ",1,'Equipamento C2S11B',15,'un',80.00,now(),now(),910301,910301 where not exists(select 1 from sigov.compras_licitacao_item i where i.licitacao_id=" + $s11licB + "); select count(*) from sigov.compras_licitacao_item where licitacao_id=" + $s11licB + ";")
+$s11daB1 = Invoke-Api -Bearer $tkB.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s11licB + '/adjudicar') -Base $ApiBase -Body ('{"fornecedorId":' + $s11fornB + ',"observacao":"contratacao direta c2s11b"}')
+$s11daB1j = $null; try { $s11daB1j = ($s11daB1.body | ConvertFrom-Json) } catch {}
+$null = Get-Psql ("update sigov.compras_adjudicacao set responsavel_id=" + $s11gestorB + " where tenant_id=910002 and licitacao_id=" + $s11licB + ";")
+$s11hoB = Invoke-Api -Bearer $tkB.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s11licB + '/homologar') -Base $ApiBase
+$s11hoBj = $null; try { $s11hoBj = ($s11hoB.body | ConvertFrom-Json) } catch {}
+$s11hoBid = 0; if ($s11hoBj -and $null -ne $s11hoBj.data) { $s11hoBid = [long]$s11hoBj.data.id }
+$s11ctBb = ('{"homologacaoId":' + $s11hoBid + ',"dataEficacia":"2026-11-10","dataFim":"2027-11-09","assinaturaModo":"FISICA","gestor":"Gestor C2S11B","fiscal":"Fiscal C2S11B"}')
+$s11ctB = Invoke-Api -Bearer $tkB.token -Method POST -Path '/api/compras/integradas/contratos' -Base $ApiBase -Body $s11ctBb
+$s11ctBj = $null; try { $s11ctBj = ($s11ctB.body | ConvertFrom-Json) } catch {}
+$s11ctBid = 0; if ($s11ctBj -and $null -ne $s11ctBj.data) { $s11ctBid = [long]$s11ctBj.data.contratoId }
+$s11ctBdb = Get-Psql ("select status||'|'||to_char(valor_contratado,'FM999990.00') from sigov.compras_contrato where id=" + $s11ctBid + ";")
+$s11itBr = Get-Psql ("select id::text from sigov.compras_contrato_item where contrato_id=" + $s11ctBid + " limit 1;")
+$s11itB = 0; if ($s11itBr.code -eq 0 -and $s11itBr.text -ne '') { $s11itB = [long]$s11itBr.text.Trim() }
+$s11fBb = ('{"contratoId":' + $s11ctBid + ',"contratoItemId":' + $s11itB + ',"quantidade":15,"chaveIdempotencia":"K-C2S11B-F1"}')
+$s11fB = Invoke-Api -Bearer $tkB.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body $s11fBb
+$s11fBj = $null; try { $s11fBj = ($s11fB.body | ConvertFrom-Json) } catch {}
+$s11fBid = 0; if ($s11fBj -and $null -ne $s11fBj.data) { $s11fBid = [long]$s11fBj.data.id }
+$s11fBr = Invoke-Api -Bearer $tkB.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body $s11fBb
+$s11fBrj = $null; try { $s11fBrj = ($s11fBr.body | ConvertFrom-Json) } catch {}
+$s11fBrid = 0; if ($s11fBrj -and $null -ne $s11fBrj.data) { $s11fBrid = [long]$s11fBrj.data.id }
+Add-Check 'S11' 'jornada-b.estadual-mesma-cadeia-outro-tenant-outro-contexto' (($s11dB.code -eq 200) -and ($s11dBid -gt 0) -and ($s11dBdb.text -eq 'SOLICITADA|1200.00') -and ($s11apB.code -eq 200) -and ($s11procB -gt 0) -and ($s11apBp[1] -eq '1') -and ($s11apBp[2] -eq 'ABERTO') -and ($s11apBp[3] -eq 'PI') -and ($s11dpB1.code -eq 200) -and ([long]$s11dpB1j.data.processoId -eq $s11procB) -and ($s11liB.text -eq '1') -and ($s11daB1.code -eq 200) -and ([decimal]$s11daB1j.data.valorTotal -eq 1200) -and ($s11hoB.code -eq 200) -and ($s11hoBid -gt 0) -and ($s11ctB.code -eq 200) -and ($s11ctBid -gt 0) -and ($s11ctBdb.text -eq 'VIGENTE|1200.00') -and ($s11itB -gt 0) -and ($s11fB.code -eq 200) -and ($s11fBid -gt 0) -and ($s11fBr.code -eq 200) -and ($s11fBrid -eq $s11fBid)) ("ESFERA ESTADUAL (tenant 910002, grupo/perfil/administracao PROPRIOS do tenant): MESMA cadeia vertical executada de ponta a ponta — demanda 15 un x 80.00 -> $($s11dB.code) banco SOLICITADA|1200.00; aprovar -> processo $s11procB $($s11apBp[1..3] -join '|'); dispensa ART_75_I 200; adjudicacao c/ fornecedor estadual -> $($s11daB1.code) valor 1200.00; homologar -> $($s11hoB.code) id=$s11hoBid; contrato -> $($s11ctB.code) id=$s11ctBid banco: $($s11ctBdb.text) item=$s11itB; fornecimento 15 un -> $($s11fB.code) id=$s11fBid; REENVIO IDEMPOTENTE no 2o tenant: replay -> $($s11fBr.code) mesmo id (nenhuma etapa depende do tenant 910001 — regra 21: nada municipal hardcoded)")
+
+# --- jornada B: recebimento c/ rejeicao NOVA esfera -> prazo DERIVADO do override --
+$s11rB = Invoke-Api -Bearer $tkB.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s11fBid + '/recebimentos') -Base $ApiBase -Body '{"quantidadeAprovada":13,"quantidadeRejeitada":2,"dataRecebimento":"2026-11-12","motivoRejeicao":"embalagem avariada c2s11b"}'
+$s11rBj = $null; try { $s11rBj = ($s11rB.body | ConvertFrom-Json) } catch {}
+$s11rBid = 0; if ($s11rBj -and $null -ne $s11rBj.data) { $s11rBid = [long]$s11rBj.data.id }
+$s11rBdb = Get-Psql ("select r.status||'|'||to_char(r.quantidade_aprovada,'FM9990.000')||'|'||to_char(r.quantidade_rejeitada,'FM9990.000')||'|'||to_char(r.data_prazo_substituicao,'YYYY-MM-DD') from sigov.compras_fornecimento_recebimento r where r.id=" + $s11rBid + ";")
+$s11dfB0 = Invoke-Api -Bearer $tkB.token -Method POST -Path ('/api/compras/integradas/recebimentos/' + $s11rBid + '/desfecho') -Base $ApiBase -Body '{"desfecho":"SUBSTITUIDO","justificativa":"fornecedor subira as unidades ate o prazo parametrico estadual"}'
+$s11dfBdb = Get-Psql ("select f.status||'|'||coalesce(r.desfecho,'NULL') from sigov.compras_fornecimento f, sigov.compras_fornecimento_recebimento r where f.id=" + $s11fBid + " and r.id=" + $s11rBid + ";")
+$s11faB = Invoke-Api -Bearer $tkB.token -Method POST -Path ('/api/compras/integradas/fornecimentos/' + $s11fBid + '/fatura') -Base $ApiBase -Body '{"numero":"NF-C2S11B-001","natureza":"NFE","serie":"1","cnpjFornecedor":"99.999.000/0007-07","valor":1200,"dataEmissao":"2026-11-15"}'
+$s11obB = Invoke-Api -Bearer $tkB.token -Method POST -Path '/api/compras/integradas/obrigacoes/gerar' -Base $ApiBase -Body ('{"fornecimentoId":' + $s11fBid + ',"referenciaIdempotencia":"OB-C2S11B-F1"}')
+$s11obBj = $null; try { $s11obBj = ($s11obB.body | ConvertFrom-Json) } catch {}
+$s11oB = 0; if ($s11obBj -and $null -ne $s11obBj.data) { $s11oB = [long]$s11obBj.data.id }
+$s11obBdb = Get-Psql ("select to_char(valor_liquidado,'FM99990.00')||'|'||status from sigov.compras_obrigacao where id=" + $s11oB + ";")
+$s11liqB = Invoke-Api -Bearer $tkB.token -Method POST -Path ('/api/compras/integradas/obrigacoes/' + $s11oB + '/liquidar') -Base $ApiBase
+$s11liqBdb = Get-Psql ("select status from sigov.compras_obrigacao where id=" + $s11oB + ";")
+Add-Check 'S11' 'jornada-b.recebimento-rejeicao-prazo-do-override-estadual' (($s11rB.code -eq 200) -and ($s11rBid -gt 0) -and ($s11rBdb.text -eq 'PARCIAL|13.000|2.000|2026-11-26') -and ($s11dfB0.code -eq 200) -and ($s11dfBdb.text -eq 'CONCLUIDO|SUBSTITUIDO') -and ($s11faB.code -eq 200) -and ($s11obB.code -eq 200) -and ($s11oB -gt 0) -and ($s11obBdb.text -eq '1040.00|REGISTRADA') -and ($s11liqB.code -eq 200) -and ($s11liqBdb.text -eq 'LIQUIDADA')) ("recebimento aprov 13 + reje 2 NA ESFERA ESTADUAL em 2026-11-12 -> $($s11rB.code) id=$s11rBid; banco status|aprov|reje|prazo: $($s11rBdb.text) (prazo = 2026-11-12 + RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS=10 dias uteis do OVERRIDE do tenant 910002 = 2026-11-26 — mesmo ato, derivacao diferente); desfecho SUBSTITUIDO -> $($s11dfB0.code) banco: $($s11dfBdb.text); fatura NFE conferida -> $($s11faB.code); obrigacao -> $($s11obB.code) banco: $($s11obBdb.text) (13 x 80.00 = 1040.00); liquidar -> $($s11liqB.code) banco: $($s11liqBdb.text)")
+$s11prazoB = 'NAO'
+if ($s11rBdb.text -match '\|([^|]+)$') { $s11prazoB = $Matches[1] }
+
+# --- regra 21/24: a parametrizacao por esfera e OBSERVAVEL nos dados ------------
+$s11r21 = Get-Psql "select coalesce((select esfera_governo from sigov.entidade where tenant_id=910001 and codigo_externo='C2S11A-ENT'),'NULL')||'|'||coalesce((select esfera_governo from sigov.entidade where tenant_id=910002 and codigo_externo='C2S11B-ENT'),'NULL')||'|'||coalesce((select val.valor::text from sigov.parametro_modulo_valor val join sigov.parametro_modulo pm on pm.id=val.parametro_id where val.tenant_id=910001 and pm.modulo='COMPRAS' and pm.codigo='RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS' and not val.is_deleted limit 1),'PADRAO')||'|'||coalesce((select val.valor::text from sigov.parametro_modulo_valor val join sigov.parametro_modulo pm on pm.id=val.parametro_id where val.tenant_id=910002 and pm.modulo='COMPRAS' and pm.codigo='RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS' and not val.is_deleted limit 1),(select valor_padrao::text from sigov.parametro_modulo where modulo='COMPRAS' and codigo='RECEBIMENTO_PRAZO_SUBSTITUICAO_DIAS_UTEIS' and ativo and not is_deleted))"
+Add-Check 'S11' 'regra21.mesmo-ato-duas-esferas-parametrizacao-observavel-no-banco' (($s11prazoA -eq '2026-11-19') -and ($s11prazoB -eq '2026-11-26') -and ($s11r21.code -eq 0) -and ($s11r21.text -eq 'municipal|estadual|PADRAO|10')) ("PROVA DA REGRA 21 NOS DADOS: o MESMO ato (recebimento com rejeicao em 2026-11-12) produz prazos DIFERENTES por tenant/esfera — municipal (910001, padrao do banco 5 dias uteis) -> prazo $s11prazoA; estadual (910002, override 10 dias uteis em parametro_modulo_valor) -> prazo $s11prazoB. Banco NOVO no ponto da assercao esferaA|esferaB|param-efetivo-A|param-efetivo-B: $($s11r21.text); sql-err-tail=$($s11r21.text.Substring([Math]::Max(0,$s11r21.text.Length-200))) — a diferenca vem inteiramente da parametrizacao lida do banco (regra 11), sem comportamento municipal/estadual hardcoded (regras 21/24); a jornada idêntica rodou nas duas esferas com os mesmos endpoints")
+
+# --- isolamento cross-tenant: visao, escopo e dados (BR-11.1) -------------------
+$s11lstA = Invoke-Api -Bearer $tkA.token -Method GET -Path '/api/compras/integradas/demandas' -Base $ApiBase
+$s11xb = Invoke-Api -Bearer $tkA.token -Method GET -Path ('/api/compras/integradas/demandas/' + $s11dBid) -Base $ApiBase
+$s11xldb = Get-Psql ("select (select count(*) from sigov.compras_demanda where tenant_id=910001 and objeto like 'C2S11B-%') + (select count(*) from sigov.compras_licitacao where tenant_id=910001 and objeto like 'C2S11B-%') + (select count(*) from sigov.compras_contrato where tenant_id=910001 and objeto like 'C2S11B-%') + (select count(*) from sigov.compras_demanda where tenant_id=910002 and objeto like 'C2S11A-%') + (select count(*) from sigov.compras_licitacao where tenant_id=910002 and objeto like 'C2S11A-%') + (select count(*) from sigov.compras_contrato where tenant_id=910002 and objeto like 'C2S11A-%');")
+Add-Check 'S11' 'isolamento.cross-tenant-visao-escopo-e-dados' (($s11lstA.code -eq 200) -and ($s11lstA.body -like '*C2S11A-*') -and ($s11lstA.body -notlike '*C2S11B-*') -and ($s11xb.code -eq 404) -and ($s11xb.body -like '*DEMANDA_INEXISTENTE*') -and ($s11xldb.text -eq '0')) ("GET /demandas como admin municipal -> $($s11lstA.code) vendo SOMENTE os marcadores C2S11A- (nenhum C2S11B- presente na pagina); a demanda $s11dBid criada no tenant estadual vista com o bearer municipal -> $($s11xb.code) (404 DEMANDA_INEXISTENTE nomeada: escopo tenant antes da busca); banco cruzado (linhas C2S11B em 910001 + linhas C2S11A em 910002 em demanda/licitacao/contrato): $($s11xldb.text) — separacao total dos dados entre os dois tenants de esferas diferentes (BR-11.1)")
+
+# --- permissao ausente: fail-closed em ambos os tenants (BR-11.2) ---------------
+$s11z1 = Invoke-Api -Bearer $tkSemA.token -Method GET -Path '/api/compras/integradas/demandas' -Base $ApiBase
+$s11z2 = Invoke-Api -Bearer $tkSemA.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body $s11parb
+$s11z3 = Invoke-Api -Bearer $tkSemB.token -Method GET -Path ('/api/compras/integradas/demandas/' + $s11dBid) -Base $ApiBase
+Add-Check 'S11' 'permissao.ausente-fail-closed-em-ambas-as-esferas' (($s11z1.code -eq 403) -and ($s11z2.code -eq 403) -and ($s11z3.code -eq 403)) ("usuario SEM permissao na frente (grupo SemFrente c/ 1 chave inofensiva FORA da frente — login viavel, acesso a frente ausente): c2s11a.semperm listar demandas -> $($s11z1.code) e criar fornecimento -> $($s11z2.code); c2s11b.semperm ler a propria demanda do tenant estadual -> $($s11z3.code) (403 fail-closed em todas: a avaliacao de autorizacao e anterior a qualquer acesso a dado, em ambas as esferas — banco decide, nada default-permitir; BR-11.2 'permissao ausente')")
+
+# --- schema ausente: 404 nomeada identica nos caminhos do fornecimento (BR-11.2) --
+$s11rn1 = Get-Psql "alter table sigov.compras_fornecimento rename to _s11_probe_compras_fornecimento;"
+$s11ns1 = Invoke-Api -Bearer $tkA.token -Method GET -Path ('/api/compras/integradas/fornecimentos/' + $s11f1id) -Base $ApiBase
+$s11ns2 = Invoke-Api -Bearer $tkA.token -Method POST -Path '/api/compras/integradas/fornecimentos' -Base $ApiBase -Body $s11parb
+$s11rn2 = Get-Psql "alter table sigov._s11_probe_compras_fornecimento rename to compras_fornecimento;"
+$s11ns3 = Invoke-Api -Bearer $tkA.token -Method GET -Path ('/api/compras/integradas/fornecimentos/' + $s11f1id) -Base $ApiBase
+Add-Check 'S11' 'schema.ausente-nomeada-nos-caminhos-e-recuperacao' (($s11rn1.code -eq 0) -and ($s11ns1.code -eq 404) -and ($s11ns1.body -like '*COMPRAS_INTEGRADAS_NAO_DISPONIVEL*') -and ($s11ns1.body -like '*schema ausente*') -and ($s11ns2.code -eq 404) -and ($s11ns2.body -like '*COMPRAS_INTEGRADAS_NAO_DISPONIVEL*') -and ($s11rn2.code -eq 0) -and ($s11ns3.code -eq 200)) ("com sigov.compras_fornecimento RENOMEADA: GET fornecimento -> $($s11ns1.code) e POST fornecimento -> $($s11ns2.code) (ambos 404 COMPRAS_INTEGRADAS_NAO_DISPONIVEL nomeada c/ a tabela citada — falha EXPLICITA, sem lista vazia/erros genericos, regra 13; BR-11.2 'schema ausente' na superficie nova); restaurada -> GET -> $($s11ns3.code) (recuperacao imediata, tabela intacta)")
+
+# --- limpeza do bloco S11 (auto-limpeza; regra 9) --------------------------------
+$s11cl = Get-Psql @"
+create temp table if not exists s11_alvo_d (id bigint); truncate table s11_alvo_d;
+insert into s11_alvo_d select id from sigov.compras_demanda where (tenant_id=910001 and objeto like 'C2S11A-%') or (tenant_id=910002 and objeto like 'C2S11B-%');
+create temp table if not exists s11_alvo_p (id bigint); truncate table s11_alvo_p;
+insert into s11_alvo_p select id from sigov.compras_processo where demanda_id in (select id from s11_alvo_d);
+create temp table if not exists s11_alvo_l (id bigint); truncate table s11_alvo_l;
+insert into s11_alvo_l select id from sigov.compras_licitacao where processo_id in (select id from s11_alvo_p);
+create temp table if not exists s11_alvo_c (id bigint); truncate table s11_alvo_c;
+insert into s11_alvo_c select id from sigov.compras_contrato where homologacao_id in (select id from sigov.compras_homologacao where licitacao_id in (select id from s11_alvo_l));
+create temp table if not exists s11_alvo_f (id bigint); truncate table s11_alvo_f;
+insert into s11_alvo_f select id from sigov.compras_fornecimento where contrato_id in (select id from s11_alvo_c);
+delete from sigov.compras_destinacao_integrada where tenant_id in (910001,910002) and fornecimento_recebimento_id in (select id from sigov.compras_fornecimento_recebimento where fornecimento_id in (select id from s11_alvo_f));
+delete from sigov.almoxarifado_movimentacao where tenant_id=910001 and documento_origem like 'FORN-%';
+delete from sigov.compras_fatura_integrada where tenant_id in (910001,910002) and fornecimento_id in (select id from s11_alvo_f);
+delete from sigov.compras_obrigacao where tenant_id in (910001,910002) and fornecimento_id in (select id from s11_alvo_f);
+delete from sigov.compras_recebimento_item where recebimento_id in (select id from sigov.compras_recebimento where tenant_id in (910001,910002) and fornecimento_id in (select id from s11_alvo_f));
+delete from sigov.compras_recebimento where tenant_id in (910001,910002) and fornecimento_id in (select id from s11_alvo_f);
+delete from sigov.compras_fornecimento_recebimento where fornecimento_id in (select id from s11_alvo_f);
+delete from sigov.compras_fornecimento where id in (select id from s11_alvo_f);
+delete from sigov.compras_contrato_item where contrato_id in (select id from s11_alvo_c);
+delete from sigov.compras_contrato_historico where contrato_id in (select id from s11_alvo_c);
+delete from sigov.compras_contrato where id in (select id from s11_alvo_c);
+delete from sigov.compras_homologacao where licitacao_id in (select id from s11_alvo_l);
+delete from sigov.compras_adjudicacao_item where adjudicacao_id in (select id from sigov.compras_adjudicacao where licitacao_id in (select id from s11_alvo_l));
+delete from sigov.compras_adjudicacao where licitacao_id in (select id from s11_alvo_l);
+delete from sigov.compras_proposta where licitacao_id in (select id from s11_alvo_l);
+delete from sigov.compras_habilitacao where licitacao_id in (select id from s11_alvo_l);
+delete from sigov.compras_lance where licitacao_id in (select id from s11_alvo_l);
+delete from sigov.compras_licitacao_item where licitacao_id in (select id from s11_alvo_l);
+delete from sigov.compras_licitacao where id in (select id from s11_alvo_l);
+delete from sigov.compras_processo_item where tenant_id in (910001,910002) and processo_id in (select id from s11_alvo_p);
+delete from sigov.compras_processo where id in (select id from s11_alvo_p);
+delete from sigov.compras_demanda_item where demanda_id in (select id from s11_alvo_d);
+delete from sigov.compras_demanda where id in (select id from s11_alvo_d);
+delete from sigov.juridico_parecer_condicao where parecer_id in (select id from sigov.juridico_parecer where tenant_id=910001 and consulta_id in (select consulta_id from sigov.compras_juridico_consulta_vinculo where tenant_id=910001 and referencia_numero like 'ATO-C2S11A-%'));
+delete from sigov.juridico_parecer where tenant_id=910001 and consulta_id in (select consulta_id from sigov.compras_juridico_consulta_vinculo where tenant_id=910001 and referencia_numero like 'ATO-C2S11A-%');
+delete from sigov.juridico_consulta where id in (select consulta_id from sigov.compras_juridico_consulta_vinculo where tenant_id=910001 and referencia_numero like 'ATO-C2S11A-%');
+delete from sigov.compras_juridico_consulta_vinculo where tenant_id=910001 and referencia_numero like 'ATO-C2S11A-%';
+delete from sigov.compras_fornecedor where tenant_id=910001 and nome like 'Forneadora C2S11A %';
+delete from sigov.compras_fornecedor where tenant_id=910002 and nome like 'Forneadora C2S11B %';
+delete from sigov.financeiro_centro_custo where codigo in ('C2S11A-CC1','C2S11B-CC1');
+delete from sigov.almoxarifado_material where tenant_id=910001 and codigo='C2S11A-MAT';
+delete from sigov.almoxarifado_local where tenant_id=910001 and codigo like 'C2S11A-LOC%';
+delete from sigov.parametro_modulo_valor where tenant_id=910002 and correlation_id='c2s11-prazo-override-e2e';
+delete from sigov.autorizacao_decisao_auditoria where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.auditoria_evento where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.identidade_sessao where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.sessao_usuario where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.sessao_contexto_usuario where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.contexto_operacional_auditoria where usuario_executor_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.usuario_contexto_global_log where usuario_global_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.historico_login where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.trilha_auditoria where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.token_mfa where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.senha_redefinicao_token where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.fila_assinatura where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.usuario_preferencia where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.usuario_filtro_salvo where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.perfil_permissao where correlation_id in ('cf58c2ab-1c20-4a90-88f8-0c2000000011','cf58c2ab-1c20-4a90-88f8-0c2000000012','cf58c2ab-1c20-4a90-88f8-0c2000000013','cf58c2ab-1c20-4a90-88f8-0c2000000014','cf58c2ab-1c20-4a90-88f8-0c2000000015','cf58c2ab-1c20-4a90-88f8-0c2000000016');
+delete from sigov.usuario_grupo where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'));
+delete from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%');
+delete from sigov.grupo_perfil where grupo_acesso_id in (select id from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo in ('C2S11A-FIN','C2S11A-JUR','C2S11A-SEMP')) or (tenant_id=910002 and codigo_externo in ('C2S11B-ADM','C2S11B-SEMP')));
+delete from sigov.perfil_acesso where (tenant_id=910001 and nome in ('C2S11A Perfil Tesouraria','C2S11A Perfil Juridico','C2S11A Perfil SemFrente')) or (tenant_id=910002 and nome in ('C2S11B Perfil Administracao','C2S11B Perfil SemFrente'));
+delete from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo in ('C2S11A-FIN','C2S11A-JUR','C2S11A-SEMP')) or (tenant_id=910002 and codigo_externo in ('C2S11B-ADM','C2S11B-SEMP'));
+delete from sigov.entidade where (tenant_id=910001 and codigo_externo='C2S11A-ENT') or (tenant_id=910002 and codigo_externo='C2S11B-ENT');
+select
+ (select count(*) from sigov.almoxarifado_movimentacao where tenant_id=910001 and documento_origem like 'FORN-%')
+ + (select count(*) from sigov.almoxarifado_material where tenant_id=910001 and codigo='C2S11A-MAT')
+ + (select count(*) from sigov.almoxarifado_local where tenant_id=910001 and codigo like 'C2S11A-LOC%')
+ + (select count(*) from sigov.compras_fornecedor where (tenant_id=910001 and nome like 'Forneadora C2S11A %') or (tenant_id=910002 and nome like 'Forneadora C2S11B %'))
+ + (select count(*) from sigov.financeiro_centro_custo where codigo in ('C2S11A-CC1','C2S11B-CC1'))
+ + (select count(*) from sigov.compras_demanda where (tenant_id=910001 and objeto like 'C2S11A-%') or (tenant_id=910002 and objeto like 'C2S11B-%'))
+ + (select count(*) from sigov.compras_licitacao where (tenant_id=910001 and objeto like 'C2S11A-%') or (tenant_id=910002 and objeto like 'C2S11B-%'))
+ + (select count(*) from sigov.compras_contrato where (tenant_id=910001 and objeto like 'C2S11A-%') or (tenant_id=910002 and objeto like 'C2S11B-%'))
+ + (select count(*) from sigov.compras_juridico_consulta_vinculo where tenant_id=910001 and referencia_numero like 'ATO-C2S11A-%')
+ + (select count(*) from sigov.juridico_consulta where id in (select consulta_id from sigov.compras_juridico_consulta_vinculo where tenant_id=910001 and referencia_numero like 'ATO-C2S11A-%'))
+ + (select count(*) from sigov.parametro_modulo_valor where tenant_id=910002 and correlation_id='c2s11-prazo-override-e2e')
+ + (select count(*) from sigov.perfil_permissao where correlation_id in ('cf58c2ab-1c20-4a90-88f8-0c2000000011','cf58c2ab-1c20-4a90-88f8-0c2000000012','cf58c2ab-1c20-4a90-88f8-0c2000000013','cf58c2ab-1c20-4a90-88f8-0c2000000014'))
+ + (select count(*) from sigov.usuario where (tenant_id=910001 and login like 'c2s11a.%') or (tenant_id=910002 and login like 'c2s11b.%'))
+ + (select count(*) from sigov.grupo_perfil where grupo_acesso_id in (select id from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo in ('C2S11A-FIN','C2S11A-JUR')) or (tenant_id=910002 and codigo_externo='C2S11B-ADM')))
+ + (select count(*) from sigov.perfil_acesso where (tenant_id=910001 and nome in ('C2S11A Perfil Tesouraria','C2S11A Perfil Juridico')) or (tenant_id=910002 and nome='C2S11B Perfil Administracao'))
+ + (select count(*) from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo in ('C2S11A-FIN','C2S11A-JUR')) or (tenant_id=910002 and codigo_externo='C2S11B-ADM'))
+ + (select count(*) from sigov.entidade where (tenant_id=910001 and codigo_externo='C2S11A-ENT') or (tenant_id=910002 and codigo_externo='C2S11B-ENT'));
+"@
+Add-Check 'S11' 'fixture.removido-auto-limpeza-restantes-zero' (($s11cl.code -eq 0) -and ($s11cl.text -eq '0')) ("cascade delete S11 nos DOIS tenants (destinacoes, movimentos FORN-%, faturas, obrigacoes, espelho legado, recebimentos integrados, fornecimentos, contratos+items+historico, homologacoes, adjudicacoes+items, propostas, habilitacoes, lances, licitacao_items, licitacoes, processos+items, demandas+items, parecer condicoes/pareceres/consultas+ledger juridico, fornecedores, CCs, materiais, locais, override do parametro do tenant B, sessoes/auditorias dos 8 usuarios, grants sentinel cf58c2ab-...011/012/013/014, usuarios c2s11a.*/c2s11b.*, grupos+perfis dedicados C2S11, entidades C2S11A-ENT/C2S11B-ENT) -> restantes=" + $s11cl.text)
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);

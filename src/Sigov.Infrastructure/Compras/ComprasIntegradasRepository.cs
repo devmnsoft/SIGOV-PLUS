@@ -118,16 +118,20 @@ public sealed class ComprasIntegradasRepository(NpgsqlConnectionFactory factory,
         await GuardAsync(ct, "compras_demanda", "compras_demanda_item", "compras_processo").ConfigureAwait(false);
         await using var c = factory.CreateConnection();
         await c.OpenAsync(ct);
-        return (await c.QueryAsync<DemandaIntegradaDto>(new CommandDefinition(
+        // Projeção posicional explícita (mesmo padrão do ToDtoAsync, L108): alias camelCase são
+        // minuscualizados pelo PG e não casam com os parâmetros do record no binder por nome do
+        // Dapper — defeito C2S11 (GET /demandas retornava 409 de materialização).
+        var rows = (await c.QueryAsync<(long Id, string Objeto, string Status, bool Urgencia, decimal ValorEstimado, int NItens, long? CentroCustoId, long? ProcessoId, long CriadoPor, long? AprovadoPor, long? DuplaAprovadoPor, DateTime CriadoEm)>(new CommandDefinition(
             """
             select d.id, d.objeto, d.status, d.urgencia, d.valor_estimado,
-                   (select count(1) from sigov.compras_demanda_item i where i.demanda_id=d.id and i.ativo=true and not i.is_deleted) as Nitens,
-                   d.centro_custo_id as CentroCustoId,
-                   (select p.id from sigov.compras_processo p where p.tenant_id=d.tenant_id and p.demanda_id=d.id and p.status not in ('CANCELADO','FRACASSADO','DESERTO') limit 1) as ProcessoId,
-                   d.created_by as CriadoPor, d.aprovado_por as AprovadoPor, d.dupla_aprovado_por as DuplaAprovadoPor, d.created_at as CriadoEm
+                   (select count(1) from sigov.compras_demanda_item i where i.demanda_id=d.id and i.ativo=true and not i.is_deleted),
+                   d.centro_custo_id,
+                   (select p.id from sigov.compras_processo p where p.tenant_id=d.tenant_id and p.demanda_id=d.id and p.status not in ('CANCELADO','FRACASSADO','DESERTO') limit 1),
+                   d.created_by, d.aprovado_por, d.dupla_aprovado_por, d.created_at
             from sigov.compras_demanda d where d.tenant_id=@T and (@E::bigint is null or d.entidade_id=@E)
             order by d.created_at desc limit 200
             """, new { T = x.TenantId, E = x.EntidadeId }, cancellationToken: ct))).AsList();
+        return rows.Select(r => new DemandaIntegradaDto(r.Id, r.Objeto, r.Status, r.Urgencia, r.ValorEstimado, r.NItens, r.CentroCustoId, r.ProcessoId, r.CriadoPor, r.AprovadoPor, r.DuplaAprovadoPor, r.CriadoEm.ToUniversalTime())).ToList();
     }
 
     public async Task<DemandaIntegradaDto> DemandaAsync(ComprasIntegradasContext x, long id, CancellationToken ct)
@@ -1085,12 +1089,28 @@ public sealed class ComprasIntegradasRepository(NpgsqlConnectionFactory factory,
 
         var corr = GuidCorr(x.CorrelationId);
         var valorTotal = Math.Round(r.Quantidade * item.Vu, 2);
-        var id = await c.ExecuteScalarAsync<long>(new CommandDefinition(
-            """
-            insert into sigov.compras_fornecimento(tenant_id,entidade_id,contrato_id,contrato_item_id,fornecedor_id,quantidade,valor_unitario,valor_total,status,chave_idempotencia,correlation_id,created_at,created_by,updated_at)
-            values(@T,@E,@C,@I,@F,@Q,@Vu,@Tot,'FORNECIDO',@K,@Corr,now(),@U,now())
-            returning id
-            """, new { T = x.TenantId, E = x.EntidadeId, C = r.ContratoId, I = r.ContratoItemId, F = contrato.FornecedorId, Q = r.Quantidade, Vu = item.Vu, Tot = valorTotal, K = chave, Corr = corr, U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        long id;
+        try
+        {
+            id = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+                """
+                insert into sigov.compras_fornecimento(tenant_id,entidade_id,contrato_id,contrato_item_id,fornecedor_id,quantidade,valor_unitario,valor_total,status,chave_idempotencia,correlation_id,created_at,created_by,updated_at)
+                values(@T,@E,@C,@I,@F,@Q,@Vu,@Tot,'FORNECIDO',@K,@Corr,now(),@U,now())
+                returning id
+                """, new { T = x.TenantId, E = x.EntidadeId, C = r.ContratoId, I = r.ContratoItemId, F = contrato.FornecedorId, Q = r.Quantidade, Vu = item.Vu, Tot = valorTotal, K = chave, Corr = corr, U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        }
+        catch (PostgresException pg) when (pg.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            // Concorrencia sobre a chave idempotente (ux_compras_fornecimento_chave): dois clientes
+            // simultaneos na mesma chave — o vencedor commita primeiro e o perdedor relê o efeito
+            // unico dentro da transacao (mesmo conteudo -> mesmo id; divergente -> 409 nomeada).
+            // Sem 500 anonimo na race (regra 13; BR-11.2 cenarios transversais).
+            var exist2 = await c.QueryFirstOrDefaultAsync<(long Id, decimal Qtd, decimal Vu)>(new CommandDefinition(
+                "select id, quantidade, valor_unitario from sigov.compras_fornecimento where tenant_id=@T and chave_idempotencia=@K and ativo and not is_deleted",
+                new { T = x.TenantId, K = chave }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (exist2.Id > 0 && exist2.Qtd == r.Quantidade && exist2.Vu == item.Vu) return exist2.Id;
+            throw new FornecimentoChaveIdempotenciaConflitoException(chave!, exist2.Id);
+        }
         await tx.CommitAsync(ct).ConfigureAwait(false);
         log.LogInformation("C2S9 fornecimento {Id} contra contrato {C} item {I} ({Q} x {Vu})", id, r.ContratoId, r.ContratoItemId, r.Quantidade, item.Vu);
         return id;
