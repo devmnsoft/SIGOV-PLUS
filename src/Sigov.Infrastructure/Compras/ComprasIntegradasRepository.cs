@@ -38,6 +38,21 @@ public sealed class ComprasIntegradasRepository(NpgsqlConnectionFactory factory,
         return n;
     }
 
+    // Sprint 10 (BR-10.3): parametros do modulo CONVENIOS (mesmo padrao de override por tenant).
+    static string SqlParametroConvenios =>
+        """
+        select coalesce((select val.valor::text from sigov.parametro_modulo_valor val where val.tenant_id=@T and val.parametro_id=c.pid and not val.is_deleted limit 1), c.vp)
+        from (select id as pid, valor_padrao::text as vp from sigov.parametro_modulo where modulo='CONVENIOS' and codigo=@Cod and ativo and not is_deleted limit 1) c
+        """;
+
+    async Task<long> LireParametroIntConveniosAsync(NpgsqlConnection c, NpgsqlTransaction? tx, ComprasIntegradasContext x, string codigo, CancellationToken ct)
+    {
+        var v = await c.ExecuteScalarAsync<string>(new CommandDefinition(SqlParametroConvenios, new { T = x.TenantId, Cod = codigo }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(v) || !long.TryParse(v, out var n))
+            throw new ComprasIntegradasRecursoNaoDisponivelException("parametro_modulo.CONVENIOS." + codigo);
+        return n;
+    }
+
     async Task<decimal> LireParametroDecimalAsync(NpgsqlConnection c, NpgsqlTransaction? tx, ComprasIntegradasContext x, string codigo, CancellationToken ct)
     {
         var v = await c.ExecuteScalarAsync<string>(new CommandDefinition(SqlParametro, new { T = x.TenantId, Cod = codigo }, tx, cancellationToken: ct)).ConfigureAwait(false);
@@ -760,12 +775,18 @@ public sealed class ComprasIntegradasRepository(NpgsqlConnectionFactory factory,
     // ---------------------------- HOMOLOGACAO (BR-8.4) -------------------------------
     public async Task<long> HomologarAsync(ComprasIntegradasContext x, long licitacaoId, CancellationToken ct)
     {
-        await GuardAsync(ct, "compras_licitacao", "compras_adjudicacao", "compras_homologacao").ConfigureAwait(false);
+        await GuardAsync(ct, "compras_licitacao", "compras_adjudicacao", "compras_homologacao", "juridico_parecer_condicao", "compras_juridico_consulta_vinculo").ConfigureAwait(false);
         var user = UsuarioObrigatorio(x);
         await using var c = factory.CreateConnection();
         await c.OpenAsync(ct);
         await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
         await CarregarLicitacaoAsync(c, tx, x, licitacaoId, ct).ConfigureAwait(false);
+
+        // Sprint 10 gate (BR-10.1): parecer condicionado com condicao aberta bloqueia o proximo passo da contratacao.
+        var procLic = await c.QueryFirstAsync<long>(new CommandDefinition(
+            "select processo_id from sigov.compras_licitacao where id=@L and tenant_id=@T",
+            new { L = licitacaoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await VerificarParecerCondicaoAbertaAsync(c, tx, x, procLic, ct).ConfigureAwait(false);
 
         var jaH = await c.ExecuteScalarAsync<long?>(new CommandDefinition(
             "select id from sigov.compras_homologacao where tenant_id=@T and licitacao_id=@L limit 1",
@@ -800,7 +821,7 @@ public sealed class ComprasIntegradasRepository(NpgsqlConnectionFactory factory,
     // -------------------------- CONTRATO (BR-8.5) ------------------------------------
     public async Task<ContratoGeradoDto> ContratoGerarAsync(ComprasIntegradasContext x, ContratoGerarRequest r, CancellationToken ct)
     {
-        await GuardAsync(ct, "compras_homologacao", "compras_adjudicacao", "compras_adjudicacao_item", "compras_proposta", "compras_licitacao", "compras_contrato", "compras_contrato_item").ConfigureAwait(false);
+        await GuardAsync(ct, "compras_homologacao", "compras_adjudicacao", "compras_adjudicacao_item", "compras_proposta", "compras_licitacao", "compras_contrato", "compras_contrato_item", "obras_obra", "obras_projeto", "obras_contrato_vinculo").ConfigureAwait(false);
         var modo = string.IsNullOrWhiteSpace(r.AssinaturaModo) ? "" : r.AssinaturaModo.Trim().ToUpperInvariant();
         if (modo is not ("GED" or "FISICA"))
             throw new ArgumentException("assinaturaModo inválido - use GED (assinatura eletrônica) ou FISICA.");
@@ -833,6 +854,19 @@ public sealed class ComprasIntegradasRepository(NpgsqlConnectionFactory factory,
             "select processo_id, objeto from sigov.compras_licitacao where id=@L and tenant_id=@T",
             new { L = hom.Licitacao, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
 
+        // Sprint 10 gate (BR-10.4/7.8b): contrato de obra sem projeto APROVADO nao se gera (Lei 14.133 art. 185).
+        if (r.ObraId is > 0)
+        {
+            var stObra = await c.QueryFirstOrDefaultAsync<string>(new CommandDefinition(
+                "select status from sigov.obras_obra where id=@O and tenant_id=@T and ativo and not is_deleted",
+                new { O = r.ObraId.Value, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (stObra is null) throw new ObraInexistenteException(r.ObraId.Value);
+            var nProjAprovado = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+                "select count(1) from sigov.obras_projeto where obra_id=@O and tenant_id=@T and ativo and not is_deleted and status='APROVADO'",
+                new { O = r.ObraId.Value, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (nProjAprovado == 0) throw new ObraContratoSemProjetoException(r.ObraId.Value);
+        }
+
         // itens espelham os adjudicados; valor total DERIVADO da adjudicacao (nao editavel)
         var itensAdj = (await c.QueryAsync<(long Li, int Seq, string Desc, decimal Qtd, decimal Vu, decimal Tot)>(new CommandDefinition(
             "select licitacao_item_id, sequencia, descricao, quantidade, valor_unitario, total from sigov.compras_adjudicacao_item where adjudicacao_id=@A and tenant_id=@T order by sequencia",
@@ -857,6 +891,15 @@ public sealed class ComprasIntegradasRepository(NpgsqlConnectionFactory factory,
                 values(@T,@E,@C,@Seq,@Desc,@Qtd,@Vu,@Tot,@Corr,now(),@U)
                 """, new { T = x.TenantId, E = x.EntidadeId, C = contratoId, Seq = ++seq, Desc = it.Desc, Qtd = it.Qtd, Vu = it.Vu, Tot = it.Tot, Corr = corr, U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
         }
+        // Sprint 10: registro do vinculo contrato x obra no modulo obras (dependencia canônica, sem copia local).
+        if (r.ObraId is > 0)
+        {
+            await c.ExecuteAsync(new CommandDefinition(
+                """
+                insert into sigov.obras_contrato_vinculo(tenant_id,entidade_id,obra_id,codigo,descricao,status,dados,created_at,created_by)
+                values(@T,@E,@O,'VC-C2S10-'||@C::text,'Vinculo contrato x obra da frente administrativa integrada C2S10 (BR-7.8/BR-10.4)','ATIVO',jsonb_build_object('compras_contrato_id',@C),now(),@U)
+                """, new { T = x.TenantId, E = x.EntidadeId, O = r.ObraId.Value, C = contratoId, U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        }
         await tx.CommitAsync(ct).ConfigureAwait(false);
         log.LogInformation("C2S8 contrato {Id} gerado da homologacao {H} (valor derivado {V})", contratoId, r.HomologacaoId, adj.ValorTotal);
         return new ContratoGeradoDto(contratoId, numero, vencedorFornecedor, Math.Round(adj.ValorTotal, 2), itensAdj.Count, r.DataEficacia, r.DataFim, modo, "VIGENTE");
@@ -864,7 +907,7 @@ public sealed class ComprasIntegradasRepository(NpgsqlConnectionFactory factory,
 
     public async Task<ContratoExecucaoDto> ContratoExecucaoAsync(ComprasIntegradasContext x, long contratoId, CancellationToken ct)
     {
-        await GuardAsync(ct, "compras_contrato", "compras_recebimento", "compras_recebimento_item").ConfigureAwait(false);
+        await GuardAsync(ct, "compras_contrato", "compras_recebimento", "compras_recebimento_item", "juridico_processo").ConfigureAwait(false);
         await using var c = factory.CreateConnection();
         await c.OpenAsync(ct);
         var contrato = await c.QueryFirstOrDefaultAsync<(decimal Valor, string Status)>(new CommandDefinition(
@@ -879,12 +922,16 @@ public sealed class ComprasIntegradasRepository(NpgsqlConnectionFactory factory,
             """, new { T = x.TenantId, C = contratoId }, cancellationToken: ct)).ConfigureAwait(false);
         var teto = await LireParametroIntAsync(c, null, x, "CONTRATO_EXECUCAO_TETO_PCT", ct).ConfigureAwait(false);
         var pct = contrato.Valor > 0 ? Math.Round(fornecido / contrato.Valor * 100m, 2) : 0m;
-        return new ContratoExecucaoDto(contratoId, contrato.Valor, fornecido, pct, (int)teto, pct >= teto);
+        // Sprint 10 (BR-10.2): marcador JURIDICO derivado - contencioso ativo com origem CONTRATO neste contrato.
+        var contAtivos = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            "select count(1) from sigov.juridico_processo where tenant_id=@T and ativo and not is_deleted and origem_tipo='CONTRATO' and origem_id=@C and encerrado_em is null",
+            new { T = x.TenantId, C = contratoId }, cancellationToken: ct)).ConfigureAwait(false);
+        return new ContratoExecucaoDto(contratoId, contrato.Valor, fornecido, pct, (int)teto, pct >= teto, contAtivos > 0);
     }
 
     public async Task ContratoProrrogarAsync(ComprasIntegradasContext x, long contratoId, DateOnly novoFim, string justificativa, CancellationToken ct)
     {
-        await GuardAsync(ct, "compras_contrato", "compras_contrato_historico").ConfigureAwait(false);
+        await GuardAsync(ct, "compras_contrato", "compras_contrato_historico", "juridico_processo").ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(justificativa)) throw new ArgumentException("justificativa do ato de prorrogação é obrigatória.");
         var user = UsuarioObrigatorio(x);
         await using var c = factory.CreateConnection();
@@ -896,6 +943,12 @@ public sealed class ComprasIntegradasRepository(NpgsqlConnectionFactory factory,
         if (ctr.Status is null) throw new ContratoInexistenteException(contratoId);
         if (ctr.Status != "VIGENTE") throw new ContratoNaoVigenteException(contratoId, ctr.Status);
         if (novoFim <= ctr.Fim) throw new ArgumentException("novo fim deve ser posterior à vigência atual.");
+
+        // Sprint 10 gate (BR-10.2): contencioso ativo com origem CONTRATO bloqueia a prorrogação ate desfecho registrado.
+        var contAtivos = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            "select count(1) from sigov.juridico_processo where tenant_id=@T and ativo and not is_deleted and origem_tipo='CONTRATO' and origem_id=@C and encerrado_em is null",
+            new { T = x.TenantId, C = contratoId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (contAtivos > 0) throw new ProrrogacaoBloqueadaContenciosoAtivoException(contratoId, (int)contAtivos);
 
         var tetoAnos = await LireParametroIntAsync(c, tx, x, "PRORROGACAO_TETO_ANOS", ct).ConfigureAwait(false);
         var limite = ctr.Inicio.AddYears((int)tetoAnos);
@@ -1386,5 +1439,614 @@ public sealed class ComprasIntegradasRepository(NpgsqlConnectionFactory factory,
         await tx.CommitAsync(ct).ConfigureAwait(false);
         log.LogInformation("C2S9 obrigacao {O} estornada por compensacao", obrigacaoId);
         return new ObrigacaoFinanceiraDto(ob.Id, ob.FornecimentoId, ob.Referencia, ob.Valor, "ESTORNADA");
+    }
+
+    // ============================ SPRINT 10 - BR-7.8 + BR-10.X =======================
+    // Vinculos Juridico x Compras + Convenios/Obras (etapa 3/3 da frente administrativa).
+    // Banco = autoridade (regras 11/12): os comandos escrevem nas tabelas canonicas dos modulos
+    // legados (juridico_*, convenio_*, obras_*) como DEPENDENCIA; os vinculos cruzados ficam no
+    // ledger compras_vinculo_externo + compras_juridico_consulta_vinculo (quebra de vinculo exige
+    // justificativa e ato registrado - BR-10.5; nunca delete fisico).
+
+    async Task VerificarParecerCondicaoAbertaAsync(NpgsqlConnection c, NpgsqlTransaction tx, ComprasIntegradasContext x, long processoId, CancellationToken ct)
+    {
+        var abertas = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            select count(1)
+            from sigov.juridico_parecer_condicao cd
+            join sigov.juridico_parecer pr on pr.id = cd.parecer_id and pr.tenant_id = cd.tenant_id and pr.ativo and not pr.is_deleted and pr.status = 'EMITIDO'
+            join sigov.compras_juridico_consulta_vinculo v on v.consulta_id = pr.consulta_id and v.tenant_id = pr.tenant_id and v.ativo and not v.is_deleted
+            where cd.tenant_id = @T and cd.ativo and not cd.is_deleted and cd.status = 'ABERTA' and v.processo_compras_id = @P
+            """, new { T = x.TenantId, P = processoId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (abertas > 0) throw new ParecerCondicaoAbertaException(processoId, (int)abertas);
+    }
+
+    async Task<ConsultaJuridicaDto> LeituraConsultaDtoAsync(NpgsqlConnection c, NpgsqlTransaction tx, ComprasIntegradasContext x, long consultaId, CancellationToken ct)
+    {
+        var r = await c.QuerySingleAsync<(long ConsultaId, long Processo, string Tipo, string Status, string? Conclusao, int Abertas, long? Pai, string Ref)>(new CommandDefinition(
+            """
+            select cs.id, v.processo_compras_id, v.tipo_consulta, cs.status,
+                   (select pr.conclusao from sigov.juridico_parecer pr where pr.consulta_id=cs.id and pr.tenant_id=@T and pr.ativo and not pr.is_deleted and pr.status='EMITIDO' limit 1),
+                   (select count(1)::int from sigov.juridico_parecer_condicao cd
+                      join sigov.juridico_parecer pr2 on pr2.id=cd.parecer_id and pr2.tenant_id=cd.tenant_id
+                     where pr2.consulta_id=cs.id and pr2.ativo and not pr2.is_deleted and pr2.status='EMITIDO' and cd.ativo and not cd.is_deleted and cd.status='ABERTA'),
+                   cs.consulta_pai_id, v.referencia_numero
+            from sigov.juridico_consulta cs
+            join sigov.compras_juridico_consulta_vinculo v on v.consulta_id=cs.id and v.tenant_id=cs.tenant_id and v.ativo and not v.is_deleted
+            where cs.id=@I and cs.tenant_id=@T and cs.ativo and not cs.is_deleted
+            """, new { I = consultaId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        return new ConsultaJuridicaDto(r.ConsultaId, r.Processo, r.Tipo, r.Status, r.Conclusao, r.Abertas, r.Pai, r.Ref);
+    }
+
+    async Task<ContenciosoDto> LeituraContenciosoDtoAsync(NpgsqlConnection c, NpgsqlTransaction tx, ComprasIntegradasContext x, long processoId, CancellationToken ct)
+    {
+        var r = await c.QuerySingleAsync<(long Id, string? Ot, long? Oi, string Caso, string Status, string? Resultado, int Mov)>(new CommandDefinition(
+            """
+            select p.id, p.origem_tipo, p.origem_id, coalesce(p.dados->>'caso','ATIVO'), p.status, p.resultado,
+                   (select count(1)::int from sigov.juridico_processo_movimento m where m.processo_id=p.id and m.tenant_id=p.tenant_id)
+            from sigov.juridico_processo p
+            where p.id=@I and p.tenant_id=@T
+            """, new { I = processoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        return new ContenciosoDto(r.Id, r.Ot ?? "", r.Oi ?? 0, r.Caso, r.Status, r.Resultado, r.Mov);
+    }
+
+    // Execucao do instrumento: repasse RECEBIDO (banco = autoridade) vs etapas executadas
+    // (etapa -> meta -> projeto -> instrumento, sem copia local). Saldo = recebido - executado.
+    async Task<(decimal Recebido, decimal Executado)> ExecucaoConvenioAsync(NpgsqlConnection c, NpgsqlTransaction tx, ComprasIntegradasContext x, long instrumentoId, CancellationToken ct)
+    {
+        var recebido = await c.ExecuteScalarAsync<decimal>(new CommandDefinition(
+            "select coalesce(sum(valor),0) from sigov.convenio_repasse where instrumento_id=@I and tenant_id=@T and deleted_at is null and status='RECEBIDO'",
+            new { I = instrumentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var executado = await c.ExecuteScalarAsync<decimal>(new CommandDefinition(
+            """
+            select coalesce(sum(e.valor_executado),0)
+            from sigov.convenio_etapa e
+            join sigov.convenio_meta m on m.id = e.meta_id and m.deleted_at is null
+            join sigov.convenio_projeto pj on pj.id = m.projeto_id and pj.deleted_at is null
+            where pj.instrumento_id=@I and e.tenant_id=@T and e.deleted_at is null and e.status<>'CANCELADA'
+            """, new { I = instrumentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        return (recebido, executado);
+    }
+
+    // -------------------------------- CONSULTA JURIDICA (BR-10.1) ---------------------
+    public async Task<ConsultaJuridicaDto> ConsultaJuridicaCriarAsync(ComprasIntegradasContext x, ConsultaJuridicaCriarRequest r, CancellationToken ct)
+    {
+        await GuardAsync(ct, "compras_processo", "juridico_consulta", "compras_juridico_consulta_vinculo").ConfigureAwait(false);
+        var tipo = string.IsNullOrWhiteSpace(r.TipoConsulta) ? "" : r.TipoConsulta.Trim().ToUpperInvariant();
+        if (tipo is not ("PARECER" or "IMPUGNACAO" or "DEFESA" or "COBRANCA")) throw new ConsultaTipoInvalidoException(tipo);
+        if (r.ProcessoComprasId <= 0) throw new ArgumentException("processoComprasId é obrigatório.");
+        if (string.IsNullOrWhiteSpace(r.ReferenciaNumero)) throw new ArgumentException("referenciaNumero do ato administrativo é obrigatória.");
+        if (string.IsNullOrWhiteSpace(r.Descricao)) throw new ArgumentException("descricao/assunto da consulta é obrigatório.");
+        if (string.IsNullOrWhiteSpace(r.SecretariaSetor)) throw new ArgumentException("secretariaSetor solicitante é obrigatório.");
+        var chave = string.IsNullOrWhiteSpace(r.ChaveIdempotencia) ? "" : r.ChaveIdempotencia.Trim();
+        if (chave.Length > 150) throw new ArgumentException("chaveIdempotencia excede 150 caracteres.");
+        var ent = x.EntidadeId ?? throw new InvalidOperationException("entidade_id obrigatório no contexto institucional.");
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var numProc = await c.QueryFirstOrDefaultAsync<string>(new CommandDefinition(
+            "select numero from sigov.compras_processo where id=@P and tenant_id=@T",
+            new { P = r.ProcessoComprasId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (numProc is null) throw new ProcessoComprasInexistenteException(r.ProcessoComprasId);
+        if (!string.IsNullOrEmpty(chave))
+        {
+            var exist = await c.QueryFirstOrDefaultAsync<(long Consulta, long Processo, string Tipo)>(new CommandDefinition(
+                "select consulta_id, processo_compras_id, tipo_consulta from sigov.compras_juridico_consulta_vinculo where tenant_id=@T and chave_idempotencia=@K and ativo and not is_deleted limit 1",
+                new { T = x.TenantId, K = chave }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (exist.Consulta > 0)
+            {
+                if (exist.Processo == r.ProcessoComprasId && exist.Tipo == tipo)
+                {
+                    var replay = await LeituraConsultaDtoAsync(c, tx, x, exist.Consulta, ct).ConfigureAwait(false);
+                    await tx.CommitAsync(ct).ConfigureAwait(false);
+                    return replay;
+                }
+                throw new ConsultaChaveIdempotenciaConflitoException(chave, exist.Consulta);
+            }
+        }
+        var consultaId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            insert into sigov.juridico_consulta(tenant_id,entidade_id,codigo,descricao,status,secretaria_setor,solicitante,assunto,data_solicitacao,prazo_resposta,custo_honorario,created_at,created_by)
+            values(@T,@E,@Ref,'Consulta juridica '||@Tipo||' vinculada a contratacao (BR-10.1)','ABERTA',@Setor,@Sol,@Assunto,@Data,@Prazo,@Custo,now(),@U)
+            returning id
+            """, new { T = x.TenantId, E = ent, Ref = r.ReferenciaNumero.Trim(), Tipo = tipo, Setor = r.SecretariaSetor.Trim(), Sol = r.Solicitante, Assunto = r.Descricao.Trim(), Data = r.DataSolicitacao, Prazo = r.PrazoResposta, Custo = Math.Round(r.CustoHonorario, 4), U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await c.ExecuteAsync(new CommandDefinition(
+            """
+            insert into sigov.compras_juridico_consulta_vinculo(tenant_id,entidade_id,consulta_id,processo_compras_id,tipo_consulta,referencia_numero,chave_idempotencia,correlation_id,created_at,created_by)
+            values(@T,@E,@I,@P,@Tipo,@Ref,@K,@Corr,now(),@U)
+            """, new { T = x.TenantId, E = x.EntidadeId, I = consultaId, P = r.ProcessoComprasId, Tipo = tipo, Ref = r.ReferenciaNumero.Trim(), K = string.IsNullOrEmpty(chave) ? null : chave, Corr = GuidCorr(x.CorrelationId), U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var dtoNovo = await LeituraConsultaDtoAsync(c, tx, x, consultaId, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S10 consulta juridica {I} aberta ({Tipo} do processo {P})", consultaId, tipo, r.ProcessoComprasId);
+        return dtoNovo;
+    }
+
+    public async Task<ConsultaJuridicaDto> ParecerEmitirAsync(ComprasIntegradasContext x, long consultaId, ParecerEmitirRequest r, CancellationToken ct)
+    {
+        await GuardAsync(ct, "juridico_consulta", "juridico_parecer", "juridico_parecer_condicao").ConfigureAwait(false);
+        var conclusao = string.IsNullOrWhiteSpace(r.Conclusao) ? "" : r.Conclusao.Trim().ToUpperInvariant();
+        if (conclusao is not ("FAVORECIMENTO" or "IMPROCEDENCIA" or "CONDICIONADO")) throw new ParecerConclusaoInvalidaException(conclusao);
+        var condicoes = (r.Condicoes ?? new List<string>()).Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).ToList();
+        if (condicoes.Count > 50) throw new ArgumentException("no máximo 50 condicionantes por parecer.");
+        if (conclusao == "CONDICIONADO" && condicoes.Count == 0) throw new ParecerCondicionadoSemCondicaoException();
+        if (conclusao != "CONDICIONADO" && condicoes.Count > 0) throw new ParecerCondicaoIndevidaException();
+        if (string.IsNullOrWhiteSpace(r.Resumo)) throw new ArgumentException("resumo/ementa do parecer é obrigatório.");
+        var ent = x.EntidadeId ?? throw new InvalidOperationException("entidade_id obrigatório no contexto institucional.");
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var st = await c.QueryFirstOrDefaultAsync<string>(new CommandDefinition(
+            "select status from sigov.juridico_consulta where id=@I and tenant_id=@T and ativo and not is_deleted",
+            new { I = consultaId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (st is null) throw new ConsultaJuridicaInexistenteException(consultaId);
+        var jaEmitido = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            "select count(1) from sigov.juridico_parecer where consulta_id=@I and tenant_id=@T and ativo and not is_deleted and status='EMITIDO'",
+            new { I = consultaId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (jaEmitido > 0) throw new ParecerJaEmitidoException(consultaId);
+        var parecerId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            insert into sigov.juridico_parecer(tenant_id,entidade_id,descricao,status,consulta_id,conclusao,ementa,emitido_em,created_at,created_by)
+            values(@T,@E,'Parecer da consulta '||@I::text||' ('||@C||') (BR-10.1)','EMITIDO',@I,@C,@Resumo,now(),now(),@U)
+            returning id
+            """, new { T = x.TenantId, E = ent, I = consultaId, C = conclusao, Resumo = r.Resumo.Trim(), U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        foreach (var cond in condicoes)
+        {
+            await c.ExecuteAsync(new CommandDefinition(
+                "insert into sigov.juridico_parecer_condicao(tenant_id,entidade_id,parecer_id,descricao,status,correlation_id,created_at,created_by) values(@T,@E,@P,@D,'ABERTA',@Corr,now(),@U)",
+                new { T = x.TenantId, E = x.EntidadeId, P = parecerId, D = cond, Corr = GuidCorr(x.CorrelationId), U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        }
+        await c.ExecuteAsync(new CommandDefinition(
+            "update sigov.juridico_consulta set status=@S, updated_at=now(), updated_by=@U where id=@I and tenant_id=@T",
+            new { S = conclusao == "CONDICIONADO" ? "CONDICIONADA" : "RESOLVIDA", U = user, I = consultaId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var dtoParecer = await LeituraConsultaDtoAsync(c, tx, x, consultaId, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S10 parecer {P} emitido para a consulta {I} ({C}, {N} condicoes)", parecerId, consultaId, conclusao, condicoes.Count);
+        return dtoParecer;
+    }
+
+    public async Task<CondicaoSatisfeitaDto> CondicaoSatisfazerAsync(ComprasIntegradasContext x, long condicaoId, string justificativa, CancellationToken ct)
+    {
+        await GuardAsync(ct, "juridico_parecer_condicao", "juridico_parecer", "juridico_consulta").ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(justificativa)) throw new SatisfazerCondicaoSemJustificativaException();
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var cd = await c.QueryFirstOrDefaultAsync<(long Id, long Parecer, long Consulta, string Status)>(new CommandDefinition(
+            """
+            select cd.id, cd.parecer_id, coalesce(pr.consulta_id,0), cd.status
+            from sigov.juridico_parecer_condicao cd
+            join sigov.juridico_parecer pr on pr.id = cd.parecer_id and pr.tenant_id = cd.tenant_id
+            where cd.id = @I and cd.tenant_id = @T and cd.ativo and not cd.is_deleted
+            """, new { I = condicaoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (cd.Id <= 0) throw new CondicaoParecerInexistenteException(condicaoId);
+        if (cd.Status != "ABERTA") throw new CondicaoJaSatisfeitaException(condicaoId);
+        await c.ExecuteAsync(new CommandDefinition(
+            "update sigov.juridico_parecer_condicao set status='SATISFEITA', satisfeita_em=now(), justificativa=@J, updated_at=now(), updated_by=@U where id=@I and tenant_id=@T",
+            new { J = justificativa.Trim(), U = user, I = condicaoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var restantes = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            "select count(1) from sigov.juridico_parecer_condicao where parecer_id=@P and tenant_id=@T and ativo and not is_deleted and status='ABERTA'",
+            new { P = cd.Parecer, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        string statusConsulta = "SEM_PARECER";
+        if (cd.Consulta > 0)
+        {
+            if (restantes == 0)
+                await c.ExecuteAsync(new CommandDefinition(
+                    "update sigov.juridico_consulta set status='RESOLVIDA', updated_at=now(), updated_by=@U where id=@C and tenant_id=@T and status='CONDICIONADA'",
+                    new { U = user, C = cd.Consulta, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            statusConsulta = await c.QueryFirstAsync<string>(new CommandDefinition(
+                "select status from sigov.juridico_consulta where id=@C and tenant_id=@T",
+                new { C = cd.Consulta, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        }
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S10 condicao {I} satisfeita (restam {R} na consulta {C})", condicaoId, restantes, cd.Consulta);
+        return new CondicaoSatisfeitaDto(condicaoId, cd.Consulta, (int)restantes, statusConsulta);
+    }
+
+    public async Task<ConsultaJuridicaDto> ConsultaFilialAsync(ComprasIntegradasContext x, long consultaId, string justificativa, CancellationToken ct)
+    {
+        await GuardAsync(ct, "juridico_consulta", "compras_juridico_consulta_vinculo").ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(justificativa)) throw new ArgumentException("justificativa do recurso/filial é obrigatória.");
+        var ent = x.EntidadeId ?? throw new InvalidOperationException("entidade_id obrigatório no contexto institucional.");
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var pai = await c.QueryFirstOrDefaultAsync<(string Status, string Setor, string? Sol, string Assunto)>(new CommandDefinition(
+            "select status, secretaria_setor, solicitante, assunto from sigov.juridico_consulta where id=@I and tenant_id=@T and ativo and not is_deleted",
+            new { I = consultaId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (pai.Status is null) throw new ConsultaJuridicaInexistenteException(consultaId);
+        if (pai.Status != "RESOLVIDA") throw new ConsultaPaiNaoResolvidaException(consultaId, pai.Status);
+        var jaFilial = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            "select count(1) from sigov.juridico_consulta where consulta_pai_id=@I and tenant_id=@T and ativo and not is_deleted",
+            new { I = consultaId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (jaFilial > 0) throw new FilialDuplicadaException(consultaId);
+        var linkPai = await c.QueryFirstOrDefaultAsync<(long Processo, string Tipo, string Ref)>(new CommandDefinition(
+            "select processo_compras_id, tipo_consulta, referencia_numero from sigov.compras_juridico_consulta_vinculo where consulta_id=@I and tenant_id=@T and ativo and not is_deleted limit 1",
+            new { I = consultaId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (linkPai.Processo <= 0) throw new ConsultaSemProcessoException(consultaId);
+        var filialId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            insert into sigov.juridico_consulta(tenant_id,entidade_id,descricao,status,secretaria_setor,solicitante,assunto,data_solicitacao,custo_honorario,consulta_pai_id,justificativa,created_at,created_by)
+            values(@T,@E,'Filial (recurso) da consulta '||@I::text||': '||@J,'ABERTA',@Setor,@Sol,'FILIAL: '||@Assunto,@Data,0,@I,@J,now(),@U)
+            returning id
+            """, new { T = x.TenantId, E = ent, I = consultaId, J = justificativa.Trim(), Setor = pai.Setor, Sol = pai.Sol, Assunto = pai.Assunto, Data = clock.DataAtual, U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await c.ExecuteAsync(new CommandDefinition(
+            """
+            insert into sigov.compras_juridico_consulta_vinculo(tenant_id,entidade_id,consulta_id,processo_compras_id,tipo_consulta,referencia_numero,correlation_id,created_at,created_by)
+            values(@T,@E,@FI,@P,@Tipo,@Ref||'-FILIAL',@Corr,now(),@U)
+            """, new { T = x.TenantId, E = x.EntidadeId, FI = filialId, P = linkPai.Processo, Tipo = linkPai.Tipo, Ref = linkPai.Ref, Corr = GuidCorr(x.CorrelationId), U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var dtoFilial = await LeituraConsultaDtoAsync(c, tx, x, filialId, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S10 consulta filial {F} aberta contra a original {I} (original preservada)", filialId, consultaId);
+        return dtoFilial;
+    }
+
+    // ------------------------------- CONTENCIOSO (BR-10.2) ---------------------------
+    public async Task<ContenciosoDto> ContenciosoAbrirAsync(ComprasIntegradasContext x, ContenciosoAbrirRequest r, CancellationToken ct)
+    {
+        await GuardAsync(ct, "juridico_processo", "juridico_processo_movimento", "compras_contrato", "convenio_instrumento", "compras_vinculo_externo").ConfigureAwait(false);
+        var origem = string.IsNullOrWhiteSpace(r.OrigemTipo) ? "" : r.OrigemTipo.Trim().ToUpperInvariant();
+        if (origem is not ("CONTRATO" or "CONVENIO" or "TRABALHISTA" or "TRIBUTARIO" or "OUTRA")) throw new ContenciosoOrigemInvalidaException(origem);
+        var caso = string.IsNullOrWhiteSpace(r.Caso) ? "" : r.Caso.Trim().ToUpperInvariant();
+        if (caso is not ("ATIVO" or "PASSIVO")) throw new CasoContenciosoInvalidoException(caso);
+        if (r.OrigemId <= 0) throw new ArgumentException("origemId é obrigatório.");
+        if (r.ValorCausa < 0) throw new ArgumentException("valorCausa não pode ser negativo.");
+        if (string.IsNullOrWhiteSpace(r.Assunto)) throw new ArgumentException("assunto do contencioso é obrigatório.");
+        var ent = x.EntidadeId ?? throw new InvalidOperationException("entidade_id obrigatório no contexto institucional.");
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        if (origem == "CONTRATO")
+        {
+            var stCtr = await c.QueryFirstOrDefaultAsync<string>(new CommandDefinition(
+                "select status from sigov.compras_contrato where id=@O and tenant_id=@T",
+                new { O = r.OrigemId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (stCtr is null) throw new ContratoInexistenteException(r.OrigemId);
+        }
+        if (origem == "CONVENIO")
+        {
+            var stCvn = await c.QueryFirstOrDefaultAsync<string>(new CommandDefinition(
+                "select status from sigov.convenio_instrumento where id=@O and tenant_id=@T and deleted_at is null",
+                new { O = r.OrigemId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (stCvn is null) throw new InstrumentoConvenioInexistenteException(r.OrigemId);
+        }
+        var jaAtivo = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            "select count(1) from sigov.juridico_processo where tenant_id=@T and ativo and not is_deleted and origem_tipo=@Ot and origem_id=@Oi and encerrado_em is null",
+            new { T = x.TenantId, Ot = origem, Oi = r.OrigemId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (jaAtivo > 0) throw new ContenciosoAtivoParaOrigemException(origem, r.OrigemId);
+        var numero = await c.ExecuteScalarAsync<string>(new CommandDefinition(
+            "select 'JP-' || to_char(now(),'YYYYMM') || '-' || lpad(floor(random()*1000000)::int::text,6,'0')", new { }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var area = origem switch { "TRABALHISTA" => "TRABALHISTA", "TRIBUTARIO" => "TRIBUTARIO", "OUTRA" => "OUTRO", _ => "CIVEL" };
+        var processoId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            insert into sigov.juridico_processo(tenant_id,entidade_id,descricao,status,numero_interno,area,natureza,assunto,objeto,valor_causa,instancia,vara_orgao,origem_tipo,origem_id,referencia_externa,dados,created_at,created_by)
+            values(@T,@E,'Contencioso '||@Caso||' - origem '||@Ot||'/'||@Oi::text||' (BR-10.2)','ATIVO',@Num,@Area,'CONTENCIOSO',@Assunto,@Objeto,@Valor,nullif(@Inst,''),nullif(@Var,''),@Ot,@Oi,nullif(@RefEx,''),jsonb_build_object('caso',@Caso),now(),@U)
+            returning id
+            """, new { T = x.TenantId, E = ent, Caso = caso, Ot = origem, Oi = r.OrigemId, Num = numero, Area = area, Assunto = r.Assunto.Trim(), Objeto = "Origem " + origem + "/" + r.OrigemId.ToString() + " (caso " + caso + ")", Valor = r.ValorCausa, Inst = r.Instancia, Var = r.VaraOrgao, RefEx = r.ReferenciaExterna, U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await c.ExecuteAsync(new CommandDefinition(
+            """
+            insert into sigov.juridico_processo_movimento(tenant_id,entidade_id,processo_id,tipo,descricao,ocorrido_em,responsavel_id)
+            values(@T,@E,@P,'ABERTURA','Abertura do contencioso - origem '||@Ot||'/'||@Oi::text||', caso '||@Caso||', valor da causa '||@V::text,now(),@U)
+            """, new { T = x.TenantId, E = ent, P = processoId, Ot = origem, Oi = r.OrigemId, Caso = caso, V = r.ValorCausa, U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (origem == "CONTRATO")
+        {
+            // marcador JURIDICO do contrato (BR-10.2): ledger do vinculo - o status deriva daqui.
+            await c.ExecuteAsync(new CommandDefinition(
+                """
+                insert into sigov.compras_vinculo_externo(tenant_id,entidade_id,contrato_id,alvo_modulo,alvo_id,status,correlation_id,created_at,created_by)
+                values(@T,@E,@O,'JURIDICO_CONTENCIOSO',@P,'ATIVO',@Corr,now(),@U)
+                """, new { T = x.TenantId, E = x.EntidadeId, O = r.OrigemId, P = processoId, Corr = GuidCorr(x.CorrelationId), U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        }
+        var dtoAberto = await LeituraContenciosoDtoAsync(c, tx, x, processoId, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S10 contencioso {P} aberto ({O}/{Id}, caso {C}, causa {V})", processoId, origem, r.OrigemId, caso, r.ValorCausa);
+        return dtoAberto;
+    }
+
+    public async Task<ContenciosoDto> ContenciosoDesfecharAsync(ComprasIntegradasContext x, long processoId, ContenciosoDesfecharRequest r, CancellationToken ct)
+    {
+        await GuardAsync(ct, "juridico_processo", "juridico_processo_movimento", "compras_vinculo_externo").ConfigureAwait(false);
+        var resultado = string.IsNullOrWhiteSpace(r.Resultado) ? "" : r.Resultado.Trim().ToUpperInvariant();
+        if (resultado is not ("TRANSACAO" or "JUGADO" or "DESISTENCIA")) throw new ContenciosoResultadoInvalidoException(resultado);
+        if (string.IsNullOrWhiteSpace(r.Justificativa)) throw new DesfechoSemJustificativaException();
+        if (r.Custas < 0) throw new ArgumentException("custas não podem ser negativas.");
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var p = await c.QueryFirstOrDefaultAsync<(string Status, DateTime? EncerradoEm, string? Resultado, string? OrigemTipo)>(new CommandDefinition(
+            "select status, encerrado_em, resultado, origem_tipo from sigov.juridico_processo where id=@I and tenant_id=@T and ativo and not is_deleted",
+            new { I = processoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (p.Status is null) throw new ProcessoJuridicoInexistenteException(processoId);
+        if (p.EncerradoEm is not null) throw new ContenciosoJaDesfecadoException(processoId, p.Resultado ?? "DESCONHECIDO");
+        var jd = "DESFECO " + resultado + " (custas " + r.Custas.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "): " + r.Justificativa.Trim();
+        await c.ExecuteAsync(new CommandDefinition(
+            "update sigov.juridico_processo set status='ENCERRADO', resultado=@R, encerrado_em=now(), justificativa=@J, updated_at=now(), updated_by=@U where id=@I and tenant_id=@T",
+            new { R = resultado, J = jd, U = user, I = processoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await c.ExecuteAsync(new CommandDefinition(
+            "insert into sigov.juridico_processo_movimento(tenant_id,entidade_id,processo_id,tipo,descricao,status_anterior,status_novo,ocorrido_em,responsavel_id) values(@T,@E,@P,'DESFECO',@J,@SA,'ENCERRADO',now(),@U)",
+            new { T = x.TenantId, E = x.EntidadeId, P = processoId, J = jd, SA = p.Status, U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (p.OrigemTipo == "CONTRATO")
+        {
+            // limpa o marcador JURIDICO do contrato pelo ledger (ato registrado, sem delete fisico).
+            await c.ExecuteAsync(new CommandDefinition(
+                "update sigov.compras_vinculo_externo set status='QUITADO', justificativa_quitacao=@J, quitado_em=now(), quitado_por=@U, updated_at=now(), updated_by=@U where tenant_id=@T and alvo_modulo='JURIDICO_CONTENCIOSO' and alvo_id=@I and status='ATIVO' and ativo and not is_deleted",
+                new { J = jd, U = user, T = x.TenantId, I = processoId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        }
+        var dtoDesfecho = await LeituraContenciosoDtoAsync(c, tx, x, processoId, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S10 contencioso {P} desfeito ({R}, custas {C})", processoId, resultado, r.Custas);
+        return dtoDesfecho;
+    }
+
+    // ---------------------------- CONTRAPARTIDA (BR-7.8) -----------------------------
+    public async Task<ContrapartidaDto> ContrapartidaRegistrarAsync(ComprasIntegradasContext x, ContrapartidaRegistrarRequest r, CancellationToken ct)
+    {
+        await GuardAsync(ct, "convenio_instrumento", "convenio_contrapartida").ConfigureAwait(false);
+        var tipo = string.IsNullOrWhiteSpace(r.Tipo) ? "" : r.Tipo.Trim().ToUpperInvariant();
+        if (tipo is not ("FINANCEIRA" or "BENS" or "SERVICOS" or "PESSOAL" or "OUTRA")) throw new ContrapartidaTipoInvalidoException(tipo);
+        if (r.InstrumentoId <= 0) throw new ArgumentException("instrumentoId é obrigatório.");
+        if (r.ValorPrevisto <= 0m || r.ValorRealizado < 0m || r.ValorRealizado > r.ValorPrevisto)
+            throw new ContrapartidaValorInconsistenteException(r.ValorPrevisto, r.ValorRealizado);
+        var status = r.ValorRealizado >= r.ValorPrevisto ? "REALIZADA" : (r.ValorRealizado > 0m ? "PARCIAL" : "PREVISTA");
+        if (status != "PREVISTA" && r.DataRealizacao is null) throw new ContrapartidaRealizacaoSemDataException();
+        if (string.IsNullOrWhiteSpace(r.Descricao)) throw new ArgumentException("descricao da contrapartida é obrigatória.");
+        var chave = string.IsNullOrWhiteSpace(r.ChaveIdempotencia) ? "" : r.ChaveIdempotencia.Trim();
+        if (chave.Length > 150) throw new ArgumentException("chaveIdempotencia excede 150 caracteres.");
+        var ent = x.EntidadeId ?? throw new InvalidOperationException("entidade_id obrigatório no contexto institucional.");
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var inst = await c.QueryFirstOrDefaultAsync<(long Id, string Status, decimal Necessaria)>(new CommandDefinition(
+            "select id, status, coalesce(valor_contrapartida,0) from sigov.convenio_instrumento where id=@I and tenant_id=@T and deleted_at is null",
+            new { I = r.InstrumentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (inst.Id <= 0) throw new InstrumentoConvenioInexistenteException(r.InstrumentoId);
+        if (inst.Status == "RASCUNHO") throw new InstrumentoEmRascunhoException(r.InstrumentoId);
+        if (inst.Status is "ENCERRADO" or "CANCELADO") throw new InstrumentoEncerradoImutavelException(r.InstrumentoId, inst.Status);
+        if (inst.Status != "ATIVO") throw new InstrumentoNaoAtivoException(r.InstrumentoId, inst.Status);
+        if (!string.IsNullOrEmpty(chave))
+        {
+            var exist = await c.QueryFirstOrDefaultAsync<(long Id, string Tipo, decimal Previsto, decimal Realizado, string Status, string Desc)>(new CommandDefinition(
+                "select id, tipo, valor_previsto, valor_realizado, status, descricao from sigov.convenio_contrapartida where tenant_id=@T and chave_idempotencia=@K and deleted_at is null limit 1",
+                new { T = x.TenantId, K = chave }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (exist.Id > 0)
+            {
+                if (exist.Tipo == tipo && exist.Previsto == r.ValorPrevisto && exist.Realizado == r.ValorRealizado)
+                {
+                    await tx.CommitAsync(ct).ConfigureAwait(false);
+                    return new ContrapartidaDto(exist.Id, r.InstrumentoId, exist.Tipo, exist.Desc, exist.Previsto, exist.Realizado, exist.Status, chave);
+                }
+                throw new ContrapartidaChaveIdempotenciaConflitoException(chave, exist.Id);
+            }
+        }
+        var previstas = await c.ExecuteScalarAsync<decimal>(new CommandDefinition(
+            "select coalesce(sum(valor_previsto),0) from sigov.convenio_contrapartida where instrumento_id=@I and tenant_id=@T and deleted_at is null and status<>'CANCELADA'",
+            new { I = r.InstrumentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (previstas + r.ValorPrevisto > inst.Necessaria + 0.01m)
+            throw new ContrapartidaExcedeInstrumentoException(r.ValorPrevisto, Math.Max(inst.Necessaria - previstas, 0m));
+        var id = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            insert into sigov.convenio_contrapartida(tenant_id,entity_id,instrumento_id,tipo,descricao,valor_previsto,valor_realizado,data_realizacao,status,chave_idempotencia,created_at)
+            values(@T,@E,@I,@Tipo,@Desc,@Pv,@Rz,@Dr,@St,@K,now())
+            returning id
+            """, new { T = x.TenantId, E = ent, I = r.InstrumentoId, Tipo = tipo, Desc = r.Descricao.Trim(), Pv = r.ValorPrevisto, Rz = r.ValorRealizado, Dr = r.DataRealizacao, St = status, K = string.IsNullOrEmpty(chave) ? null : chave }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S10 contrapartida {Id} registrada no instrumento {I} ({Tipo} previsto {Pv} realizado {Rz} {St})", id, r.InstrumentoId, tipo, r.ValorPrevisto, r.ValorRealizado, status);
+        return new ContrapartidaDto(id, r.InstrumentoId, tipo, r.Descricao.Trim(), r.ValorPrevisto, r.ValorRealizado, status, string.IsNullOrEmpty(chave) ? null : chave);
+    }
+
+    public async Task<VinculoExternoDto> VinculoConvenioAplicarAsync(ComprasIntegradasContext x, VinculoConvenioAplicarRequest r, CancellationToken ct)
+    {
+        await GuardAsync(ct, "compras_contrato", "convenio_instrumento", "convenio_contrapartida", "compras_vinculo_externo").ConfigureAwait(false);
+        if (r.ContratoId <= 0 || r.InstrumentoId <= 0) throw new ArgumentException("contratoId e instrumentoId são obrigatórios.");
+        var chave = string.IsNullOrWhiteSpace(r.ChaveIdempotencia) ? "" : r.ChaveIdempotencia.Trim();
+        if (chave.Length > 150) throw new ArgumentException("chaveIdempotencia excede 150 caracteres.");
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var stCtr = await c.QueryFirstOrDefaultAsync<string>(new CommandDefinition(
+            "select status from sigov.compras_contrato where id=@C and tenant_id=@T",
+            new { C = r.ContratoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (stCtr is null) throw new ContratoInexistenteException(r.ContratoId);
+        if (stCtr is not ("VIGENTE" or "PRORROGADO")) throw new ContratoNaoVigenteParaVinculoException(r.ContratoId, stCtr);
+        var inst = await c.QueryFirstOrDefaultAsync<(long Id, string Status, decimal Necessaria)>(new CommandDefinition(
+            "select id, status, coalesce(valor_contrapartida,0) from sigov.convenio_instrumento where id=@I and tenant_id=@T and deleted_at is null",
+            new { I = r.InstrumentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (inst.Id <= 0) throw new InstrumentoConvenioInexistenteException(r.InstrumentoId);
+        if (inst.Status != "ATIVO") throw new InstrumentoNaoAtivoException(r.InstrumentoId, inst.Status);
+        if (inst.Necessaria > 0m)
+        {
+            // gate BR-7.8: recurso proprio exigido pelo instrumento tem que estar REALIZADO antes de aplicar.
+            var realizado = await c.ExecuteScalarAsync<decimal>(new CommandDefinition(
+                "select coalesce(sum(valor_realizado),0) from sigov.convenio_contrapartida where instrumento_id=@I and tenant_id=@T and deleted_at is null and status<>'CANCELADA'",
+                new { I = r.InstrumentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (realizado + 0.01m < inst.Necessaria)
+                throw new ContrapartidaConvenioInexistenteException(r.InstrumentoId, inst.Necessaria, realizado);
+        }
+        if (!string.IsNullOrEmpty(chave))
+        {
+            var exist = await c.QueryFirstOrDefaultAsync<(long Id, long Contrato, long Alvo, string Status, string? Just)>(new CommandDefinition(
+                "select id, contrato_id, alvo_id, status, justificativa_quitacao from sigov.compras_vinculo_externo where tenant_id=@T and chave_idempotencia=@K and ativo and not is_deleted limit 1",
+                new { T = x.TenantId, K = chave }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (exist.Id > 0)
+            {
+                if (exist.Contrato == r.ContratoId && exist.Alvo == r.InstrumentoId)
+                {
+                    await tx.CommitAsync(ct).ConfigureAwait(false);
+                    return new VinculoExternoDto(exist.Id, exist.Contrato, "CONVENIO", exist.Alvo, exist.Status, chave, exist.Just);
+                }
+                throw new VinculoConvenioChaveConflitoException(chave, exist.Id);
+            }
+        }
+        var id = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            insert into sigov.compras_vinculo_externo(tenant_id,entidade_id,contrato_id,alvo_modulo,alvo_id,status,chave_idempotencia,correlation_id,created_at,created_by)
+            values(@T,@E,@C,'CONVENIO',@I,'ATIVO',@K,@Corr,now(),@U)
+            returning id
+            """, new { T = x.TenantId, E = x.EntidadeId, C = r.ContratoId, I = r.InstrumentoId, K = string.IsNullOrEmpty(chave) ? null : chave, Corr = GuidCorr(x.CorrelationId), U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S10 vinculo do convenio {I} aplicado ao contrato {C}", r.InstrumentoId, r.ContratoId);
+        return new VinculoExternoDto(id, r.ContratoId, "CONVENIO", r.InstrumentoId, "ATIVO", string.IsNullOrEmpty(chave) ? null : chave, null);
+    }
+
+    public async Task<VinculoExternoDto> VinculoQuitarAsync(ComprasIntegradasContext x, long vinculoId, string justificativa, CancellationToken ct)
+    {
+        await GuardAsync(ct, "compras_vinculo_externo").ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(justificativa)) throw new QuitarVinculoSemJustificativaException();
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var v = await c.QueryFirstOrDefaultAsync<(long Id, long Contrato, string AlvoModulo, long Alvo, string Status)>(new CommandDefinition(
+            "select id, contrato_id, alvo_modulo, alvo_id, status from sigov.compras_vinculo_externo where id=@I and tenant_id=@T and ativo and not is_deleted",
+            new { I = vinculoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (v.Id <= 0) throw new VinculoExternoInexistenteException(vinculoId);
+        if (v.Status == "QUITADO") throw new VinculoJaQuitadoException(vinculoId);
+        await c.ExecuteAsync(new CommandDefinition(
+            "update sigov.compras_vinculo_externo set status='QUITADO', justificativa_quitacao=@J, quitado_em=now(), quitado_por=@U, updated_at=now(), updated_by=@U where id=@I and tenant_id=@T",
+            new { J = justificativa.Trim(), U = user, I = vinculoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S10 vinculo {I} ({M}/{A}) quitado com justificativa", vinculoId, v.AlvoModulo, v.Alvo);
+        return new VinculoExternoDto(v.Id, v.Contrato, v.AlvoModulo, v.Alvo, "QUITADO", null, justificativa.Trim());
+    }
+
+    // ------------------------- CONVENIOS (BR-10.3/BR-10.5) ---------------------------
+    public async Task<ConvencioEncerradoDto> ConvencioEncerrarAsync(ComprasIntegradasContext x, long instrumentoId, string? justificativa, CancellationToken ct)
+    {
+        await GuardAsync(ct, "convenio_instrumento", "compras_vinculo_externo", "convenio_repasse", "convenio_etapa", "convenio_meta", "convenio_projeto").ConfigureAwait(false);
+        if (instrumentoId <= 0) throw new ArgumentException("instrumentoId é obrigatório.");
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var inst = await c.QueryFirstOrDefaultAsync<(long Id, string Status)>(new CommandDefinition(
+            "select id, status from sigov.convenio_instrumento where id=@I and tenant_id=@T and deleted_at is null",
+            new { I = instrumentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (inst.Id <= 0) throw new InstrumentoConvenioInexistenteException(instrumentoId);
+        if (inst.Status is "ENCERRADO" or "CANCELADO") throw new InstrumentoJaEncerradoException(instrumentoId, inst.Status);
+        if (inst.Status == "RASCUNHO") throw new InstrumentoEmRascunhoException(instrumentoId);
+        // cascata BR-10.5: encerramento bloqueado enquanto contrato vinculado estiver ATIVO no ledger.
+        var vinculados = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            "select count(1) from sigov.compras_vinculo_externo where tenant_id=@T and alvo_modulo='CONVENIO' and alvo_id=@I and status='ATIVO' and ativo and not is_deleted",
+            new { T = x.TenantId, I = instrumentoId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (vinculados > 0) throw new ConvenioEncerramentoBloqueadoContratoAtivoException(instrumentoId, (int)vinculados);
+        var (recebido, executado) = await ExecucaoConvenioAsync(c, tx, x, instrumentoId, ct).ConfigureAwait(false);
+        var saldo = recebido - executado;
+        if (saldo > 0.01m && string.IsNullOrWhiteSpace(justificativa)) throw new EncerrarConvenioSaldoSemJustificativaException(saldo);
+        var obs = "ENCERRADO (frente integrada C2S10)" + (saldo > 0.01m ? " COM SALDO " + saldo.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + ": " + justificativa!.Trim() : "");
+        await c.ExecuteAsync(new CommandDefinition(
+            "update sigov.convenio_instrumento set status='ENCERRADO', observacao=coalesce(observacao,'')||' | '||@O, updated_at=now() where id=@I and tenant_id=@T",
+            new { O = obs, U = user, I = instrumentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S10 instrumento de convenio {I} encerrado (saldo de execucao {S})", instrumentoId, saldo);
+        return new ConvencioEncerradoDto(instrumentoId, "ENCERRADO", saldo);
+    }
+
+    public async Task<PrestacaoDto> PrestacaoRegistrarAsync(ComprasIntegradasContext x, PrestacaoRegistrarRequest r, CancellationToken ct)
+    {
+        await GuardAsync(ct, "convenio_instrumento", "convenio_prestacao_contas", "convenio_repasse", "convenio_etapa", "convenio_meta", "convenio_projeto").ConfigureAwait(false);
+        var tipo = string.IsNullOrWhiteSpace(r.Tipo) ? "" : r.Tipo.Trim().ToUpperInvariant();
+        if (tipo is not ("PARCIAL" or "FINAL")) throw new PrestacaoTipoInvalidoException(tipo);
+        if (string.IsNullOrWhiteSpace(r.NumeroPrestacao)) throw new ArgumentException("numeroPrestacao é obrigatório.");
+        if (r.PeriodoFinal < r.PeriodoInicial) throw new ArgumentException("periodoFinal deve ser posterior ou igual ao periodoInicial.");
+        if (r.ValorPrestado < 0m) throw new ArgumentException("valorPrestado não pode ser negativo.");
+        var ent = x.EntidadeId ?? throw new InvalidOperationException("entidade_id obrigatório no contexto institucional.");
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var inst = await c.QueryFirstOrDefaultAsync<(long Id, string Status)>(new CommandDefinition(
+            "select id, status from sigov.convenio_instrumento where id=@I and tenant_id=@T and deleted_at is null",
+            new { I = r.InstrumentoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (inst.Id <= 0) throw new InstrumentoConvenioInexistenteException(r.InstrumentoId);
+        if (inst.Status != "ATIVO") throw new InstrumentoNaoAtivoException(r.InstrumentoId, inst.Status);
+        var dup = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            "select count(1) from sigov.convenio_prestacao_contas where instrumento_id=@I and tenant_id=@T and deleted_at is null and numero_prestacao=@N",
+            new { I = r.InstrumentoId, T = x.TenantId, N = r.NumeroPrestacao.Trim() }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (dup > 0) throw new PrestacaoNumeroDuplicadoException(r.InstrumentoId, r.NumeroPrestacao.Trim());
+        var minimo = (int)await LireParametroIntConveniosAsync(c, tx, x, "CONVENIO_PRESTACAO_EXECUCAO_MINIMA_PCT", ct).ConfigureAwait(false);
+        var (recebido, executado) = await ExecucaoConvenioAsync(c, tx, x, r.InstrumentoId, ct).ConfigureAwait(false);
+        var pct = recebido > 0m ? executado / recebido * 100m : 0m;
+        if (pct + 0.005m < minimo) throw new PrestacaoExecucaoMinimaNaoAtingidaException((double)pct, minimo);
+        var saldo = recebido - executado;
+        if (tipo == "FINAL" && saldo > 0.01m) throw new PrestacaoFinalSaldoNaoJustificadoException(r.InstrumentoId, saldo);
+        var id = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+            """
+            insert into sigov.convenio_prestacao_contas(tenant_id,entity_id,instrumento_id,numero_prestacao,tipo,periodo_inicio,periodo_fim,data_envio,valor_prestado,status,parecer_resumo)
+            values(@T,@E,@I,@N,@Tipo,@PI,@PF,@De,@V,'ENVIADA',nullif(@Pr,''))
+            returning id
+            """, new { T = x.TenantId, E = ent, I = r.InstrumentoId, N = r.NumeroPrestacao.Trim(), Tipo = tipo, PI = r.PeriodoInicial, PF = r.PeriodoFinal, De = clock.DataAtual, V = r.ValorPrestado, Pr = r.ParecerResumo }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S10 prestacao de contas {N} ({Tipo}) registrada no instrumento {I} (execucao {P:Pct}%, minimo parametrico {M:Pct}%)", r.NumeroPrestacao, tipo, r.InstrumentoId, pct, minimo);
+        return new PrestacaoDto(id, r.InstrumentoId, tipo, r.NumeroPrestacao.Trim(), r.ValorPrestado, "ENVIADA");
+    }
+
+    // ------------------------------- OBRAS (BR-10.4) ---------------------------------
+    public async Task<MedicaoHomologadaDto> MedicaoHomologarAsync(ComprasIntegradasContext x, long medicaoId, CancellationToken ct)
+    {
+        await GuardAsync(ct, "obras_medicao", "obras_medicao_aprovacao", "obras_obra").ConfigureAwait(false);
+        var user = UsuarioObrigatorio(x);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        await using var tx = await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var med = await c.QueryFirstOrDefaultAsync<(long Id, long Obra, string Status, decimal? Valor, decimal PctFisico, decimal SaldoAntes)>(new CommandDefinition(
+            "select id, obra_id, status, valor, coalesce(percentual_fisico,0), coalesce(saldo_contratual_antes,0) from sigov.obras_medicao where id=@I and tenant_id=@T and ativo and not is_deleted",
+            new { I = medicaoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (med.Id <= 0) throw new MedicaoObrasInexistenteException(medicaoId);
+        if (med.Status == "HOMOLOGADA") throw new MedicaoJaHomologadaException(medicaoId);
+        if (med.Status != "ENVIADA") throw new MedicaoStatusInvalidoException(medicaoId, med.Status);
+        if (med.Valor is null || med.Valor.Value < 0m) throw new MedicaoStatusInvalidoException(medicaoId, "SEM_VALOR");
+        var obraVl = await c.ExecuteScalarAsync<decimal?>(new CommandDefinition(
+            "select coalesce(valor_contratado,0) from sigov.obras_obra where id=@O and tenant_id=@T and ativo and not is_deleted",
+            new { O = med.Obra, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (obraVl is null || obraVl.Value <= 0m) throw new ObraInexistenteException(med.Obra);
+        var homologados = await c.ExecuteScalarAsync<decimal>(new CommandDefinition(
+            "select coalesce(sum(valor),0) from sigov.obras_medicao where obra_id=@O and tenant_id=@T and ativo and not is_deleted and status='HOMOLOGADA'",
+            new { O = med.Obra, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        var totalFin = homologados + med.Valor.Value;
+        var pctFin = obraVl.Value > 0m ? totalFin / obraVl.Value * 100m : 0m;
+        // gate BR-10.4: pagamento financeiro acumulado acima do medido fisicamente (ou acima do
+        // contratado) bloqueia a homologacao - OBRA_MEDICAO_INSUFICIENTE.
+        if (totalFin > obraVl.Value + 0.01m) throw new ObraMedicaoInsuficienteException((double)Math.Round(pctFin, 2), 100d);
+        if (pctFin > med.PctFisico + 0.005m) throw new ObraMedicaoInsuficienteException((double)Math.Round(pctFin, 2), (double)med.PctFisico);
+        if (med.Valor.Value > med.SaldoAntes + 0.01m) throw new ObraMedicaoInsuficienteException((double)Math.Round(pctFin, 2), (double)med.PctFisico);
+        var depois = Math.Max(med.SaldoAntes - med.Valor.Value, 0m);
+        await c.ExecuteAsync(new CommandDefinition(
+            "update sigov.obras_medicao set status='HOMOLOGADA', homologada_at=now(), saldo_contratual_depois=@SD, updated_at=now(), updated_by=@U where id=@I and tenant_id=@T",
+            new { SD = depois, U = user, I = medicaoId, T = x.TenantId }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await c.ExecuteAsync(new CommandDefinition(
+            """
+            insert into sigov.obras_medicao_aprovacao(tenant_id,entidade_id,medicao_id,aprovador_id,alcada,decisao,justificativa,created_at,created_by)
+            values(@T,@E,@M,@U,'FISCAL_OBRA','APROVADA','Homologacao integrada da frente administrativa C2S10 (BR-10.4)',now(),@U)
+            """, new { T = x.TenantId, E = x.EntidadeId, M = medicaoId, U = user }, tx, cancellationToken: ct)).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        log.LogInformation("C2S10 medicao {I} homologada (obra {O}, valor {V}, financeiro acumulado {P:Pct}%)", medicaoId, med.Obra, med.Valor.Value, pctFin);
+        return new MedicaoHomologadaDto(medicaoId, med.Obra, med.Valor.Value, med.PctFisico, "HOMOLOGADA", depois);
+    }
+
+    // ---------------------------------- GET VINCULOS ---------------------------------
+    public async Task<IReadOnlyList<VinculoExternoDto>> VinculosContratoAsync(ComprasIntegradasContext x, long contratoId, CancellationToken ct)
+    {
+        await GuardAsync(ct, "compras_vinculo_externo", "compras_contrato").ConfigureAwait(false);
+        await using var c = factory.CreateConnection();
+        await c.OpenAsync(ct);
+        var st = await c.QueryFirstOrDefaultAsync<string>(new CommandDefinition(
+            "select status from sigov.compras_contrato where id=@C and tenant_id=@T",
+            new { C = contratoId, T = x.TenantId }, cancellationToken: ct)).ConfigureAwait(false);
+        if (st is null) throw new ContratoInexistenteException(contratoId);
+        var linhas = (await c.QueryAsync<(long Id, long Contrato, string AlvoModulo, long Alvo, string Status, string? Chave, string? Just)>(new CommandDefinition(
+            """
+            select id, contrato_id, alvo_modulo, alvo_id, status, chave_idempotencia, justificativa_quitacao
+            from sigov.compras_vinculo_externo
+            where tenant_id=@T and contrato_id=@C and ativo and not is_deleted
+            order by id
+            """, new { T = x.TenantId, C = contratoId }, cancellationToken: ct))).Select(v => new VinculoExternoDto(v.Id, v.Contrato, v.AlvoModulo, v.Alvo, v.Status, v.Chave, v.Just)).ToList();
+        return linhas;
     }
 }

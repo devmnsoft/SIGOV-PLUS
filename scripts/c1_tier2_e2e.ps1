@@ -2465,6 +2465,462 @@ select
 "@
 Add-Check 'S9' 'fixture.removido-auto-limpeza' (($s9cl.code -eq 0) -and ($s9cl.text -eq '0')) ("cascade delete S9 (destinos, bens PAT-FOR-%, movimentos FORN-%, faturas, obrigacoes, espelho legado REC-FOR-%+items, recebimentos integrados, fornecimentos, contratos+items+historico, homologacoes, adjudicacoes+items, propostas, licitacao_items, licitacoes, processos+items, demandas+items, fornecedores, materiais, locais, centros de custo, sessoes/auditorias do usuario, grants sentinel cf58c2ab, usuario c2s9.admin+grupo, entidade C2S9-ENT) tenant 910001 -> restantes=" + $s9cl.text)
 
+# ============================================================================
+# BLOCO S10 - Vinculos tipados Juridico x Compras + Convenios/Obras (etapa 3/3)
+# (BR-7.8 + BR-10.x do contrato docs/CONTRATOS-FRENTE-ADMINISTRATIVA-C2S7-MULTIESFERA.md)
+# Invariantes validadas ao vivo: consulta juridica tipada vinculada ao processo de
+# contratacao (ledger compras_juridico_consulta_vinculo, idempotente por chave);
+# parecer EMITIDO unico por consulta; CONDICIONADO exige condicoes e BLOQUEIA a
+# homologacao (gate PARECER_CONDICAO_ABERTA) ate satisfacao registrada de todas;
+# filial/recurso so abre contra RESOLVIDA (original preservada, 1 por pai);
+# contencioso ativo (origem CONTRATO) marca o contrato juridico (derivado no
+# endpoint execucao), BLOQUEIA prorrogacao ate desfecho append-only e quita o
+# marcador pelo ledger; contrapartida do convenio com tipos/teto do instrumento
+# e status derivado (BR-7.8); aplicar recurso do convenio exige contrapartida
+# REALIZADA >= necessaria; prestacao de contas bloqueada abaixo do minimo
+# parametrico do banco (CONVENIO_PRESTACAO_EXECUCAO_MINIMA_PCT=70) e FINAL exige
+# saldo zerado; encerramento do instrumento bloqueado com contrato vinculado
+# ATIVO e exige justificativa quando ha saldo; medicao de obra nao homologa
+# acima do medido fisicamente/contratado (BR-10.4) e grava aprovacao FISCAL_OBRA.
+# Multi-esfera (regras 21-24): entidade fixture esfera 'federal' + usuario
+# c2s10.admin com a MESMA cadeia usuario_grupo/grupo/perfil; grants sentinel
+# cf58c2ab-...010 cobrindo as chaves canonicas reutilizadas (compras) + as 6 novas
+# dos modulos juridico/convenios + obras.medicao.registrar (banco = autoridade).
+# Marcadores C2S10-%; o bloco se auto-limpa ao final (regra 9).
+# ============================================================================
+$s10fix = Get-Psql @"
+insert into sigov.entidade(tenant_id,nome,cnpj,codigo_externo,esfera_governo,tipo_entidade,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S10 Entidade Homologacao','00.000.000/0001-93','C2S10-ENT','federal','SECRETARIA',true,false,now(),910301
+where not exists(select 1 from sigov.entidade where tenant_id=910001 and codigo_externo='C2S10-ENT');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910001,e.id,1,'C2S10 Administrador','c2s10.admin','c2s10.admin@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910001 and x.login='c2s10.admin');
+insert into sigov.usuario_grupo(usuario_id,grupo_acesso_id,tenant_id,ativo,created_at,created_by)
+select u.id,910401,910001,true,now(),910301
+from sigov.usuario u
+where u.tenant_id=910001 and u.login='c2s10.admin'
+and not exists(select 1 from sigov.usuario_grupo g where g.usuario_id=u.id and g.grupo_acesso_id=910401 and g.ativo);
+-- Grant das 17 chaves da frente (10 compras reutilizadas do catalogo C2S7 + 4 juridico +
+-- 2 convenios + 1 obras), marcadas com correlation_id sentinel para limpeza cirurgica.
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910001,'cf58c2ab-1c20-4a90-88f8-0c2000000010'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.id=(select gp.perfil_acesso_id from sigov.grupo_perfil gp where gp.grupo_acesso_id=910401 limit 1)
+  and p.ativo and not p.is_deleted
+  and ((p.modulo='compras' and p.chave in ('compras.demanda.criar','compras.demanda.aprovar','compras.licitacao.abrir','compras.adjudicacao.executar','compras.homologacao.executar','compras.contrato.criar','compras.contrato.prorrogar','compras.contrato.execucao.fiscalizar','compras.contrapartida.registrar','compras.auditoria.visualizar'))
+    or (p.modulo='juridico' and p.chave in ('juridico.consulta.criar','juridico.parecer.emitir','juridico.contencioso.abrir','juridico.contencioso.desfechar'))
+    or (p.modulo='convenios' and p.chave in ('convenios.instrumento.encerrar','convenios.prestacao.registrar'))
+    or (p.modulo='obras' and p.chave='obras.medicao.registrar'))
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+do `$`$
+begin
+  if (select count(1) from sigov.permissao p where p.ativo and not p.is_deleted
+      and ((p.modulo='compras' and p.chave in ('compras.demanda.criar','compras.demanda.aprovar','compras.licitacao.abrir','compras.adjudicacao.executar','compras.homologacao.executar','compras.contrato.criar','compras.contrato.prorrogar','compras.contrato.execucao.fiscalizar','compras.contrapartida.registrar','compras.auditoria.visualizar'))
+        or (p.modulo='juridico' and p.chave in ('juridico.consulta.criar','juridico.parecer.emitir','juridico.contencioso.abrir','juridico.contencioso.desfechar'))
+        or (p.modulo='convenios' and p.chave in ('convenios.instrumento.encerrar','convenios.prestacao.registrar'))
+        or (p.modulo='obras' and p.chave='obras.medicao.registrar'))) <> 17 then
+    raise exception 'C2S10-FIXTURE: catalogo de permissoes incompleto (esperado 17 chaves ativas no banco)';
+  end if;
+  if (select coalesce(valor_padrao::text,'') from sigov.parametro_modulo where modulo='CONVENIOS' and codigo='CONVENIO_PRESTACAO_EXECUCAO_MINIMA_PCT' and ativo and not is_deleted limit 1) <> '70' then
+    raise exception 'C2S10-FIXTURE: parametro CONVENIOS.CONVENIO_PRESTACAO_EXECUCAO_MINIMA_PCT ausente ou != 70 (migration 20261013160000)';
+  end if;
+end
+`$`$;
+insert into sigov.financeiro_centro_custo(tenant_id,codigo,nome,descricao,ativo,created_at,updated_at)
+select 910001,'C2S10-CC1','CC C2S10 Ativo','centro de custo ficticio ativo (homologacao)',true,now(),now()
+where not exists(select 1 from sigov.financeiro_centro_custo where tenant_id=910001 and codigo='C2S10-CC1');
+insert into sigov.compras_fornecedor(tenant_id,entidade_id,nome,tipo_pessoa,documento,status,categoria_me_epp,created_at,updated_at,created_by)
+select 910001,e.id,'Forneadora C2S10 Delta','JURIDICA','99.999.000/0005-05','ATIVO',null,now(),now(),910301
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT'
+and not exists(select 1 from sigov.compras_fornecedor f where f.tenant_id=910001 and f.documento='99.999.000/0005-05');
+insert into sigov.convenio_orgao_concedente(tenant_id,entity_id,nome,esfera,status,created_at,updated_at)
+select 910001,e.id,'Orgao Concedente Federal C2S10','FEDERAL','ATIVO',now(),now()
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT'
+and not exists(select 1 from sigov.convenio_orgao_concedente o where o.tenant_id=910001 and o.nome='Orgao Concedente Federal C2S10');
+insert into sigov.convenio_instrumento(tenant_id,entity_id,numero_instrumento,tipo,orgao_concedente_id,objeto,valor_global,valor_repasse,valor_contrapartida,data_assinatura,vigencia_inicio,vigencia_fim,status,responsavel_nome,observacao,created_at,updated_at)
+select 910001,e.id,'CVN-C2S10-01','CONVENIO',o.id,'Programa federal de equipamentos C2S10',4000,3200,800,date '2026-05-10',date '2026-06-01',date '2027-05-31','ATIVO','Responsavel C2S10','fixture homologacao C2S10',now(),now()
+from sigov.entidade e cross join sigov.convenio_orgao_concedente o
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and o.tenant_id=910001 and o.nome='Orgao Concedente Federal C2S10'
+and not exists(select 1 from sigov.convenio_instrumento i where i.tenant_id=910001 and i.numero_instrumento='CVN-C2S10-01');
+insert into sigov.convenio_instrumento(tenant_id,entity_id,numero_instrumento,tipo,orgao_concedente_id,objeto,valor_global,valor_repasse,valor_contrapartida,data_assinatura,vigencia_inicio,vigencia_fim,status,responsavel_nome,observacao,created_at,updated_at)
+select 910001,e.id,'CVN-C2S10-02','CONVENIO',o.id,'Programa federal de servicos C2S10',1500,1000,500,date '2026-05-10',date '2026-06-01',date '2027-05-31','ATIVO','Responsavel C2S10','fixture homologacao C2S10',now(),now()
+from sigov.entidade e cross join sigov.convenio_orgao_concedente o
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and o.tenant_id=910001 and o.nome='Orgao Concedente Federal C2S10'
+and not exists(select 1 from sigov.convenio_instrumento i where i.tenant_id=910001 and i.numero_instrumento='CVN-C2S10-02');
+insert into sigov.convenio_projeto(tenant_id,entity_id,instrumento_id,nome,objetivo,justificativa,publico_alvo,local_execucao,unidade_responsavel,data_inicio,data_fim_prevista,percentual_execucao,status,created_at,updated_at)
+select 910001,e.id,i.id,'Projeto C2S10 '||i.numero_instrumento,'Ampliar frota e equipamentos publicos','Justificativa ficticia homologacao','Publico-alvo ficticio C2S10','Brasilia-DF','Unidade gestora C2S10',date '2026-06-01',date '2027-05-31',case when i.numero_instrumento='CVN-C2S10-01' then 75 else 40 end,'EM_EXECUCAO',now(),now()
+from sigov.entidade e cross join sigov.convenio_instrumento i
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and i.tenant_id=910001 and i.numero_instrumento in ('CVN-C2S10-01','CVN-C2S10-02')
+and not exists(select 1 from sigov.convenio_projeto pj where pj.instrumento_id=i.id);
+insert into sigov.convenio_meta(tenant_id,entity_id,projeto_id,numero,descricao,indicador,unidade_medida,quantidade_prevista,quantidade_executada,status,created_at,updated_at)
+select 910001,e.id,pj.id,'META-1','Entrega de equipamentos C2S10','% de entregas realizadas','un',100,75,'EM_EXECUCAO',now(),now()
+from sigov.entidade e join sigov.convenio_projeto pj on pj.tenant_id=e.tenant_id join sigov.convenio_instrumento i on i.id=pj.instrumento_id and i.tenant_id=pj.tenant_id
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and i.numero_instrumento='CVN-C2S10-01'
+and not exists(select 1 from sigov.convenio_meta m where m.projeto_id=pj.id);
+insert into sigov.convenio_meta(tenant_id,entity_id,projeto_id,numero,descricao,indicador,unidade_medida,quantidade_prevista,quantidade_executada,status,created_at,updated_at)
+select 910001,e.id,pj.id,'META-1','Prestacao de servicos C2S10','% de servicos prestados','un',50,20,'EM_EXECUCAO',now(),now()
+from sigov.entidade e join sigov.convenio_projeto pj on pj.tenant_id=e.tenant_id join sigov.convenio_instrumento i on i.id=pj.instrumento_id and i.tenant_id=pj.tenant_id
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and i.numero_instrumento='CVN-C2S10-02'
+and not exists(select 1 from sigov.convenio_meta m where m.projeto_id=pj.id);
+insert into sigov.convenio_etapa(tenant_id,entity_id,meta_id,numero,descricao,data_inicio,data_fim_prevista,valor_previsto,valor_executado,status,created_at,updated_at)
+select 910001,e.id,m.id,'ETAPA-1','Etapa unica de execucao C2S10',date '2026-06-01',date '2027-05-31',3200,2400,'EM_EXECUCAO',now(),now()
+from sigov.entidade e join sigov.convenio_meta m on m.tenant_id=e.tenant_id join sigov.convenio_projeto pj on pj.id=m.projeto_id and pj.tenant_id=m.tenant_id join sigov.convenio_instrumento i on i.id=pj.instrumento_id and i.tenant_id=pj.tenant_id
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and i.numero_instrumento='CVN-C2S10-01'
+and not exists(select 1 from sigov.convenio_etapa et where et.meta_id=m.id);
+insert into sigov.convenio_etapa(tenant_id,entity_id,meta_id,numero,descricao,data_inicio,data_fim_prevista,valor_previsto,valor_executado,status,created_at,updated_at)
+select 910001,e.id,m.id,'ETAPA-1','Etapa unica de execucao C2S10',date '2026-06-01',date '2027-05-31',1000,400,'EM_EXECUCAO',now(),now()
+from sigov.entidade e join sigov.convenio_meta m on m.tenant_id=e.tenant_id join sigov.convenio_projeto pj on pj.id=m.projeto_id and pj.tenant_id=m.tenant_id join sigov.convenio_instrumento i on i.id=pj.instrumento_id and i.tenant_id=pj.tenant_id
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and i.numero_instrumento='CVN-C2S10-02'
+and not exists(select 1 from sigov.convenio_etapa et where et.meta_id=m.id);
+insert into sigov.convenio_repasse(tenant_id,entity_id,instrumento_id,numero_repasse,data_repasse,valor,fonte_recurso,status,created_at,updated_at)
+select 910001,e.id,i.id,'REP-C2S10-01',date '2026-06-15',3200,'Recurso federal ficticio C2S10','RECEBIDO',now(),now()
+from sigov.entidade e cross join sigov.convenio_instrumento i
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and i.tenant_id=910001 and i.numero_instrumento='CVN-C2S10-01'
+and not exists(select 1 from sigov.convenio_repasse r where r.instrumento_id=i.id and r.numero_repasse='REP-C2S10-01');
+insert into sigov.convenio_repasse(tenant_id,entity_id,instrumento_id,numero_repasse,data_repasse,valor,fonte_recurso,status,created_at,updated_at)
+select 910001,e.id,i.id,'REP-C2S10-02',date '2026-06-15',1000,'Recurso federal ficticio C2S10','RECEBIDO',now(),now()
+from sigov.entidade e cross join sigov.convenio_instrumento i
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and i.tenant_id=910001 and i.numero_instrumento='CVN-C2S10-02'
+and not exists(select 1 from sigov.convenio_repasse r where r.instrumento_id=i.id and r.numero_repasse='REP-C2S10-02');
+insert into sigov.obras_obra(tenant_id,entidade_id,codigo,nome,tipo_obra,localidade,valor_estimado,valor_contratado,inicio_previsto,fim_previsto,status,created_at,created_by)
+select 910001,e.id,'OBRA-C2S10-02','Obra C2S10 Delta - ampliacao da unidade','CONSTRUCAO','Brasilia-DF',12000,10000,date '2026-07-01',date '2027-06-30','EM_EXECUCAO',now(),910301
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT'
+and not exists(select 1 from sigov.obras_obra o where o.tenant_id=910001 and o.codigo='OBRA-C2S10-02');
+-- Projeto basico da obra nasce EM_ELABORACAO: o gate OBRA_CONTRATO_SEM_PROJETO exige APROVADO
+insert into sigov.obras_projeto(tenant_id,entidade_id,obra_id,codigo,descricao,status,created_at,created_by)
+select 910001,e.id,o.id,'PJ-C2S10-02','Projeto basico e executivo C2S10','EM_ELABORACAO',now(),910301
+from sigov.entidade e cross join sigov.obras_obra o
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and o.tenant_id=910001 and o.codigo='OBRA-C2S10-02'
+and not exists(select 1 from sigov.obras_projeto p where p.obra_id=o.id and p.ativo and not p.is_deleted);
+insert into sigov.obras_medicao(tenant_id,entidade_id,obra_id,descricao,status,valor,percentual_fisico,saldo_contratual_antes,saldo_contratual_depois,created_at,created_by)
+select 910001,e.id,o.id,'Medicao 1 C2S10','ENVIADA',4000,50,10000,10000,now(),910301
+from sigov.entidade e cross join sigov.obras_obra o
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and o.tenant_id=910001 and o.codigo='OBRA-C2S10-02'
+and not exists(select 1 from sigov.obras_medicao m where m.obra_id=o.id and m.descricao='Medicao 1 C2S10' and m.ativo and not m.is_deleted);
+insert into sigov.obras_medicao(tenant_id,entidade_id,obra_id,descricao,status,valor,percentual_fisico,saldo_contratual_antes,saldo_contratual_depois,created_at,created_by)
+select 910001,e.id,o.id,'Medicao 2 C2S10','ENVIADA',8000,60,6000,6000,now(),910301
+from sigov.entidade e cross join sigov.obras_obra o
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and o.tenant_id=910001 and o.codigo='OBRA-C2S10-02'
+and not exists(select 1 from sigov.obras_medicao m where m.obra_id=o.id and m.descricao='Medicao 2 C2S10' and m.ativo and not m.is_deleted);
+insert into sigov.obras_medicao(tenant_id,entidade_id,obra_id,descricao,status,valor,percentual_fisico,saldo_contratual_antes,saldo_contratual_depois,created_at,created_by)
+select 910001,e.id,o.id,'Medicao 3 C2S10','ENVIADA',6000,100,6000,6000,now(),910301
+from sigov.entidade e cross join sigov.obras_obra o
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and o.tenant_id=910001 and o.codigo='OBRA-C2S10-02'
+and not exists(select 1 from sigov.obras_medicao m where m.obra_id=o.id and m.descricao='Medicao 3 C2S10' and m.ativo and not m.is_deleted);
+insert into sigov.obras_medicao(tenant_id,entidade_id,obra_id,descricao,status,valor,percentual_fisico,saldo_contratual_antes,saldo_contratual_depois,created_at,created_by)
+select 910001,e.id,o.id,'Medicao 4 C2S10','RASCUNHO',100,10,6000,6000,now(),910301
+from sigov.entidade e cross join sigov.obras_obra o
+where e.tenant_id=910001 and e.codigo_externo='C2S10-ENT' and o.tenant_id=910001 and o.codigo='OBRA-C2S10-02'
+and not exists(select 1 from sigov.obras_medicao m where m.obra_id=o.id and m.descricao='Medicao 4 C2S10' and m.ativo and not m.is_deleted);
+select coalesce((select id::text from sigov.entidade where tenant_id=910001 and codigo_externo='C2S10-ENT'),'0') || '|'
+     || coalesce((select id::text from sigov.usuario where tenant_id=910001 and login='c2s10.admin'),'0') || '|'
+     || coalesce((select id::text from sigov.financeiro_centro_custo where tenant_id=910001 and codigo='C2S10-CC1'),'0') || '|'
+     || coalesce((select id::text from sigov.compras_fornecedor where tenant_id=910001 and documento='99.999.000/0005-05'),'0') || '|'
+     || coalesce((select id::text from sigov.convenio_orgao_concedente where tenant_id=910001 and nome='Orgao Concedente Federal C2S10'),'0') || '|'
+     || coalesce((select id::text from sigov.convenio_instrumento where tenant_id=910001 and numero_instrumento='CVN-C2S10-01'),'0') || '|'
+     || coalesce((select id::text from sigov.convenio_instrumento where tenant_id=910001 and numero_instrumento='CVN-C2S10-02'),'0') || '|'
+     || coalesce((select id::text from sigov.obras_obra where tenant_id=910001 and codigo='OBRA-C2S10-02'),'0') || '|'
+     || coalesce((select p.id::text from sigov.obras_projeto p join sigov.obras_obra o on o.id=p.obra_id where o.tenant_id=910001 and o.codigo='OBRA-C2S10-02' and p.ativo and not p.is_deleted),'0') || '|'
+     || coalesce((select m.id::text from sigov.obras_medicao m join sigov.obras_obra o on o.id=m.obra_id where o.tenant_id=910001 and o.codigo='OBRA-C2S10-02' and m.descricao='Medicao 1 C2S10' and m.ativo and not m.is_deleted),'0') || '|'
+     || coalesce((select m.id::text from sigov.obras_medicao m join sigov.obras_obra o on o.id=m.obra_id where o.tenant_id=910001 and o.codigo='OBRA-C2S10-02' and m.descricao='Medicao 2 C2S10' and m.ativo and not m.is_deleted),'0') || '|'
+     || coalesce((select m.id::text from sigov.obras_medicao m join sigov.obras_obra o on o.id=m.obra_id where o.tenant_id=910001 and o.codigo='OBRA-C2S10-02' and m.descricao='Medicao 3 C2S10' and m.ativo and not m.is_deleted),'0') || '|'
+     || coalesce((select m.id::text from sigov.obras_medicao m join sigov.obras_obra o on o.id=m.obra_id where o.tenant_id=910001 and o.codigo='OBRA-C2S10-02' and m.descricao='Medicao 4 C2S10' and m.ativo and not m.is_deleted),'0');
+"@
+$s10p = if ($s10fix.code -eq 0 -and ($s10fix.text -ne '')) { @($s10fix.text.Trim() -split '\|') } else { @('0','0','0','0','0','0','0','0','0','0','0','0','0') }
+$s10ent=[long]$s10p[0]; $s10uid=[long]$s10p[1]; $s10cc1=[long]$s10p[2]; $s10forn=[long]$s10p[3]; $s10org=[long]$s10p[4]; $s10cvn1=[long]$s10p[5]; $s10cvn2=[long]$s10p[6]; $s10ob2=[long]$s10p[7]; $s10proj=[long]$s10p[8]; $s10m1=[long]$s10p[9]; $s10m2=[long]$s10p[10]; $s10m3=[long]$s10p[11]; $s10m4=[long]$s10p[12]
+Add-Check 'S10' 'fixture.aplicado-catalogo-convenios-obra-parametro' (($s10fix.code -eq 0) -and ($s10ent -gt 0) -and ($s10uid -gt 0) -and ($s10org -gt 0) -and ($s10cvn1 -gt 0) -and ($s10cvn2 -gt 0) -and ($s10ob2 -gt 0) -and ($s10proj -gt 0) -and ($s10m1 -gt 0) -and ($s10m2 -gt 0) -and ($s10m3 -gt 0) -and ($s10m4 -gt 0)) ("fixture S10 (entidade esfera FEDERAL + usuario c2s10.admin na mesma cadeia de perfil 910401 + orgao concedente FEDERAL ATIVO + CVN1 4000=3200+800 exec 75% + CVN2 1500=1000+500 exec 40% + obra 10000 c/ projeto EM_ELABORACAO + medicoes M1-M4; postcond exige as 17 chaves ativas e o parametro CONVENIO_PRESTACAO_EXECUCAO_MINIMA_PCT=70 no banco — falha explicita, regras 11/13) exit=$($s10fix.code); ent=$s10ent uid=$s10uid cvn1=$s10cvn1 cvn2=$s10cvn2 ob2=$s10ob2 proj=$s10proj m1=$s10m1 m2=$s10m2 m3=$s10m3 m4=$s10m4")
+$lgS10 = New-SigovLogin -User 'c2s10.admin' -Pass $Password -Base $WebBase
+$tkS10 = if ($lgS10.ok) { Get-ApiToken -Jar $lgS10.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+Add-Check 'S10' 'auth.login-dedicado-token-mint' (($lgS10.ok -eq $true) -and ($tkS10.token.Length -eq 64)) ("c2s10.admin POST /Auth/Login -> $($lgS10.post); ApiToken len=$($tkS10.token.Length) (usuario da entidade FEDERAL c2s10 — regra 22: cobertura multi-esfera; autorizacao toda resolvida pelo banco via grants sentinel, regra 11)")
+
+# --- cadeia direta DISPENSA -> homologacao (base da etapa 3/3) -------------------
+$s10d1b = ('{"objeto":"C2S10-Aquisicao patrimonial homologacao","justificativa":"necessidade operacional homologacao c2s10","itens":[{"descricao":"Equipamento C2S10","quantidade":15,"unidade":"un","tipoObjeto":"BEM","precoEstimado":100,"centroCustoId":' + $s10cc1 + '}],"urgencia":false}')
+$s10d1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/demandas' -Base $ApiBase -Body $s10d1b
+$s10d1j = $null; try { $s10d1j = ($s10d1.body | ConvertFrom-Json) } catch {}
+$s10d1id = 0; if ($s10d1j -and $null -ne $s10d1j.data) { $s10d1id = [long]$s10d1j.data.id }
+$s10d1db = Get-Psql ("select status||'|'||to_char(valor_estimado,'FM999990.00')||'|'||urgencia||'|'||prioridade from sigov.compras_demanda where id=" + $s10d1id + ";")
+$null = Get-Psql ("update sigov.compras_demanda set created_by=910301 where id=" + $s10d1id + ";")
+$s10ap1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/demandas/' + $s10d1id + '/aprovar') -Base $ApiBase
+$s10apdb = Get-Psql ("select min(id)||'|'||count(*)||'|'||min(status)||'|'||case when min(numero) like 'PI-%' then 'PI' else 'NAO' end from sigov.compras_processo where tenant_id=910001 and demanda_id=" + $s10d1id + ";")
+$s10app = if ($s10apdb.code -eq 0 -and $s10apdb.text -ne '') { @($s10apdb.text -split '\|') } else { @('0','0','NAO','NAO') }
+$s10proc = [long]$s10app[0]
+$s10dp1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s10d1id + ',"modalidadeCodigo":"DISPENSA"}')
+$s10dp2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s10d1id + ',"modalidadeCodigo":"DISPENSA","dispensaBaseLegalCodigo":"ART_75_ZZZ"}')
+$s10dp3 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/procedimentos/abrir' -Base $ApiBase -Body ('{"demandaId":' + $s10d1id + ',"modalidadeCodigo":"DISPENSA","dispensaBaseLegalCodigo":"ART_75_I"}')
+$s10dp3j = $null; try { $s10dp3j = ($s10dp3.body | ConvertFrom-Json) } catch {}
+$s10lic = 0
+if ($s10dp3j -and $null -ne $s10dp3j.data) { $s10lic = [long]$s10dp3j.data.licitacaoId }
+$s10li = Get-Psql ("insert into sigov.compras_licitacao_item(tenant_id,entidade_id,licitacao_id,numero,descricao,quantidade,unidade,valor_estimado,created_at,updated_at,created_by,updated_by) select 910001," + $s10ent + "," + $s10lic + ",1,'Equipamento especial C2S10',15,'un',100.00,now(),now(),910301,910301 where not exists(select 1 from sigov.compras_licitacao_item i where i.licitacao_id=" + $s10lic + "); select count(*) from sigov.compras_licitacao_item where licitacao_id=" + $s10lic + ";")
+$s10da1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s10lic + '/adjudicar') -Base $ApiBase -Body '{}'
+$s10da2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s10lic + '/adjudicar') -Base $ApiBase -Body ('{"fornecedorId":' + $s10forn + ',"observacao":"contratacao direta c2s10"}')
+$s10da2j = $null; try { $s10da2j = ($s10da2.body | ConvertFrom-Json) } catch {}
+$s10dadb = Get-Psql ("select to_char(a.valor_total,'FM999990.00')||'|'||(select status from sigov.compras_licitacao where id=" + $s10lic + ")||'|'||(select p.fornecedor_id::text from sigov.compras_proposta p where p.id=a.proposta_vencedora_id) from sigov.compras_adjudicacao a where tenant_id=910001 and licitacao_id=" + $s10lic + ";")
+$null = Get-Psql ("update sigov.compras_adjudicacao set responsavel_id=910402 where tenant_id=910001 and licitacao_id=" + $s10lic + ";")
+Add-Check 'S10' 'chain.dispensa-adjudicada-base-da-etapa-3' (($s10d1.code -eq 200) -and ($s10d1id -gt 0) -and ($s10d1db.text -eq 'SOLICITADA|1500.00|false|NORMAL') -and ($s10ap1.code -eq 200) -and ($s10proc -gt 0) -and ($s10app[1] -eq '1') -and ($s10app[2] -eq 'ABERTO') -and ($s10app[3] -eq 'PI') -and ($s10dp1.code -eq 400) -and ($s10dp1.body -like '*DISPENSA_BASE_LEGAL_OBRIGATORIA*') -and ($s10dp2.code -eq 404) -and ($s10dp2.body -like '*DISPENSA_BASE_LEGAL_INEXISTENTE*') -and ($s10dp3.code -eq 200) -and ([long]$s10dp3j.data.processoId -eq $s10proc) -and ($s10li.text -eq '1') -and ($s10da1.code -eq 400) -and ($s10da1.body -like '*ADJUDICACAO_DIRETA_SEM_FORNECEDOR*') -and ($s10da2.code -eq 200) -and ([decimal]$s10da2j.data.valorTotal -eq 1500) -and ($s10dadb.text -like ("1500.00|ADJUDICADA|" + $s10forn))) ("demanda 15 un x 100.00 (BEM) -> $($s10d1.code) banco SOLICITADA|1500.00; aprovar -> $($s10ap1.code) processo unico id=$s10proc $($s10app[1..3] -join '|') (o mesmo PI reused pelo procedimento: processoId=$($s10dp3j.data.processoId)); dispensa sem base legal 400 nomeada / inventada 404 nomeada / ART_75_I 200; adjudicar direta sem fornecedor 400 nomeada, com fornecedor -> $($s10da2.code) valor 1500.00 banco: $($s10dadb.text) (mesma cadeia BR-8.x da S8/S9 preparando a base da etapa 3/3)")
+
+# --- BR-10.1: consulta juridica tipada x processo de contratacao -------------------
+$s10cj0 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/juridico/consultas' -Base $ApiBase -Body ('{"processoComprasId":' + $s10proc + ',"tipoConsulta":"EXPERTO","referenciaNumero":"ATO-C2S10-00","descricao":"tipo invalido homologacao","secretariaSetor":"Setor de Compras C2S10","dataSolicitacao":"2026-10-14"}')
+$s10cj1b = ('{"processoComprasId":' + $s10proc + ',"tipoConsulta":"PARECER","referenciaNumero":"ATO-C2S10-01","descricao":"Analisar regularidade da contratacao C2S10","secretariaSetor":"Setor de Compras C2S10","dataSolicitacao":"2026-10-14","solicitante":"Analista C2S10","custoHonorario":250,"chaveIdempotencia":"K-CJ-1"}')
+$s10cj1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/juridico/consultas' -Base $ApiBase -Body $s10cj1b
+$s10cj1j = $null; try { $s10cj1j = ($s10cj1.body | ConvertFrom-Json) } catch {}
+$s10cj1id = 0; if ($s10cj1j -and $null -ne $s10cj1j.data) { $s10cj1id = [long]$s10cj1j.data.consultaId }
+$s10cj1db = Get-Psql ("select cs.status||'|'||to_char(cs.custo_honorario,'FM99999999999990.00')||'|'||v.tipo_consulta||'|'||v.referencia_numero||'|'||coalesce(v.chave_idempotencia,'NULL') from sigov.juridico_consulta cs join sigov.compras_juridico_consulta_vinculo v on v.consulta_id=cs.id and v.tenant_id=cs.tenant_id where cs.id=" + $s10cj1id + ";")
+$s10cj1r = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/juridico/consultas' -Base $ApiBase -Body $s10cj1b
+$s10cj1rj = $null; try { $s10cj1rj = ($s10cj1r.body | ConvertFrom-Json) } catch {}
+$s10cj1rid = 0; if ($s10cj1rj -and $null -ne $s10cj1rj.data) { $s10cj1rid = [long]$s10cj1rj.data.consultaId }
+$s10cj1c = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/juridico/consultas' -Base $ApiBase -Body ('{"processoComprasId":' + $s10proc + ',"tipoConsulta":"DEFESA","referenciaNumero":"ATO-C2S10-01","descricao":"conteudo divergente na mesma chave","secretariaSetor":"Setor de Compras C2S10","dataSolicitacao":"2026-10-14","chaveIdempotencia":"K-CJ-1"}')
+$s10cjf0 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/consultas/' + $s10cj1id + '/filial') -Base $ApiBase -Body '{"justificativa":"recurso do gestor antes da decisao"}'
+Add-Check 'S10' 'consulta.criada-link-tipado-idempotente-replay-conflicto' (($s10cj0.code -eq 400) -and ($s10cj0.body -like '*CONSULTA_TIPO_INVALIDO*') -and ($s10cj1.code -eq 200) -and ($s10cj1id -gt 0) -and ($s10cj1db.text -eq ('ABERTA|250.00|PARECER|ATO-C2S10-01|K-CJ-1')) -and ($s10cj1r.code -eq 200) -and ($s10cj1rid -eq $s10cj1id) -and ($s10cj1c.code -eq 409) -and ($s10cj1c.body -like '*CONSULTA_CHAVE_IDEMPOTENCIA_CONFLITO*') -and ($s10cjf0.code -eq 409) -and ($s10cjf0.body -like '*CONSULTA_PAI_NAO_RESOLVIDA*')) ("consulta juridica PARECER x processo de contratacao $s10proc -> $($s10cj1.code) id=$s10cj1id; banco consulta+ledger tipo|ref|chave: $($s10cj1db.text) (BR-10.1: consulta tipada PARECER/IMPUGNACAO/DEFESA/COBRANCA vinculada ao processo via ledger, custo honorario 250.00 registrado); tipo EXPERTO -> $($s10cj0.code) (400 CONSULTA_TIPO_INVALIDO nomeada); replay mesma chave/mesmo conteudo -> $($s10cj1r.code) mesmo id (idempotente); mesma chave conteudo divergente -> $($s10cj1c.code) (409 CONSULTA_CHAVE_IDEMPOTENCIA_CONFLITO nomeada); filial contra ABERTA -> $($s10cjf0.code) (409 CONSULTA_PAI_NAO_RESOLVIDA nomeada: recurso so abre contra RESOLVIDA)")
+
+# --- BR-10.1: parecer condicionado bloqueia a homologacao ---------------------------
+$s10pa0 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/consultas/' + $s10cj1id + '/parecer') -Base $ApiBase -Body '{"conclusao":"POSITIVA","resumo":"conclusao invalida homologacao"}'
+$s10pa1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/consultas/' + $s10cj1id + '/parecer') -Base $ApiBase -Body '{"conclusao":"CONDICIONADO","resumo":"condicionado sem condicoes"}'
+$s10pa2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/consultas/' + $s10cj1id + '/parecer') -Base $ApiBase -Body '{"conclusao":"FAVORECIMENTO","resumo":"favorecimento com condicoes indevidas","condicoes":["uma condicao indevida"]}'
+$s10pa3 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/consultas/' + $s10cj1id + '/parecer') -Base $ApiBase -Body '{"conclusao":"CONDICIONADO","resumo":"Parecer condicionado as regularidades C2S10","condicoes":["Regularizar documentacao fiscal do contratado","Apresentar atestado de capacidade tecnica"]}'
+$s10pa3j = $null; try { $s10pa3j = ($s10pa3.body | ConvertFrom-Json) } catch {}
+$s10padb = Get-Psql ("select pr.status||'|'||cs.status||'|'||(select count(*)::text from sigov.juridico_parecer_condicao cd where cd.parecer_id=pr.id and cd.tenant_id=pr.tenant_id and cd.ativo and not cd.is_deleted and cd.status='ABERTA') from sigov.juridico_parecer pr join sigov.juridico_consulta cs on cs.id=pr.consulta_id and cs.tenant_id=pr.tenant_id where pr.consulta_id=" + $s10cj1id + " limit 1;")
+$s10ho0 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s10lic + '/homologar') -Base $ApiBase
+$s10cidr = Get-Psql ("select string_agg(cd.id::text,',' order by cd.id) from sigov.juridico_parecer_condicao cd join sigov.juridico_parecer pr on pr.id=cd.parecer_id and pr.tenant_id=cd.tenant_id where pr.consulta_id=" + $s10cj1id + " and cd.tenant_id=910001;")
+$s10cids = @(); if ($s10cidr.code -eq 0 -and $s10cidr.text -ne '') { $s10cids = @($s10cidr.text -split ',') }
+$s10cda = 0; $s10cdb = 0
+if ($s10cids.Count -ge 2) { $s10cda = [long]$s10cids[0]; $s10cdb = [long]$s10cids[1] }
+Add-Check 'S10' 'parecer.condicionado-bloqueia-homologacao-gate-nomeado' (($s10pa0.code -eq 400) -and ($s10pa0.body -like '*PARECER_CONCLUSAO_INVALIDA*') -and ($s10pa1.code -eq 400) -and ($s10pa1.body -like '*PARECER_CONDICIONADO_SEM_CONDICAO*') -and ($s10pa2.code -eq 400) -and ($s10pa2.body -like '*PARECER_CONDICAO_INDEVIDA*') -and ($s10pa3.code -eq 200) -and ($s10padb.text -eq 'EMITIDO|CONDICIONADA|2') -and ($s10ho0.code -eq 409) -and ($s10ho0.body -like '*PARECER_CONDICAO_ABERTA*') -and ($s10cda -gt 0) -and ($s10cdb -gt 0)) ("conclusao POSITIVA -> $($s10pa0.code) (400 nomeada); CONDICIONADO sem condicoes -> $($s10pa1.code) (400 nomeada: exige >=1 condicionante); FAVORECIMENTO com condicoes -> $($s10pa2.code) (400 PARECER_CONDICAO_INDEVIDA nomeada); CONDICIONADO c/ 2 condicoes -> $($s10pa3.code); banco parecer|consulta|condicoes-abertas: $($s10padb.text); HOMOLOGAR a licitacao -> $($s10ho0.code) (409 PARECER_CONDICAO_ABERTA nomeada: gate BR-10.1 — proximo passo da contratacao bloqueado ate satisfacao registrada das condicoes; condicoes $s10cda/$s10cdb capturadas no banco)")
+$s10cs0 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/condicoes/' + $s10cda + '/satisfazer') -Base $ApiBase -Body '{"justificativa":""}'
+$s10cs1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/condicoes/' + $s10cda + '/satisfazer') -Base $ApiBase -Body '{"justificativa":"documentacao fiscal regularizada com nota complementar anexada"}'
+$s10cs1j = $null; try { $s10cs1j = ($s10cs1.body | ConvertFrom-Json) } catch {}
+$s10cs1r = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/condicoes/' + $s10cda + '/satisfazer') -Base $ApiBase -Body '{"justificativa":"reprocesso da mesma condicao"}'
+$s10ho1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s10lic + '/homologar') -Base $ApiBase
+$s10cs2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/condicoes/' + $s10cdb + '/satisfazer') -Base $ApiBase -Body '{"justificativa":"atestado de capacidade tecnica expedido pelo orgao de classe"}'
+$s10cs2j = $null; try { $s10cs2j = ($s10cs2.body | ConvertFrom-Json) } catch {}
+$s10ho2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/licitacoes/' + $s10lic + '/homologar') -Base $ApiBase
+$s10ho2j = $null; try { $s10ho2j = ($s10ho2.body | ConvertFrom-Json) } catch {}
+$s10hoid = 0; if ($s10ho2j -and $null -ne $s10ho2j.data) { $s10hoid = [long]$s10ho2j.data.id }
+$s10hodb = Get-Psql ("select status from sigov.juridico_consulta where id=" + $s10cj1id + ";")
+Add-Check 'S10' 'parecer.condicoes-satisfeitas-liberam-homologacao' (($s10cs0.code -eq 400) -and ($s10cs0.body -like '*SATISFAZER_CONDICAO_SEM_JUSTIFICATIVA*') -and ($s10cs1.code -eq 200) -and ([int]$s10cs1j.data.condicoesAbertas -eq 1) -and ($s10cs1j.data.consultaStatus -eq 'CONDICIONADA') -and ($s10cs1r.code -eq 409) -and ($s10cs1r.body -like '*CONDICAO_JA_SATISFEITA*') -and ($s10ho1.code -eq 409) -and ($s10ho1.body -like '*PARECER_CONDICAO_ABERTA*') -and ($s10cs2.code -eq 200) -and ([int]$s10cs2j.data.condicoesAbertas -eq 0) -and ($s10cs2j.data.consultaStatus -eq 'RESOLVIDA') -and ($s10ho2.code -eq 200) -and ($s10hoid -gt 0) -and ($s10hodb.text -eq 'RESOLVIDA')) ("satisfazer sem justificativa -> $($s10cs0.code) (400 nomeada); condicao 1 satisfeita c/ justificativa -> $($s10cs1.code) restam 1 (consulta segue CONDICIONADA); re-satisfazer -> $($s10cs1r.code) (409 CONDICAO_JA_SATISFEITA nomeada: ato unico); homologar ainda -> $($s10ho1.code) 409 nomeada (resta 1 aberta); condicao 2 -> $($s10cs2.code) restam 0 e consulta -> RESOLVIDA (banco: $($s10hodb.text)); HOMOLOGAR -> $($s10ho2.code) id=$s10hoid (gate BR-10.1 liberado apenas com todas as condicoes satisfeitas)")
+$s10cjf = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/consultas/' + $s10cj1id + '/filial') -Base $ApiBase -Body '{"justificativa":"recurso do gestor sobre a fundamentacao do parecer"}'
+$s10cjfj = $null; try { $s10cjfj = ($s10cjf.body | ConvertFrom-Json) } catch {}
+$s10cjfid = 0; if ($s10cjfj -and $null -ne $s10cjfj.data) { $s10cjfid = [long]$s10cjfj.data.consultaId }
+$s10cjfdb = Get-Psql ("select cs.status||'|'||cs.consulta_pai_id::text||'|'||v.referencia_numero from sigov.juridico_consulta cs join sigov.compras_juridico_consulta_vinculo v on v.consulta_id=cs.id and v.tenant_id=cs.tenant_id where cs.id=" + $s10cjfid + ";")
+$s10cjf2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/consultas/' + $s10cj1id + '/filial') -Base $ApiBase -Body '{"justificativa":"segunda tentativa de recurso"}'
+$s10pa4 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/consultas/' + $s10cj1id + '/parecer') -Base $ApiBase -Body '{"conclusao":"FAVORECIMENTO","resumo":"segunda conclusao sobre a original"}'
+Add-Check 'S10' 'consulta.filial-recurso-original-preservada' (($s10cjf.code -eq 200) -and ($s10cjfid -gt 0) -and ($s10cjfdb.text -like ("ABERTA|" + $s10cj1id + "|ATO-C2S10-01-FILIAL")) -and ($s10cjf2.code -eq 409) -and ($s10cjf2.body -like '*FILIAL_DUPLOCADA*') -and ($s10pa4.code -eq 409) -and ($s10pa4.body -like '*PARECER_JA_EMITIDO*')) ("filial (recurso) contra a original RESOLVIDA -> $($s10cjf.code) id=$s10cjfid; banco filial status|pai|referencia-herdada: $($s10cjfdb.text) (BR-10.1: 1 filial por pai, herda processo/tipo/referencia do ledger, ORIGINAL preservada); 2a filial -> $($s10cjf2.code) (409 FILIAL_DUPLOCADA nomeada); nova conclusao na original -> $($s10pa4.code) (409 PARECER_JA_EMITIDO nomeada: parecer EMITIDO e unico por consulta)")
+
+# --- BR-10.4/7.8b: contrato de obra exige projeto APROVADO --------------------------
+$s10ctb = ('{"homologacaoId":' + $s10hoid + ',"dataEficacia":"2026-11-10","dataFim":"2027-11-09","assinaturaModo":"FISICA","gestor":"Gestor C2S10","fiscal":"Fiscal C2S10","obraId":' + $s10ob2 + '}')
+$s10ct0 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/contratos' -Base $ApiBase -Body $s10ctb
+$null = Get-Psql ("update sigov.obras_projeto set status='APROVADO', updated_at=now() where id=" + $s10proj + ";")
+$s10ct1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/contratos' -Base $ApiBase -Body $s10ctb
+$s10ct1j = $null; try { $s10ct1j = ($s10ct1.body | ConvertFrom-Json) } catch {}
+$s10ctid = 0; if ($s10ct1j -and $null -ne $s10ct1j.data) { $s10ctid = [long]$s10ct1j.data.contratoId }
+$s10ctdb = Get-Psql ("select c.status||'|'||to_char(c.valor_contratado,'FM999990.00')||'|'||coalesce((select vc.codigo||'|'||vc.status from sigov.obras_contrato_vinculo vc where vc.obra_id=" + $s10ob2 + " and vc.dados->>'compras_contrato_id' = c.id::text and vc.ativo and not vc.is_deleted),'NAO') from sigov.compras_contrato c where c.id=" + $s10ctid + ";")
+Add-Check 'S10' 'contrato.obra-sem-projeto-aprovado-bloqueado' (($s10ct0.code -eq 409) -and ($s10ct0.body -like '*OBRA_CONTRATO_SEM_PROJETO*') -and ($s10ct1.code -eq 200) -and ($s10ctid -gt 0) -and ([decimal]$s10ct1j.data.valorContratado -eq 1500) -and ($s10ctdb.text -like ("VIGENTE|1500.00|VC-C2S10-" + $s10ctid + "|ATIVO"))) ("gerar contrato com obraId=$s10ob2 enquanto o projeto esta EM_ELABORACAO -> $($s10ct0.code) (409 OBRA_CONTRATO_SEM_PROJETO nomeada — BR-10.4/Lei 14.133 art. 185: licitacao de projeto basico previa); projeto posto a APROVADO -> retry $($s10ct1.code) id=$s10ctid valor 1500.00; banco contrato|vinculo: $($s10ctdb.text) (o vinculo contrato x obra fica no modulo obras como dependencia canonica, sem copia local)")
+
+# --- BR-10.2: contencioso ativo marca o contrato e bloqueia prorrogação -------------
+$s10jc0 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/juridico/contenciosos' -Base $ApiBase -Body ('{"origemTipo":"JUDICIARIO","origemId":' + $s10ctid + ',"caso":"PASSIVO","valorCausa":12000,"assunto":"cobranca indevida homologacao"}')
+$s10jc1b = ('{"origemTipo":"CONTRATO","origemId":' + $s10ctid + ',"caso":"PASSIVO","valorCausa":12000,"assunto":"Cobranca indevida sobre o contrato C2S10"}')
+$s10jc1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/juridico/contenciosos' -Base $ApiBase -Body $s10jc1b
+$s10jc1j = $null; try { $s10jc1j = ($s10jc1.body | ConvertFrom-Json) } catch {}
+$s10jcid = 0; if ($s10jc1j -and $null -ne $s10jc1j.data) { $s10jcid = [long]$s10jc1j.data.processoId }
+$s10jc1db = Get-Psql ("select p.status||'|'||p.area||'|'||p.natureza||'|'||p.origem_tipo||'|'||p.origem_id::text||'|'||(select count(*)::text from sigov.juridico_processo_movimento m where m.processo_id=p.id and m.tipo='ABERTURA')||'|'||coalesce((select v.status from sigov.compras_vinculo_externo v where v.tenant_id=p.tenant_id and v.alvo_modulo='JURIDICO_CONTENCIOSO' and v.alvo_id=p.id),'NULL') from sigov.juridico_processo p where p.id=" + $s10jcid + ";")
+$s10jc2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/juridico/contenciosos' -Base $ApiBase -Body $s10jc1b
+$s10ex1 = Invoke-Api -Bearer $tkS10.token -Method GET -Path ('/api/compras/integradas/contratos/' + $s10ctid + '/execucao') -Base $ApiBase
+$s10ex1j = $null; try { $s10ex1j = ($s10ex1.body | ConvertFrom-Json) } catch {}
+$s10pr0 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/contratos/' + $s10ctid + '/prorrogar') -Base $ApiBase -Body '{"novoFim":"2028-11-09","justificativa":"prorrogação anual homologacao"}'
+Add-Check 'S10' 'contencioso.aberto-marca-juridico-bloqueia-prorrogacao' (($s10jc0.code -eq 400) -and ($s10jc0.body -like '*CONTENCIOSO_ORIGEM_INVALIDA*') -and ($s10jc1.code -eq 200) -and ($s10jcid -gt 0) -and ($s10jc1j.data.caso -eq 'PASSIVO') -and ($s10jc1j.data.status -eq 'ATIVO') -and ($s10jc1db.text -like ("ATIVO|CIVEL|CONTENCIOSO|CONTRATO|" + $s10ctid + "|1|ATIVO")) -and ($s10jc2.code -eq 409) -and ($s10jc2.body -like '*CONTENCIOSO_ATIVO_PARA_ORIGEM*') -and ($s10ex1.code -eq 200) -and ($s10ex1j.data.contenciosoAtivo -eq $true) -and ($s10pr0.code -eq 409) -and ($s10pr0.body -like '*PRORROGACAO_BLOQUEADA_CONTENCIOSO_ATIVO*')) ("origem JUDICIARIO -> $($s10jc0.code) (400 CONTENCIOSO_ORIGEM_INVALIDA nomeada); origem CONTRATO caso PASSIVO causa 12000 -> $($s10jc1.code) processo=$s10jcid; banco status|area|natureza|origem|movimento-ABERTURA|marcador-ledger: $($s10jc1db.text) (BR-10.2: movimento append-only + marcador JURIDICO ATIVO no ledger compras_vinculo_externo, so para origem CONTRATO); 2o contencioso mesma origem -> $($s10jc2.code) (409 nomeada: 1 ativo por origem); GET execucao -> contenciosoAtivo=$($s10ex1j.data.contenciosoAtivo) (marca derivada do banco, sem copia local); PRORROGAR -> $($s10pr0.code) (409 PRORROGACAO_BLOQUEADA_CONTENCIOSO_ATIVO nomeada ate desfecho registrado)")
+$s10jd0 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/contenciosos/' + $s10jcid + '/desfecho') -Base $ApiBase -Body '{"resultado":"HOMOLOGADO","custas":2500,"justificativa":"resultado invalido homologacao"}'
+$s10jd1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/contenciosos/' + $s10jcid + '/desfecho') -Base $ApiBase -Body '{"resultado":"TRANSACAO","custas":2500,"justificativa":"transacao extrajudicial celebrada com o credor"}'
+$s10jd1j = $null; try { $s10jd1j = ($s10jd1.body | ConvertFrom-Json) } catch {}
+$s10jd1db = Get-Psql ("select p.status||'|'||p.resultado||'|'||case when p.encerrado_em is null then 'NULL' else 'SET' end||'|'||case when nullif(trim(p.justificativa),'') is null then 'NAO' else 'JUS' end||'|'||(select count(*)::text from sigov.juridico_processo_movimento m where m.processo_id=p.id)||'|'||coalesce((select v.status from sigov.compras_vinculo_externo v where v.tenant_id=p.tenant_id and v.alvo_modulo='JURIDICO_CONTENCIOSO' and v.alvo_id=p.id),'NULL') from sigov.juridico_processo p where p.id=" + $s10jcid + ";")
+$s10jd2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/juridico/contenciosos/' + $s10jcid + '/desfecho') -Base $ApiBase -Body '{"resultado":"JUGADO","custas":0,"justificativa":"tentativa de novo desfecho"}'
+$s10pr1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/contratos/' + $s10ctid + '/prorrogar') -Base $ApiBase -Body '{"novoFim":"2028-11-09","justificativa":"prorrogação anual homologacao"}'
+$s10pr1db = Get-Psql ("select status||'|'||to_char(data_fim,'YYYY-MM-DD')||'|'||(select count(1)::text from sigov.compras_contrato_historico h where h.contrato_id=" + $s10ctid + " and h.status_novo='PRORROGACAO') from sigov.compras_contrato where id=" + $s10ctid + ";")
+Add-Check 'S10' 'contencioso.desfecho-append-only-quita-marcador-libera-prorrogacao' (($s10jd0.code -eq 400) -and ($s10jd0.body -like '*CONTENCIOSO_RESULTADO_INVALIDO*') -and ($s10jd1.code -eq 200) -and ($s10jd1j.data.status -eq 'ENCERRADO') -and ($s10jd1db.text -eq ('ENCERRADO|TRANSACAO|SET|JUS|2|QUITADO')) -and ($s10jd2.code -eq 409) -and ($s10jd2.body -like '*CONTENCIOSO_JA_DESFECADO*') -and ($s10pr1.code -eq 200) -and ($s10pr1db.text -eq 'VIGENTE|2028-11-09|1')) ("resultado HOMOLOGADO -> $($s10jd0.code) (400 nomeada: TRANSACAO/JUGADO/DESISTENCIA); TRANSACAO custas 2500 -> $($s10jd1.code); banco status|resultado|encerrado_em|justificativa|movimentos(ABERTURA+DESFECO)|marcador: $($s10jd1db.text) (BR-10.2: desfecho append-only encerra e QUITA o marcador JURIDICO do contrato pelo ledger, com justificativa obrigatoria registrada); 2o desfecho -> $($s10jd2.code) (409 CONTENCIOSO_JA_DESFECADO nomeada); PRORROGAR de novo -> $($s10pr1.code) banco status|data_fim|rastro-PRORROGACAO: $($s10pr1db.text) (liberado apos desfecho; contrato segue VIGENTE com data_fim estendida e rastro append-only unico no historico - comportamento canonico do prorrogar S8)")
+
+# --- BR-7.8: contrapartida do convenio (tipos, teto do instrumento, idempotencia) ---
+$s10cp0 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/contrapartidas/convenio' -Base $ApiBase -Body ('{"instrumentoId":' + $s10cvn1 + ',"tipo":"FINANCEIRA","descricao":"valores inconsistentes homologacao","valorPrevisto":800,"valorRealizado":900,"dataRealizacao":"2026-10-01"}')
+$s10cp1b = ('{"instrumentoId":' + $s10cvn1 + ',"tipo":"FINANCEIRA","descricao":"Contrapartida financeira C2S10","valorPrevisto":800,"valorRealizado":800,"dataRealizacao":"2026-10-01","chaveIdempotencia":"K-CP-1"}')
+$s10cp1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/contrapartidas/convenio' -Base $ApiBase -Body $s10cp1b
+$s10cp1j = $null; try { $s10cp1j = ($s10cp1.body | ConvertFrom-Json) } catch {}
+$s10cp1id = 0; if ($s10cp1j -and $null -ne $s10cp1j.data) { $s10cp1id = [long]$s10cp1j.data.id }
+$s10cp1db = Get-Psql ("select tipo||'|'||to_char(valor_previsto,'FM999990.00')||'|'||to_char(valor_realizado,'FM999990.00')||'|'||status||'|'||coalesce(chave_idempotencia,'NULL') from sigov.convenio_contrapartida where id=" + $s10cp1id + ";")
+$s10cp1r = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/contrapartidas/convenio' -Base $ApiBase -Body $s10cp1b
+$s10cp1rj = $null; try { $s10cp1rj = ($s10cp1r.body | ConvertFrom-Json) } catch {}
+$s10cp1rid = 0; if ($s10cp1rj -and $null -ne $s10cp1rj.data) { $s10cp1rid = [long]$s10cp1rj.data.id }
+$s10cp1c = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/contrapartidas/convenio' -Base $ApiBase -Body ('{"instrumentoId":' + $s10cvn1 + ',"tipo":"FINANCEIRA","descricao":"conteudo divergente na mesma chave","valorPrevisto":500,"valorRealizado":500,"dataRealizacao":"2026-10-01","chaveIdempotencia":"K-CP-1"}')
+$s10cpX = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/contrapartidas/convenio' -Base $ApiBase -Body ('{"instrumentoId":' + $s10cvn1 + ',"tipo":"BENS","descricao":"bens alem do teto do instrumento","valorPrevisto":100,"valorRealizado":0}')
+Add-Check 'S10' 'contrapartida.linha-tipo-status-derivado-teto-idempotente' (($s10cp0.code -eq 400) -and ($s10cp0.body -like '*CONTRAPARTIDA_VALOR_INCONSISTENTE*') -and ($s10cp1.code -eq 200) -and ($s10cp1id -gt 0) -and ($s10cp1db.text -eq 'FINANCEIRA|800.00|800.00|REALIZADA|K-CP-1') -and ($s10cp1r.code -eq 200) -and ($s10cp1rid -eq $s10cp1id) -and ($s10cp1c.code -eq 409) -and ($s10cp1c.body -like '*CONTRAPARTIDA_CHAVE_IDEMPOTENCIA_CONFLITO*') -and ($s10cpX.code -eq 409) -and ($s10cpX.body -like '*CONTRAPARTIDA_EXCEDE_INSTRUMENTO*')) ("realizado 900 > previsto 800 -> $($s10cp0.code) (400 CONTRAPARTIDA_VALOR_INCONSISTENTE nomeada); CVN1 800/800 c/ data -> $($s10cp1.code) id=$s10cp1id; banco tipo|previsto|realizado|status|chave: $($s10cp1db.text) (BR-7.8: status DERIVADO — realizado>=previsto => REALIZADA, exige dataRealizacao); replay mesma chave/conteudo -> $($s10cp1r.code) mesmo id (idempotente, nada duplica); mesma chave conteudo divergente -> $($s10cp1c.code) (409 nomeada); prevista nova 100 que estoura o teto do instrumento (800 ja consumidos) -> $($s10cpX.code) (409 CONTRAPARTIDA_EXCEDE_INSTRUMENTO nomeada: soma prevista <= valor_contrapartida do instrumento)")
+
+# --- BR-7.8: aplicar recurso do convenio exige contrapartida REALIZADA --------------
+$s10vc0 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/vinculos/convenio' -Base $ApiBase -Body ('{"contratoId":' + $s10ctid + ',"instrumentoId":' + $s10cvn2 + ',"chaveIdempotencia":"K-V-2"}')
+$s10cp2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/contrapartidas/convenio' -Base $ApiBase -Body ('{"instrumentoId":' + $s10cvn2 + ',"tipo":"FINANCEIRA","descricao":"Contrapartida CVN2 C2S10","valorPrevisto":500,"valorRealizado":500,"dataRealizacao":"2026-10-02","chaveIdempotencia":"K-CP-2"}')
+$s10cp2j = $null; try { $s10cp2j = ($s10cp2.body | ConvertFrom-Json) } catch {}
+$s10vc1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/vinculos/convenio' -Base $ApiBase -Body ('{"contratoId":' + $s10ctid + ',"instrumentoId":' + $s10cvn2 + ',"chaveIdempotencia":"K-V-2"}')
+$s10vc1j = $null; try { $s10vc1j = ($s10vc1.body | ConvertFrom-Json) } catch {}
+$s10v2 = 0; if ($s10vc1j -and $null -ne $s10vc1j.data) { $s10v2 = [long]$s10vc1j.data.id }
+$s10vc1db = Get-Psql ("select status||'|'||alvo_modulo||'|'||alvo_id::text from sigov.compras_vinculo_externo where id=" + $s10v2 + ";")
+$s10vc1r = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/vinculos/convenio' -Base $ApiBase -Body ('{"contratoId":' + $s10ctid + ',"instrumentoId":' + $s10cvn2 + ',"chaveIdempotencia":"K-V-2"}')
+$s10vc1rj = $null; try { $s10vc1rj = ($s10vc1r.body | ConvertFrom-Json) } catch {}
+$s10vc1rid = 0; if ($s10vc1rj -and $null -ne $s10vc1rj.data) { $s10vc1rid = [long]$s10vc1rj.data.id }
+$s10vc1c = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/vinculos/convenio' -Base $ApiBase -Body ('{"contratoId":' + $s10ctid + ',"instrumentoId":' + $s10cvn1 + ',"chaveIdempotencia":"K-V-2"}')
+$s10vc2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/vinculos/convenio' -Base $ApiBase -Body ('{"contratoId":' + $s10ctid + ',"instrumentoId":' + $s10cvn1 + ',"chaveIdempotencia":"K-V-1"}')
+$s10vc2j = $null; try { $s10vc2j = ($s10vc2.body | ConvertFrom-Json) } catch {}
+$s10v1 = 0; if ($s10vc2j -and $null -ne $s10vc2j.data) { $s10v1 = [long]$s10vc2j.data.id }
+Add-Check 'S10' 'vinculo.convenio-exige-contrapartida-realizada-contra-contrato-vigente' ((($s10vc0.code -eq 409) -and ($s10vc0.body -like '*CONTRAPARTIDA_CONVENIO_INEXISTENTE*') -and ($s10cp2.code -eq 200)) -and ($s10vc1.code -eq 200) -and ($s10v2 -gt 0) -and ($s10vc1db.text -eq ('ATIVO|CONVENIO|' + $s10cvn2)) -and ($s10vc1r.code -eq 200) -and ($s10vc1rid -eq $s10v2) -and ($s10vc1c.code -eq 409) -and ($s10vc1c.body -like '*VINCULO_CONVENIO_CHAVE_CONFLITO*') -and ($s10vc2.code -eq 200) -and ($s10v1 -gt 0)) ("aplicar CVN2 (exige 500 de contrapartida, realizado 0) ao contrato -> $($s10vc0.code) (409 CONTRAPARTIDA_CONVENIO_INEXISTENTE nomeada — BR-7.8: recurso proprio exigido precisa estar REALIZADO antes de aplicar); contrapartida CVN2 500/500 -> $($s10cp2.code); vinculo CVN2 -> $($s10vc1.code) id=$s10v2 banco: $($s10vc1db.text) (contrato PRORROGADO aceito como vigente); replay -> $($s10vc1r.code) mesmo id; mesma chave outro instrumento -> $($s10vc1c.code) (409 nomeada); vinculo CVN1 -> $($s10vc2.code) id=$s10v1 (2 instrumentos distintos aplicados ao mesmo contrato)")
+
+# --- BR-10.3: prestacao de contas (minimo parametrico do banco + saldo final) -------
+$s10pe0 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/convenios/prestacoes' -Base $ApiBase -Body ('{"instrumentoId":' + $s10cvn2 + ',"tipo":"PARCIAL","numeroPrestacao":"PC-C2S10-00","periodoInicial":"2026-06-01","periodoFinal":"2026-08-31","valorPrestado":400}')
+$s10pe1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/convenios/prestacoes' -Base $ApiBase -Body ('{"instrumentoId":' + $s10cvn1 + ',"tipo":"PARCIAL","numeroPrestacao":"PC-C2S10-01","periodoInicial":"2026-06-01","periodoFinal":"2026-09-30","valorPrestado":2400}')
+$s10pe1j = $null; try { $s10pe1j = ($s10pe1.body | ConvertFrom-Json) } catch {}
+$s10pe1id = 0; if ($s10pe1j -and $null -ne $s10pe1j.data) { $s10pe1id = [long]$s10pe1j.data.id }
+$s10pe1db = Get-Psql ("select status||'|'||coalesce(data_envio::text,'NULL') from sigov.convenio_prestacao_contas where id=" + $s10pe1id + ";")
+$s10pe2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/convenios/prestacoes' -Base $ApiBase -Body ('{"instrumentoId":' + $s10cvn1 + ',"tipo":"FINAL","numeroPrestacao":"PC-C2S10-02","periodoInicial":"2026-06-01","periodoFinal":"2027-05-31","valorPrestado":3200}')
+$s10pe3 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/convenios/prestacoes' -Base $ApiBase -Body ('{"instrumentoId":' + $s10cvn1 + ',"tipo":"PARCIAL_FINAL","numeroPrestacao":"PC-C2S10-03","periodoInicial":"2026-06-01","periodoFinal":"2026-08-31","valorPrestado":100}')
+Add-Check 'S10' 'prestacao.minimo-parametrico-do-banco-e-final-com-saldo-bloqueada' (($s10pe0.code -eq 409) -and ($s10pe0.body -like '*PRESTACAO_EXECUCAO_MINIMA_NAO_ATINGIDA*') -and ($s10pe1.code -eq 200) -and ($s10pe1id -gt 0) -and ($s10pe1db.text -like 'ENVIADA|2026*') -and ($s10pe2.code -eq 409) -and ($s10pe2.body -like '*PRESTACAO_FINAL_SALDO_NAO_JUSTIFICADO*') -and ($s10pe3.code -eq 400) -and ($s10pe3.body -like '*PRESTACAO_TIPO_INVALIDO*')) ("prestacao PARCIAL do CVN2 (execucao 40% < minimo parametrico 70% lido do banco CONVENIO_PRESTACAO_EXECUCAO_MINIMA_PCT) -> $($s10pe0.code) (409 PRESTACAO_EXECUCAO_MINIMA_NAO_ATINGIDA nomeada — BR-10.3); CVN1 (execucao 75%) PARCIAL -> $($s10pe1.code) id=$s10pe1id banco status|data_envio: $($s10pe1db.text); FINAL do CVN1 com saldo de execucao 800.00 (3200 recebidos - 2400 executados) -> $($s10pe2.code) (409 PRESTACAO_FINAL_SALDO_NAO_JUSTIFICADO nomeada: final so com saldo zerado); tipo PARCIAL_FINAL -> $($s10pe3.code) (400 nomeada)")
+
+# --- BR-10.5: encerramento do instrumento (cascata + saldo + imutabilidade) ---------
+$s10en0 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/convenios/instrumentos/' + $s10cvn2 + '/encerrar') -Base $ApiBase -Body '{"justificativa":"reajuste orcamentario do programa"}'
+$s10qq1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/vinculos/' + $s10v2 + '/quietar') -Base $ApiBase -Body '{"justificativa":"termo aditivo repactua a aplicacao do recurso"}'
+$s10qq1j = $null; try { $s10qq1j = ($s10qq1.body | ConvertFrom-Json) } catch {}
+$s10qq1db = Get-Psql ("select status||'|'||case when quitado_em is null then 'NULL' else 'SET' end||'|'||case when justificativa_quitacao like '%repactua%' then 'JUS' else 'NAO' end from sigov.compras_vinculo_externo where id=" + $s10v2 + ";")
+$s10qq2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/vinculos/' + $s10v2 + '/quietar') -Base $ApiBase -Body '{"justificativa":"nova tentativa de quitacao"}'
+$s10en1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/convenios/instrumentos/' + $s10cvn2 + '/encerrar') -Base $ApiBase -Body '{"justificativa":null}'
+$s10en2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/convenios/instrumentos/' + $s10cvn2 + '/encerrar') -Base $ApiBase -Body '{"justificativa":"saldo remanescente revertido ao orgao concedente por termino da vigencia"}'
+$s10en2j = $null; try { $s10en2j = ($s10en2.body | ConvertFrom-Json) } catch {}
+$s10en2db = Get-Psql ("select status||'|'||case when observacao like '%COM SALDO%' then 'SALDO' else 'NAO' end from sigov.convenio_instrumento where id=" + $s10cvn2 + ";")
+$s10en3 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/convenios/instrumentos/' + $s10cvn2 + '/encerrar') -Base $ApiBase -Body '{"justificativa":"encerramento repetido"}'
+$s10cp3 = Invoke-Api -Bearer $tkS10.token -Method POST -Path '/api/compras/integradas/contrapartidas/convenio' -Base $ApiBase -Body ('{"instrumentoId":' + $s10cvn2 + ',"tipo":"SERVICOS","descricao":"nova contrapartida apos encerramento","valorPrevisto":100,"valorRealizado":100,"dataRealizacao":"2026-10-05"}')
+Add-Check 'S10' 'encerramento.cascata-contrato-ativo-saldo-justificado-imutavel' (($s10en0.code -eq 409) -and ($s10en0.body -like '*CONVENIO_ENCERRAMENTO_BLOQUEADO_CONTRATO_ATIVO*') -and ($s10qq1.code -eq 200) -and ($s10qq1j.data.status -eq 'QUITADO') -and ($s10qq1db.text -eq 'QUITADO|SET|JUS') -and ($s10qq2.code -eq 409) -and ($s10qq2.body -like '*VINCULO_JA_QUITADO*') -and ($s10en1.code -eq 400) -and ($s10en1.body -like '*ENCERRAR_CONVENIO_SALDO_SEM_JUSTIFICATIVA*') -and ($s10en2.code -eq 200) -and ([decimal]$s10en2j.data.saldoExecucao -eq 600) -and ($s10en2db.text -eq 'ENCERRADO|SALDO') -and ($s10en3.code -eq 409) -and ($s10en3.body -like '*INSTRUMENTO_JA_ENCERRADO*') -and ($s10cp3.code -eq 409) -and ($s10cp3.body -like '*INSTRUMENTO_ENCERRADO_IMUTAVEL*')) ("encerrar CVN2 com vinculo ATIVO -> $($s10en0.code) (409 CONVENIO_ENCERRAMENTO_BLOQUEADO_CONTRATO_ATIVO nomeada — BR-10.5 cascata); quitar o vinculo c/ justificativa -> $($s10qq1.code) banco status|quitado_em|justificativa: $($s10qq1db.text) (quebra registrada uma unica vez no ledger); 2a quitacao -> $($s10qq2.code) (409 VINCULO_JA_QUITADO nomeada); encerrar sem justificativa com saldo 600.00 -> $($s10en1.code) (400 ENCERRAR_CONVENIO_SALDO_SEM_JUSTIFICATIVA nomeada); encerrar COM justificativa -> $($s10en2.code) saldoExecucao=$($s10en2j.data.saldoExecucao) banco: $($s10en2db.text) (saldo anexado na observacao); re-encerrar -> $($s10en3.code) (409 INSTRUMENTO_JA_ENCERRADO nomeada); contrapartida no ENCERRADO -> $($s10cp3.code) (409 INSTRUMENTO_ENCERRADO_IMUTAVEL nomeada)")
+
+# --- BR-10.4: homologacao de medicao nao pode passar do medido fisicamente ----------
+$s10md1 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/obras/medicoes/' + $s10m1 + '/homologar') -Base $ApiBase
+$s10md1j = $null; try { $s10md1j = ($s10md1.body | ConvertFrom-Json) } catch {}
+$s10md1db = Get-Psql ("select m.status||'|'||case when m.homologada_at is null then 'NULL' else 'SET' end||'|'||to_char(m.saldo_contratual_depois,'FM999990.00')||'|'||coalesce((select a.decisao||'|'||a.alcada from sigov.obras_medicao_aprovacao a where a.medicao_id=m.id limit 1),'NULL') from sigov.obras_medicao m where m.id=" + $s10m1 + ";")
+$s10md1r = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/obras/medicoes/' + $s10m1 + '/homologar') -Base $ApiBase
+$s10md2 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/obras/medicoes/' + $s10m2 + '/homologar') -Base $ApiBase
+$s10md4 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/obras/medicoes/' + $s10m4 + '/homologar') -Base $ApiBase
+$s10md3 = Invoke-Api -Bearer $tkS10.token -Method POST -Path ('/api/compras/integradas/obras/medicoes/' + $s10m3 + '/homologar') -Base $ApiBase
+$s10md3db = Get-Psql ("select count(*)||'|'||to_char(coalesce(sum(valor),0),'FM999990.00') from sigov.obras_medicao where id in (" + $s10m1 + "," + $s10m3 + ") and status='HOMOLOGADA';")
+Add-Check 'S10' 'medicao.homologacao-acima-fisico-ou-contratado-insuficiente' (($s10md1.code -eq 200) -and ([decimal]$s10md1j.data.saldoContratualDepois -eq 6000) -and ($s10md1db.text -eq 'HOMOLOGADA|SET|6000.00|APROVADA|FISCAL_OBRA') -and ($s10md1r.code -eq 409) -and ($s10md1r.body -like '*MEDICAO_JA_HOMOLOGADA*') -and ($s10md2.code -eq 409) -and ($s10md2.body -like '*OBRA_MEDICAO_INSUFICIENTE*') -and ($s10md4.code -eq 400) -and ($s10md4.body -like '*MEDICAO_STATUS_INVALIDO*') -and ($s10md3.code -eq 200) -and ($s10md3db.text -eq '2|10000.00')) ("M1 4000 (financeiro acumulado 40% <= medido fisico 50%, dentro do contratado 10000) -> $($s10md1.code); banco status|homologada_at|saldo-depois|aprovacao: $($s10md1db.text) (BR-10.4: homologacao grava a aprovacao FISCAL_OBRA no modulo obras); replay -> $($s10md1r.code) (409 MEDICAO_JA_HOMOLOGADA nomeada); M2 8000 (acumulado 12000 > contratado 10000 e > fisico 60%) -> $($s10md2.code) (409 OBRA_MEDICAO_INSUFICIENTE nomeada: pagamento nao passa do medido fisicamente); M4 RASCUNHO -> $($s10md4.code) (400 MEDICAO_STATUS_INVALIDO nomeada: esperado ENVIADA); M3 6000 (fecha 100%) -> $($s10md3.code); banco homologadas|soma: $($s10md3db.text)")
+
+# --- auditoria: ledger de vinculos por contrato (GET) --------------------------------
+$s10vg = Invoke-Api -Bearer $tkS10.token -Method GET -Path ('/api/compras/integradas/vinculos?contratoId=' + $s10ctid) -Base $ApiBase
+$s10vgj = $null; try { $s10vgj = ($s10vg.body | ConvertFrom-Json) } catch {}
+$s10vgarr = @()
+if ($s10vgj -and $null -ne $s10vgj.data) { $s10vgarr = @($s10vgj.data) }
+$s10stJ=''; $s10stC1=''; $s10stC2=''
+foreach ($v in $s10vgarr) {
+  if ($v.alvoModulo -eq 'JURIDICO_CONTENCIOSO') { $s10stJ = $v.status }
+  elseif ($v.alvoModulo -eq 'CONVENIO') {
+    if ([long]$v.alvoId -eq $s10cvn1) { $s10stC1 = $v.status } else { $s10stC2 = $v.status }
+  }
+}
+Add-Check 'S10' 'vinculos.consultados-por-contrato-no-ledger' (($s10vg.code -eq 200) -and ($s10vgarr.Count -eq 3) -and ($s10stJ -eq 'QUITADO') -and ($s10stC1 -eq 'ATIVO') -and ($s10stC2 -eq 'QUITADO')) ("GET /vinculos?contratoId=$s10ctid -> $($s10vg.code) com $($s10vgarr.Count) linhas do ledger compras_vinculo_externo (chave compras.auditoria.visualizar): JURIDICO_CONTENCIOSO=$s10stJ (quitado no desfecho), CONVENIO CVN1=$s10stC1 (nunca quebrado), CONVENIO CVN2=$s10stC2 (quitado manualmente) — BR-10.5: quebra de vinculo so existe com justificativa e ato registrado, sem delete fisico")
+
+# --- limpeza do bloco S10 (auto-limpeza; regra 9) ------------------------------------
+$s10cl = Get-Psql @"
+create temp table if not exists s10_alvo_d (id bigint); truncate table s10_alvo_d;
+insert into s10_alvo_d select id from sigov.compras_demanda where tenant_id=910001 and objeto like 'C2S10-%';
+create temp table if not exists s10_alvo_p (id bigint); truncate table s10_alvo_p;
+insert into s10_alvo_p select id from sigov.compras_processo where tenant_id=910001 and demanda_id in (select id from s10_alvo_d);
+create temp table if not exists s10_alvo_l (id bigint); truncate table s10_alvo_l;
+insert into s10_alvo_l select id from sigov.compras_licitacao where tenant_id=910001 and processo_id in (select id from s10_alvo_p);
+create temp table if not exists s10_alvo_c (id bigint); truncate table s10_alvo_c;
+insert into s10_alvo_c select id from sigov.compras_contrato where tenant_id=910001 and homologacao_id in (select id from sigov.compras_homologacao where licitacao_id in (select id from s10_alvo_l));
+create temp table if not exists s10_alvo_o (id bigint); truncate table s10_alvo_o;
+insert into s10_alvo_o select id from sigov.obras_obra where tenant_id=910001 and codigo like 'OBRA-C2S10-%';
+delete from sigov.obras_medicao_aprovacao where medicao_id in (select id from sigov.obras_medicao where tenant_id=910001 and obra_id in (select id from s10_alvo_o));
+delete from sigov.obras_medicao where tenant_id=910001 and obra_id in (select id from s10_alvo_o);
+delete from sigov.obras_projeto where tenant_id=910001 and obra_id in (select id from s10_alvo_o);
+delete from sigov.obras_contrato_vinculo where tenant_id=910001 and obra_id in (select id from s10_alvo_o);
+delete from sigov.obras_obra where id in (select id from s10_alvo_o);
+create temp table if not exists s10_alvo_i (id bigint); truncate table s10_alvo_i;
+insert into s10_alvo_i select id from sigov.convenio_instrumento where tenant_id=910001 and numero_instrumento like 'CVN-C2S10-%';
+delete from sigov.convenio_prestacao_contas where tenant_id=910001 and instrumento_id in (select id from s10_alvo_i);
+delete from sigov.convenio_contrapartida where tenant_id=910001 and instrumento_id in (select id from s10_alvo_i);
+delete from sigov.convenio_repasse where tenant_id=910001 and instrumento_id in (select id from s10_alvo_i);
+delete from sigov.convenio_etapa where tenant_id=910001 and meta_id in (select id from sigov.convenio_meta where tenant_id=910001 and projeto_id in (select id from sigov.convenio_projeto where tenant_id=910001 and instrumento_id in (select id from s10_alvo_i)));
+delete from sigov.convenio_meta where tenant_id=910001 and projeto_id in (select id from sigov.convenio_projeto where tenant_id=910001 and instrumento_id in (select id from s10_alvo_i));
+delete from sigov.convenio_projeto where tenant_id=910001 and instrumento_id in (select id from s10_alvo_i);
+delete from sigov.convenio_instrumento where id in (select id from s10_alvo_i);
+delete from sigov.convenio_orgao_concedente where tenant_id=910001 and nome='Orgao Concedente Federal C2S10';
+create temp table if not exists s10_alvo_j (id bigint); truncate table s10_alvo_j;
+insert into s10_alvo_j select id from sigov.juridico_processo where tenant_id=910001 and origem_tipo='CONTRATO' and origem_id in (select id from s10_alvo_c);
+delete from sigov.juridico_processo_movimento where processo_id in (select id from s10_alvo_j);
+delete from sigov.juridico_processo where id in (select id from s10_alvo_j);
+delete from sigov.compras_vinculo_externo where tenant_id=910001 and contrato_id in (select id from s10_alvo_c);
+create temp table if not exists s10_alvo_cj (id bigint); truncate table s10_alvo_cj;
+insert into s10_alvo_cj select id from sigov.juridico_consulta where tenant_id=910001 and (codigo like 'ATO-C2S10-%' or consulta_pai_id in (select id from sigov.juridico_consulta where tenant_id=910001 and codigo like 'ATO-C2S10-%'));
+delete from sigov.juridico_parecer_condicao where parecer_id in (select id from sigov.juridico_parecer where tenant_id=910001 and consulta_id in (select id from s10_alvo_cj));
+delete from sigov.juridico_parecer where tenant_id=910001 and consulta_id in (select id from s10_alvo_cj);
+delete from sigov.compras_juridico_consulta_vinculo where tenant_id=910001 and referencia_numero like 'ATO-C2S10-%';
+delete from sigov.juridico_consulta where id in (select id from s10_alvo_cj);
+delete from sigov.compras_contrato_item where contrato_id in (select id from s10_alvo_c);
+delete from sigov.compras_contrato_historico where contrato_id in (select id from s10_alvo_c);
+delete from sigov.compras_contrato where id in (select id from s10_alvo_c);
+delete from sigov.compras_homologacao where licitacao_id in (select id from s10_alvo_l);
+delete from sigov.compras_adjudicacao_item where adjudicacao_id in (select id from sigov.compras_adjudicacao where licitacao_id in (select id from s10_alvo_l));
+delete from sigov.compras_adjudicacao where licitacao_id in (select id from s10_alvo_l);
+delete from sigov.compras_proposta where licitacao_id in (select id from s10_alvo_l);
+delete from sigov.compras_habilitacao where licitacao_id in (select id from s10_alvo_l);
+delete from sigov.compras_lance where licitacao_id in (select id from s10_alvo_l);
+delete from sigov.compras_licitacao_item where licitacao_id in (select id from s10_alvo_l);
+delete from sigov.compras_licitacao where id in (select id from s10_alvo_l);
+delete from sigov.compras_processo_item where tenant_id=910001 and processo_id in (select id from s10_alvo_p);
+delete from sigov.compras_processo where id in (select id from s10_alvo_p);
+delete from sigov.compras_demanda_item where demanda_id in (select id from s10_alvo_d);
+delete from sigov.compras_demanda where id in (select id from s10_alvo_d);
+delete from sigov.compras_fornecedor where tenant_id=910001 and nome like 'Forneadora C2S10 %';
+delete from sigov.financeiro_centro_custo where tenant_id=910001 and codigo like 'C2S10-%';
+delete from sigov.autorizacao_decisao_auditoria where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.auditoria_evento where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.identidade_sessao where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.sessao_usuario where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.sessao_contexto_usuario where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.contexto_operacional_auditoria where usuario_executor_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.usuario_contexto_global_log where usuario_global_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.historico_login where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.trilha_auditoria where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.token_mfa where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.senha_redefinicao_token where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.fila_assinatura where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.usuario_preferencia where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.usuario_filtro_salvo where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.perfil_permissao where correlation_id='cf58c2ab-1c20-4a90-88f8-0c2000000010';
+delete from sigov.usuario_grupo where usuario_id in (select id from sigov.usuario where tenant_id=910001 and login='c2s10.admin');
+delete from sigov.usuario where tenant_id=910001 and login='c2s10.admin';
+delete from sigov.entidade where tenant_id=910001 and codigo_externo='C2S10-ENT';
+select
+ (select count(*) from sigov.obras_medicao where tenant_id=910001 and obra_id in (select id from s10_alvo_o))
+ + (select count(*) from sigov.obras_projeto where tenant_id=910001 and obra_id in (select id from s10_alvo_o))
+ + (select count(*) from sigov.obras_contrato_vinculo where tenant_id=910001 and obra_id in (select id from s10_alvo_o))
+ + (select count(*) from sigov.obras_obra where id in (select id from s10_alvo_o))
+ + (select count(*) from sigov.convenio_prestacao_contas where tenant_id=910001 and instrumento_id in (select id from s10_alvo_i))
+ + (select count(*) from sigov.convenio_contrapartida where tenant_id=910001 and instrumento_id in (select id from s10_alvo_i))
+ + (select count(*) from sigov.convenio_repasse where tenant_id=910001 and instrumento_id in (select id from s10_alvo_i))
+ + (select count(*) from sigov.convenio_projeto where tenant_id=910001 and instrumento_id in (select id from s10_alvo_i))
+ + (select count(*) from sigov.convenio_etapa where tenant_id=910001 and meta_id in (select id from sigov.convenio_meta where tenant_id=910001 and projeto_id in (select id from sigov.convenio_projeto where tenant_id=910001 and instrumento_id in (select id from s10_alvo_i))))
+ + (select count(*) from sigov.convenio_meta where tenant_id=910001 and projeto_id in (select id from sigov.convenio_projeto where tenant_id=910001 and instrumento_id in (select id from s10_alvo_i)))
+ + (select count(*) from sigov.convenio_instrumento where id in (select id from s10_alvo_i))
+ + (select count(*) from sigov.convenio_orgao_concedente where tenant_id=910001 and nome='Orgao Concedente Federal C2S10')
+ + (select count(*) from sigov.juridico_processo where id in (select id from s10_alvo_j))
+ + (select count(*) from sigov.compras_vinculo_externo where tenant_id=910001 and contrato_id in (select id from s10_alvo_c))
+ + (select count(*) from sigov.juridico_parecer_condicao where parecer_id in (select id from sigov.juridico_parecer where tenant_id=910001 and consulta_id in (select id from s10_alvo_cj)))
+ + (select count(*) from sigov.juridico_parecer where tenant_id=910001 and consulta_id in (select id from s10_alvo_cj))
+ + (select count(*) from sigov.compras_juridico_consulta_vinculo where tenant_id=910001 and referencia_numero like 'ATO-C2S10-%')
+ + (select count(*) from sigov.juridico_consulta where id in (select id from s10_alvo_cj))
+ + (select count(*) from sigov.compras_demanda where tenant_id=910001 and objeto like 'C2S10-%')
+ + (select count(*) from sigov.compras_licitacao where tenant_id=910001 and objeto like 'C2S10-%')
+ + (select count(*) from sigov.compras_contrato where tenant_id=910001 and objeto like 'C2S10-%')
+ + (select count(*) from sigov.compras_fornecedor where tenant_id=910001 and nome like 'Forneadora C2S10 %')
+ + (select count(*) from sigov.financeiro_centro_custo where tenant_id=910001 and codigo like 'C2S10-%')
+ + (select count(*) from sigov.perfil_permissao where correlation_id='cf58c2ab-1c20-4a90-88f8-0c2000000010')
+ + (select count(*) from sigov.usuario where tenant_id=910001 and login='c2s10.admin')
+ + (select count(*) from sigov.entidade where tenant_id=910001 and codigo_externo='C2S10-ENT');
+"@
+Add-Check 'S10' 'fixture.removido-auto-limpeza' (($s10cl.code -eq 0) -and ($s10cl.text -eq '0')) ("cascade delete S10 (medicoes+aprovacoes, projetos, vinculos contrato x obra, obra, prestacoes, contrapartidas, repasses, etapas, metas, projetos de convenio, instrumentos, orgao concedente, contenciosos+movimentos, ledger de vinculos externos, condicoes, pareceres, consultas+filiais, ledgers de consulta, contratos+items+historico, homologacoes, adjudicacoes+items, propostas, habilitacoes, lances, licitacao_items, licitacoes, processos+items, demandas+items, fornecedores, CCs, sessoes/auditorias do usuario, grants sentinel cf58c2ab-...010, usuario c2s10.admin+grupo, entidade C2S10-ENT) tenant 910001 -> restantes=" + $s10cl.text)
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);

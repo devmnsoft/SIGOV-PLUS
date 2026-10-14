@@ -57,6 +57,23 @@ public sealed class ComprasIntegradasController(IComprasIntegradasService s, ICu
     [HttpPost("obrigacoes/{id:long}/liquidar")] public Task<IActionResult> LiquidarObrigacao(long id, CancellationToken c) => Run(P.ObrigacaoLiquidar, () => s.ObrigacaoLiquidarAsync(X(), id, c), c);
     [HttpPost("obrigacoes/{id:long}/estornar")] public Task<IActionResult> EstornarObrigacao(long id, [FromBody] ObrigacaoEstornarBody b, CancellationToken c) => Run(P.ObrigacaoLiquidar, () => s.ObrigacaoEstornarAsync(X(), id, b.Justificativa, c), c);
 
+    // Sprint 10 (BR-7.8 + BR-10.x): vinculos juridico + convenios/obras (etapa 3/3).
+    // Chaves dos modulos juridico/convenios/obras avaliadas por AllowedMod (modulo proprio);
+    // contrapartida/vinculo/quitar reutilizam chaves canonicas do catalogo C2S7 (modulo compras).
+    [HttpPost("juridico/consultas")] public Task<IActionResult> CriarConsultaJuridica([FromBody] ConsultaJuridicaCriarRequest r, CancellationToken c) => RunMod("juridico", P.JuridicoConsultaCriar, () => s.ConsultaJuridicaCriarAsync(X(), r, c), c);
+    [HttpPost("juridico/consultas/{id:long}/parecer")] public Task<IActionResult> EmitirParecer(long id, [FromBody] ParecerEmitirRequest r, CancellationToken c) => RunMod("juridico", P.JuridicoParecerEmitir, () => s.ParecerEmitirAsync(X(), id, r, c), c);
+    [HttpPost("juridico/condicoes/{id:long}/satisfazer")] public Task<IActionResult> SatisfazerCondicao(long id, [FromBody] CondicaoSatisfazerBody b, CancellationToken c) => RunMod("juridico", P.JuridicoParecerEmitir, () => s.CondicaoSatisfazerAsync(X(), id, b.Justificativa, c), c);
+    [HttpPost("juridico/consultas/{id:long}/filial")] public Task<IActionResult> AbrirFilial(long id, [FromBody] ConsultaFilialBody b, CancellationToken c) => RunMod("juridico", P.JuridicoConsultaCriar, () => s.ConsultaFilialAsync(X(), id, b.Justificativa, c), c);
+    [HttpPost("juridico/contenciosos")] public Task<IActionResult> AbrirContencioso([FromBody] ContenciosoAbrirRequest r, CancellationToken c) => RunMod("juridico", P.JuridicoContenciosoAbrir, () => s.ContenciosoAbrirAsync(X(), r, c), c);
+    [HttpPost("juridico/contenciosos/{id:long}/desfecho")] public Task<IActionResult> DesfecharContencioso(long id, [FromBody] ContenciosoDesfechoBody b, CancellationToken c) => RunMod("juridico", P.JuridicoContenciosoDesfechar, () => s.ContenciosoDesfecharAsync(X(), id, new ContenciosoDesfecharRequest(b.Resultado, b.Custas, b.Justificativa), c), c);
+    [HttpPost("contrapartidas/convenio")] public Task<IActionResult> RegistrarContrapartida([FromBody] ContrapartidaRegistrarRequest r, CancellationToken c) => Run(P.ContrapartidaRegistrar, () => s.ContrapartidaRegistrarAsync(X(), r, c), c);
+    [HttpPost("vinculos/convenio")] public Task<IActionResult> AplicarVinculoConvenio([FromBody] VinculoConvenioAplicarRequest r, CancellationToken c) => Run(P.ContrapartidaRegistrar, () => s.VinculoConvenioAplicarAsync(X(), r, c), c);
+    [HttpGet("vinculos")] public Task<IActionResult> Vinculos(long contratoId, CancellationToken c) => Run(P.AuditoriaVer, () => s.VinculosContratoAsync(X(), contratoId, c), c);
+    [HttpPost("vinculos/{id:long}/quietar")] public Task<IActionResult> QuitarVinculo(long id, [FromBody] VinculoQuitarBody b, CancellationToken c) => Run(P.ContratoExecucaoFiscalizar, () => s.VinculoQuitarAsync(X(), id, b.Justificativa, c), c);
+    [HttpPost("convenios/instrumentos/{id:long}/encerrar")] public Task<IActionResult> EncerrarInstrumento(long id, [FromBody] ConvencioEncerrarBody b, CancellationToken c) => RunMod("convenios", P.ConveniosInstrumentoEncerrar, () => s.ConvencioEncerrarAsync(X(), id, b?.Justificativa, c), c);
+    [HttpPost("convenios/prestacoes")] public Task<IActionResult> RegistrarPrestacao([FromBody] PrestacaoRegistrarRequest r, CancellationToken c) => RunMod("convenios", P.ConveniosPrestacaoRegistrar, () => s.PrestacaoRegistrarAsync(X(), r, c), c);
+    [HttpPost("obras/medicoes/{id:long}/homologar")] public Task<IActionResult> HomologarMedicao(long id, CancellationToken c) => RunMod("obras", P.ObrasMedicaoRegistrar, () => s.MedicaoHomologarAsync(X(), id, c), c);
+
     // chaves da seed C2S7 (banco = autoridade, regra 11)
     static class P
     {
@@ -83,7 +100,17 @@ public sealed class ComprasIntegradasController(IComprasIntegradasService s, ICu
             FaturaVincular = "compras.fatura.vincular",
             ObrigacaoLiquidar = "compras.obrigacao.liquidar",
             AlmoxRecebConfirmar = "almoxarifado.recebimento.confirmar",
-            PatrimonioBemCriar = "patrimonio.bem.criar";
+            PatrimonioBemCriar = "patrimonio.bem.criar",
+            // Sprint 10 (BR-7.8 + BR-10.x): reutilizacoes do catalogo C2S7 + chaves dos modulos vinculados
+            ContrapartidaRegistrar = "compras.contrapartida.registrar",
+            AuditoriaVer = "compras.auditoria.visualizar",
+            JuridicoConsultaCriar = "juridico.consulta.criar",
+            JuridicoParecerEmitir = "juridico.parecer.emitir",
+            JuridicoContenciosoAbrir = "juridico.contencioso.abrir",
+            JuridicoContenciosoDesfechar = "juridico.contencioso.desfechar",
+            ConveniosInstrumentoEncerrar = "convenios.instrumento.encerrar",
+            ConveniosPrestacaoRegistrar = "convenios.prestacao.registrar",
+            ObrasMedicaoRegistrar = "obras.medicao.registrar";
     }
 
     async Task<IActionResult> Run<T>(string p, Func<Task<T>> f, CancellationToken c)
@@ -95,6 +122,13 @@ public sealed class ComprasIntegradasController(IComprasIntegradasService s, ICu
     async Task<IActionResult> RunMulti<T>(string[] ps, Func<Task<T>> f, CancellationToken c)
     {
         foreach (var p in ps) if (!await Allowed(p, c)) return Forbid();
+        return await Exec<T>(f);
+    }
+
+    // Sprint 10: autorizacao por modulo proprio (juridico/convenios/obras) quando a chave nao e do modulo compras.
+    async Task<IActionResult> RunMod<T>(string mod, string p, Func<Task<T>> f, CancellationToken c)
+    {
+        if (!await AllowedMod(mod, p, c)) return Forbid();
         return await Exec<T>(f);
     }
 
@@ -171,6 +205,60 @@ public sealed class ComprasIntegradasController(IComprasIntegradasService s, ICu
         catch (PropostaJaRejeitadaException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
         catch (PropostaRejeicaoSemJulgamentoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
         catch (PropostaRejeicaoPosAdjudicacaoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        // Sprint 10 (BR-7.8 + BR-10.x) - 404
+        catch (ProcessoComprasInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        catch (ConsultaJuridicaInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        catch (CondicaoParecerInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        catch (ProcessoJuridicoInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        catch (InstrumentoConvenioInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        catch (ObraInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        catch (MedicaoObrasInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        catch (VinculoExternoInexistenteException e) { return NotFound(ApiResponse<T>.Fail(e.Message)); }
+        // Sprint 10 - 400
+        catch (ConsultaTipoInvalidoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (ParecerConclusaoInvalidaException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (ParecerCondicionadoSemCondicaoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (ParecerCondicaoIndevidaException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (SatisfazerCondicaoSemJustificativaException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (ConsultaSemProcessoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (ContenciosoOrigemInvalidaException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (CasoContenciosoInvalidoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (ContenciosoResultadoInvalidoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (DesfechoSemJustificativaException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (QuitarVinculoSemJustificativaException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (ContrapartidaTipoInvalidoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (ContrapartidaValorInconsistenteException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (ContrapartidaRealizacaoSemDataException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (InstrumentoEmRascunhoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (EncerrarConvenioSaldoSemJustificativaException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (PrestacaoTipoInvalidoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        catch (MedicaoStatusInvalidoException e) { return BadRequest(ApiResponse<T>.Fail(e.Message)); }
+        // Sprint 10 - 409 (gates da frente + conflitos de estado/idempotencia)
+        catch (ParecerCondicaoAbertaException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (ProrrogacaoBloqueadaContenciosoAtivoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (ObraContratoSemProjetoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (ContrapartidaConvenioInexistenteException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (ObraMedicaoInsuficienteException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (ConsultaChaveIdempotenciaConflitoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (FilialDuplicadaException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (ConsultaPaiNaoResolvidaException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (ParecerJaEmitidoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (CondicaoJaSatisfeitaException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (ContenciosoAtivoParaOrigemException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (ContenciosoJaDesfecadoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (ContrapartidaChaveIdempotenciaConflitoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (ContrapartidaExcedeInstrumentoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (InstrumentoEncerradoImutavelException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (InstrumentoNaoAtivoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (VinculoConvenioChaveConflitoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (ConvenioEncerramentoBloqueadoContratoAtivoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (InstrumentoJaEncerradoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (PrestacaoExecucaoMinimaNaoAtingidaException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (PrestacaoNumeroDuplicadoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (PrestacaoFinalSaldoNaoJustificadoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (VinculoJaQuitadoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (MedicaoJaHomologadaException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
+        catch (ContratoNaoVigenteParaVinculoException e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
         catch (ComprasIntegradasFalhaNomeada e) { return Conflict(ApiResponse<T>.Fail(e.Message)); }
     }
 
@@ -190,4 +278,10 @@ public sealed class ComprasIntegradasController(IComprasIntegradasService s, ICu
     public sealed record ContratoProrrogarBody(DateOnly NovoFim, string Justificativa);
     public sealed record ContratoRescindirBody(string Tipo, string Justificativa, string? NotificacaoRef);
     public sealed record ObrigacaoEstornarBody(string Justificativa);
+    // Sprint 10 (BR-7.8 + BR-10.x)
+    public sealed record CondicaoSatisfazerBody(string Justificativa);
+    public sealed record ConsultaFilialBody(string Justificativa);
+    public sealed record ContenciosoDesfechoBody(string Resultado, decimal Custas, string Justificativa);
+    public sealed record VinculoQuitarBody(string Justificativa);
+    public sealed record ConvencioEncerrarBody(string? Justificativa = null);
 }
