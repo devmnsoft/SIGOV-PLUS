@@ -97,16 +97,16 @@
     </details>
     }
     <details class="sigov-nav-group" @opened(new[]{"/Convenios"})><summary><sigov-icon name="finance" size="16" />Convênios e Emendas</summary>
-      <a class="sigov-nav-link@(active("/Convenios"))" href="/Convenios/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard</span></a>
-      <a class="sigov-nav-link" href="/Convenios/Instrumentos"><span>Instrumentos</span></a><a class="sigov-nav-link" href="/Convenios/Projetos"><span>Projetos</span></a><a class="sigov-nav-link" href="/Convenios/PrestacoesContas"><span>Prestação de contas</span></a><a class="sigov-nav-link" href="/Convenios/Relatorios"><span>Relatórios</span></a>
+      <a class="sigov-nav-link@(active("/Convenios"))" href="/Convenios/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard de Convênios</span></a>
+      <a class="sigov-nav-link" href="/Convenios/Instrumentos"><span>Instrumentos</span></a><a class="sigov-nav-link" href="/Convenios/Projetos"><span>Projetos</span></a><a class="sigov-nav-link" href="/Convenios/PrestacoesContas"><span>Prestação de contas</span></a><a class="sigov-nav-link" href="/Convenios/Relatorios"><span>Relatórios de Convênios</span></a>
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Defesa"})><summary><sigov-icon name="services" size="16" />Defesa Civil e Guarda</summary>
       <a class="sigov-nav-link@(active("/Defesa"))" href="/Defesa/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard operacional</span></a>
-      <a class="sigov-nav-link" href="/Defesa/Ocorrencias"><span>Ocorrências</span></a><a class="sigov-nav-link" href="/Defesa/Acionamentos"><span>Acionamentos</span></a><a class="sigov-nav-link" href="/Defesa/Rondas"><span>Rondas</span></a><a class="sigov-nav-link" href="/Defesa/Relatorios"><span>Relatórios</span></a>
+      <a class="sigov-nav-link" href="/Defesa/Ocorrencias"><span>Ocorrências</span></a><a class="sigov-nav-link" href="/Defesa/Acionamentos"><span>Acionamentos</span></a><a class="sigov-nav-link" href="/Defesa/Rondas"><span>Rondas</span></a><a class="sigov-nav-link" href="/Defesa/Relatorios"><span>Relatórios de Defesa Civil</span></a>
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Transito"})><summary><sigov-icon name="services" size="16" />Trânsito e Mobilidade</summary>
       <a class="sigov-nav-link@(active("/Transito"))" href="/Transito/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard de Trânsito</span></a>
-      <a class="sigov-nav-link" href="/Transito/Autos"><span>Autos e notificações</span></a><a class="sigov-nav-link" href="/Transito/Ocorrencias"><span>Fiscalização</span></a><a class="sigov-nav-link" href="/Transito/Linhas"><span>Transporte urbano</span></a><a class="sigov-nav-link" href="/Transito/Relatorios"><span>Relatórios</span></a>
+      <a class="sigov-nav-link" href="/Transito/Autos"><span>Autos e notificações</span></a><a class="sigov-nav-link" href="/Transito/Ocorrencias"><span>Fiscalização</span></a><a class="sigov-nav-link" href="/Transito/Linhas"><span>Transporte urbano</span></a><a class="sigov-nav-link" href="/Transito/Relatorios"><span>Relatórios de Trânsito</span></a>
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Educacao/Secretaria","/Educacao/Diario","/Educacao/Portal","/Educacao/PreMatriculas","/Educacao/Matriculas","/Educacao/Turmas"})><summary><sigov-icon name="education" size="16" />Educação</summary>
       <a class="sigov-nav-link@(active("/Educacao/Dashboard"))" href="/Educacao/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Visão geral</span></a>
@@ -124,7 +124,7 @@
       <a class="sigov-nav-link@(active("/Educacao/DiarioConteudo"))" href="/Educacao/DiarioConteudo"><sigov-icon name="education" size="18"/><span>Conteúdo Ministrado</span></a>
       <a class="sigov-nav-link@(active("/Educacao/DiarioPendencias"))" href="/Educacao/DiarioPendencias"><sigov-icon name="notifications" size="18"/><span>Pendências do Diário</span></a>
       <a class="sigov-nav-link@(active("/Educacao/Avaliacoes"))" href="/Educacao/Avaliacoes"><sigov-icon name="audit" size="18"/><span>Avaliações e resultados</span></a>
-      <a class="sigov-nav-link@(active("/Educacao/Relatorios"))" href="/Educacao/Relatorios"><sigov-icon name="documents" size="18"/><span>Relatórios</span></a>
+      <a class="sigov-nav-link@(active("/Educacao/Relatorios"))" href="/Educacao/Relatorios"><sigov-icon name="documents" size="18"/><span>Relatórios de Educação</span></a>
       <a class="sigov-nav-link@(active("/Educacao/PortalResponsavel"))" href="/Educacao/PortalResponsavel"><sigov-icon name="users" size="18"/><span>Portal Responsável</span></a>
       <a class="sigov-nav-link@(active("/Educacao/PortalAluno"))" href="/Educacao/PortalAluno"><sigov-icon name="home" size="18"/><span>Portal Aluno</span></a>
       <a class="sigov-nav-link@(active("/Educacao/PortalBoletim"))" href="/Educacao/PortalBoletim"><sigov-icon name="documents" size="18"/><span>Boletim</span></a>
@@ -147,16 +147,29 @@
       <a class="sigov-nav-link@(active("/Educacao/Indicadores/Educacenso"))" href="/Educacao/Indicadores/Educacenso"><sigov-icon name="audit" size="18"/><span>Educacenso Preparatório</span></a>
       <a class="sigov-nav-link@(active("/Educacao/Indicadores/Relatorios"))" href="/Educacao/Indicadores/Relatorios"><sigov-icon name="documents" size="18"/><span>Relatórios Educação</span></a>
     </details>
-    <details class="sigov-nav-group" @opened(new[]{"/RH/Ponto","/RH/Ferias","/RH/Afastamento","/RH/Portal"})><summary><sigov-icon name="users" size="16" />RH • Bloco 2</summary>
-      <a class="sigov-nav-link@(active("/RH/PontoDashboard"))" href="/RH/PontoDashboard"><sigov-icon name="active" size="18"/><span>Dashboard Ponto</span></a>
+    <details class="sigov-nav-group" @opened(new[]{"/RH/Ponto","/RH/Ferias","/RH/Afastamento","/RH/Portal","/RH/GestaoExecutiva","/RH/FolhaGestaoExecutiva"})><summary><sigov-icon name="users" size="16" />Pessoas e Ponto (RH)</summary>
+      <a class="sigov-nav-link@(active("/RH/GestaoExecutiva"))" href="/RH/GestaoExecutiva"><sigov-icon name="dashboard" size="18"/><span>Visão geral de RH</span></a>
+      <a class="sigov-nav-link@(active("/RH/FolhaGestaoExecutiva"))" href="/RH/FolhaGestaoExecutiva"><sigov-icon name="finance" size="18"/><span>Folha Executiva</span></a>
+      <a class="sigov-nav-link@(active("/RH/PontoDashboard"))" href="/RH/PontoDashboard"><sigov-icon name="active" size="18"/><span>Dashboard de Ponto</span></a>
       <a class="sigov-nav-link@(active("/RH/PontoJornadas"))" href="/RH/PontoJornadas"><sigov-icon name="settings" size="18"/><span>Jornadas e Escalas</span></a>
       <a class="sigov-nav-link@(active("/RH/PontoRegistros"))" href="/RH/PontoRegistros"><sigov-icon name="audit" size="18"/><span>Registros e Apuração</span></a>
       <a class="sigov-nav-link@(active("/RH/PontoEspelho"))" href="/RH/PontoEspelho"><sigov-icon name="documents" size="18"/><span>Espelho de Ponto</span></a>
-      <a class="sigov-nav-link@(active("/RH/FeriasDashboard"))" href="/RH/FeriasDashboard"><sigov-icon name="dashboard" size="18"/><span>Férias e Afastamentos</span></a>
+      <a class="sigov-nav-link@(active("/RH/FeriasDashboard"))" href="/RH/FeriasDashboard"><sigov-icon name="dashboard" size="18"/><span>Férias e Afastamentos (RH)</span></a>
       <a class="sigov-nav-link@(active("/RH/FeriasProgramacao"))" href="/RH/FeriasProgramacao"><sigov-icon name="workflow" size="18"/><span>Programação e Aprovações</span></a>
-      <a class="sigov-nav-link@(active("/RH/Portal"))" href="/RH/Portal"><sigov-icon name="home" size="18"/><span>Meu Portal</span></a>
+      <a class="sigov-nav-link@(active("/RH/Portal"))" href="/RH/Portal"><sigov-icon name="home" size="18"/><span>Portal do Servidor</span></a>
       <a class="sigov-nav-link@(active("/RH/PortalSolicitacoes"))" href="/RH/PortalSolicitacoes"><sigov-icon name="notifications" size="18"/><span>Solicitações e Mensagens</span></a>
       <a class="sigov-nav-link@(active("/RH/PortalAdminSolicitacoes"))" href="/RH/PortalAdminSolicitacoes"><sigov-icon name="shield" size="18"/><span>Administração do Portal</span></a>
+    </details>
+    <details class="sigov-nav-group" @opened(new[]{"/Previdencia"})><summary><sigov-icon name="shield" size="16" />Previdência e Folha</summary>
+      <a class="sigov-nav-link@(active("/Previdencia"))" href="/Previdencia"><sigov-icon name="dashboard" size="18"/><span>Painel Folha e Previdência</span></a>
+      <a class="sigov-nav-link@(active("/Previdencia/Cargos"))" href="/Previdencia/Cargos"><sigov-icon name="users" size="18"/><span>Cargos e Classes</span></a>
+      <a class="sigov-nav-link@(active("/Previdencia/Servidores"))" href="/Previdencia/Servidores"><sigov-icon name="users" size="18"/><span>Servidores e Remuneração</span></a>
+      <a class="sigov-nav-link@(active("/Previdencia/Folhas"))" href="/Previdencia/Folhas"><sigov-icon name="finance" size="18"/><span>Folha de Pagamento e 13º</span></a>
+      <a class="sigov-nav-link@(active("/Previdencia/Ferias"))" href="/Previdencia/Ferias"><sigov-icon name="workflow" size="18"/><span>Férias e Ciclos Aquisitivos</span></a>
+      <a class="sigov-nav-link@(active("/Previdencia/Afastamentos"))" href="/Previdencia/Afastamentos"><sigov-icon name="audit" size="18"/><span>Afastamentos e Licenças</span></a>
+      <a class="sigov-nav-link@(active("/Previdencia/Contracheques"))" href="/Previdencia/Contracheques"><sigov-icon name="documents" size="18"/><span>Contracheques</span></a>
+      <a class="sigov-nav-link@(active("/Previdencia/Esocial"))" href="/Previdencia/Esocial"><sigov-icon name="sync" size="18"/><span>eSocial Pública</span></a>
+      <a class="sigov-nav-link@(active("/Previdencia/Parametros"))" href="/Previdencia/Parametros"><sigov-icon name="settings" size="18"/><span>Parâmetros da Frente</span></a>
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Financeiro","/Tributario","/Compras","/Contratos","/Financeiro/Receitas","/Financeiro/Conferencia"})><summary><sigov-icon name="finance" size="16" />Financeiro / SIAFIC</summary>
       @if (hasPermission("financeiro.dashboard.visualizar")) {
@@ -206,11 +219,9 @@
       <a class="sigov-nav-link@(active("/RelatoriosExecutivos/Educacao"))" href="/RelatoriosExecutivos/Educacao"><sigov-icon name="education" size="18"/><span>Educação agregada</span></a>
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Rh","/Educacao","/Saude","/Saneamento","/Social","/AssistenciaSocial","/Habitacao","/Agro"})><summary><sigov-icon name="services" size="16" />Serviços públicos</summary>
-      <a class="sigov-nav-link@(active("/Rh"))" href="/Rh/Dashboard"><sigov-icon name="users" size="18"/><span>Recursos Humanos</span></a>
+      <a class="sigov-nav-link@(active("/Rh"))" href="/Rh/Dashboard"><sigov-icon name="users" size="18"/><span>Recursos Humanos (módulo legado)</span></a>
       <a class="sigov-nav-link@(active("/Educacao"))" href="/Educacao/Dashboard"><sigov-icon name="education" size="18"/><span>Educação</span></a>
       <a class="sigov-nav-link@(active("/Educacao/GestaoExecutiva"))" href="/Educacao/GestaoExecutiva"><sigov-icon name="dashboard" size="18"/><span>Educação Executiva</span></a>
-      <a class="sigov-nav-link@(active("/RH/GestaoExecutiva"))" href="/RH/GestaoExecutiva"><sigov-icon name="dashboard" size="18"/><span>RH Executivo</span></a>
-      <a class="sigov-nav-link@(active("/RH/FolhaGestaoExecutiva"))" href="/RH/FolhaGestaoExecutiva"><sigov-icon name="finance" size="18"/><span>Folha Executiva</span></a>
       <a class="sigov-nav-link@(active("/Workflows/MinhasTarefas"))" href="/Workflows/MinhasTarefas"><sigov-icon name="workflow" size="18"/><span>Minhas tarefas</span></a>
       <a class="sigov-nav-link@(active("/Saude"))" href="/Saude/Dashboard"><sigov-icon name="health" size="18"/><span>Saúde</span></a>
       <div class="sigov-nav-subgroup" aria-label="Saúde Avançada">
@@ -252,7 +263,7 @@
       <a class="sigov-nav-link@(active("/Compras"))" href="/Compras"><sigov-icon name="commercial" size="18"/><span>Compras públicas</span></a>
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/ProcessosDigitais","/ProtocoloExterno"})><summary><sigov-icon name="protocol" size="16" />Processos Digitais</summary>
-      <a class="sigov-nav-link@(active("/ProcessosDigitais/Dashboard"))" href="/ProcessosDigitais/Dashboard">Dashboard Processos</a><a class="sigov-nav-link@(active("/ProcessosDigitais/Novo"))" href="/ProcessosDigitais/Novo">Novo Processo</a><a class="sigov-nav-link@(active("/ProcessosDigitais/Prazos"))" href="/ProcessosDigitais/Prazos">Prazos</a><a class="sigov-nav-link@(active("/ProtocoloExterno"))" href="/ProtocoloExterno">Protocolo Externo</a><a class="sigov-nav-link@(active("/ProcessosDigitais/Relatorios"))" href="/ProcessosDigitais/Relatorios">Relatórios</a>
+      <a class="sigov-nav-link@(active("/ProcessosDigitais/Dashboard"))" href="/ProcessosDigitais/Dashboard">Dashboard Processos</a><a class="sigov-nav-link@(active("/ProcessosDigitais/Novo"))" href="/ProcessosDigitais/Novo">Novo Processo</a><a class="sigov-nav-link@(active("/ProcessosDigitais/Prazos"))" href="/ProcessosDigitais/Prazos">Prazos</a><a class="sigov-nav-link@(active("/ProtocoloExterno"))" href="/ProtocoloExterno">Protocolo Externo</a><a class="sigov-nav-link@(active("/ProcessosDigitais/Relatorios"))" href="/ProcessosDigitais/Relatorios">Relatórios de Processos</a>
     </details>
     <details class="sigov-nav-group" @opened(new[]{"/Ged","/Assinaturas"})><summary><sigov-icon name="documents" size="16" />GED e Assinaturas</summary>
       <a class="sigov-nav-link@(active("/Ged/Dashboard"))" href="/Ged/Dashboard">Dashboard GED</a><a class="sigov-nav-link@(active("/Ged/Documentos"))" href="/Ged/Documentos">Documentos</a><a class="sigov-nav-link@(active("/Ged/ArquivoFisico"))" href="/Ged/ArquivoFisico">Arquivo Físico</a><a class="sigov-nav-link@(active("/Ged/ValidacaoPublica"))" href="/Ged/ValidacaoPublica">Validação Pública</a><a class="sigov-nav-link@(active("/Assinaturas/Pendentes"))" href="/Assinaturas/Pendentes">Assinaturas Pendentes</a>
@@ -263,7 +274,7 @@
     <details class="sigov-nav-group" @opened(new[]{"/Transparencia","/DiarioOficial","/AtendimentoDigital"})><summary><sigov-icon name="services" size="16" />Transparência e Atendimento</summary>
       <a class="sigov-nav-link@(active("/Transparencia/Dashboard"))" href="/Transparencia/Dashboard">Dashboard Transparência</a><a class="sigov-nav-link@(active("/DiarioOficial/Edicoes"))" href="/DiarioOficial/Edicoes">Diário Oficial</a><a class="sigov-nav-link@(active("/Transparencia/Pntp"))" href="/Transparencia/Pntp">PNTP / ATRICON</a><a class="sigov-nav-link@(active("/Transparencia/Pncp"))" href="/Transparencia/Pncp">PNCP Preparatório</a><a class="sigov-nav-link@(active("/AtendimentoDigital/ESic"))" href="/AtendimentoDigital/ESic">e-SIC</a><a class="sigov-nav-link@(active("/AtendimentoDigital/Ouvidoria"))" href="/AtendimentoDigital/Ouvidoria">Ouvidoria</a><a class="sigov-nav-link@(active("/AtendimentoDigital/Chamados"))" href="/AtendimentoDigital/Chamados">Atendimento Digital</a>
     </details>
-    <details class="sigov-nav-group" @opened(new[]{"/Operacao","/MobileCampo","/IA"})><summary><sigov-icon name="services" size="16" />Operação</summary>
+    <details class="sigov-nav-group" @opened(new[]{"/Operacao","/MobileCampo","/IA"})><summary><sigov-icon name="services" size="16" />Suporte e Diagnóstico</summary>
       <a class="sigov-nav-link@(active("/MobileCampo"))" href="/MobileCampo"><sigov-icon name="mobile" size="18"/><span>Mobile/Campo</span></a>
       <a class="sigov-nav-link@(active("/IA"))" href="/IA"><sigov-icon name="ai" size="18"/><span>IA</span></a>
       <a class="sigov-nav-link@(active("/Operacao/Health"))" href="/Operacao/Health"><sigov-icon name="active" size="18"/><span>Health</span></a>
@@ -380,7 +391,7 @@
       <a class="sigov-nav-link@(active("/Auditoria/Exportacoes"))" href="/Auditoria/Exportacoes"><span>Relatórios de Governança</span></a>
       }
     </details>
-    <details class="sigov-nav-group" @opened(new[]{"/Seguranca","/Saas","/Auditoria","/Lgpd"})><summary><sigov-icon name="settings" size="16" />Administração</summary>
+    <details class="sigov-nav-group" @opened(new[]{"/Seguranca","/Saas","/Auditoria","/Lgpd"})><summary><sigov-icon name="settings" size="16" />Configurações</summary>
       <a class="sigov-nav-link@(active("/Seguranca/Usuarios"))" href="/Seguranca/Usuarios"><sigov-icon name="users" size="18"/><span>Usuários</span></a>
       <a class="sigov-nav-link@(active("/Saas/Implantacao"))" href="/Saas/Implantacao"><sigov-icon name="sync" size="18"/><span>Implantação</span></a>
       <a class="sigov-nav-link@(active("/Auditoria"))" href="/Auditoria/Trilhas"><sigov-icon name="audit" size="18"/><span>Auditoria</span></a>

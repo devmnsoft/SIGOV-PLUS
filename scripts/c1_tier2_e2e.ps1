@@ -3561,6 +3561,574 @@ select
 "@
 Add-Check 'S11' 'fixture.removido-auto-limpeza-restantes-zero' (($s11cl.code -eq 0) -and ($s11cl.text -eq '0')) ("cascade delete S11 nos DOIS tenants (destinacoes, movimentos FORN-%, faturas, obrigacoes, espelho legado, recebimentos integrados, fornecimentos, contratos+items+historico, homologacoes, adjudicacoes+items, propostas, habilitacoes, lances, licitacao_items, licitacoes, processos+items, demandas+items, parecer condicoes/pareceres/consultas+ledger juridico, fornecedores, CCs, materiais, locais, override do parametro do tenant B, sessoes/auditorias dos 8 usuarios, grants sentinel cf58c2ab-...011/012/013/014, usuarios c2s11a.*/c2s11b.*, grupos+perfis dedicados C2S11, entidades C2S11A-ENT/C2S11B-ENT) -> restantes=" + $s11cl.text)
 
+# =============================================================================
+# SPRINT 12 (C2S12) - Folha e Previdencia Publica multi-esfera (BR-12.1..BR-12.8)
+# =============================================================================
+# E2E HTTP real (Web :5099 -> ApiToken -> bearer na Api :5100 -> Dapper -> PG16):
+#   BR-12.1 cadastro cargo/servidor/vinculo (matricula unica por tenant, 1 vinculo
+#           ATIVO, esfera herdada da entidade do contexto - regra 21/22)
+#   BR-12.2 fechamento deterministico idempotente (faixas INSS LC 51/84 com teto e
+#           coeficiente de reducao, IRRF progressivo Decreto 3.048/99 por ano-base,
+#           teto constitucional por esfera CF/88 art. 37 XV/XVI c/c EC 103/19)
+#   BR-12.3 reprocesso versionado (nova versao VETA a anterior; ambas auditaveis)
+#   BR-12.4 ferias (ciclo aquisitivo 30d/12m, aviso previo, fracao minima, abono
+#           minimo, fracionamento maximo, terco 1/3 auditavel - Lei 8.112/90/CLT)
+#           e afastamentos (maternidade/adocao 120d, paternidade 5d, GED obrigatoria,
+#           sobreposto, devolucao condicional) - prazos parametrizados no banco
+#   BR-12.5 decimo salario (Lei 4.749/65 c/c Lei 12.735/12): 1a parcela no mes
+#           parametrizado (11/30), 2a = total anual - p1; 409 DECIMO_SEM_PARCELA1
+#   BR-12.6 parametros com override por tenant (banco = autoridade - regra 11/12)
+#   BR-12.7 contracheque versionado (LGPD: dados minimos, sem CPF)
+#   BR-12.8 eSocial publico (Portaria MTP 672/19): lote unico por competencia x tipo
+#           (idempotente), validacao previa deterministica, BLOQUEADO_VALIDACAO
+#           sem sucesso simulado
+# Valores travados (data fixa = dia 20 do mes; faixas RGPS 2026 e IRRF 2026 do banco):
+#   A (bruto 10.000, municipal, adm 2026-01-01):
+#     set 10000.00 -> inss 1078.14 / irrf 900.07 / liq 8021.79
+#     nov 19166.67 -> 2361.48 / 3021.27 / 13783.92 (decimo p1 9166.67 = 11 meses)
+#     dez 10833.33 -> 1194.81 / 1061.32 / 8577.20 (p2 833.33; ENCERRADO nFinal 12)
+#   B (bruto 3.000, municipal, adm 2023-01-10, 3 ciclos aquisitivos = 90 dias):
+#     set 3000.00 -> 253.41 / 0.00 / 2746.59; nov 5750.00 -> 614.59 / 178.41 /
+#     4957.00 (p1 2750.00); dez 3250.00 -> 283.41 / 0.00 / 2966.59 (p2 250.00)
+#   D (bruto 5.000, estadual 910002): set 509.59 / 109.22 / 4381.19;
+#     nov p1 4583.33; dez 5416.67 -> 567.93 / 135.41 / 4713.33 (p2 416.67)
+#   AB (bruto 2.000, estadual, nome < 5): set 157.23 / 0.00 / 1842.77;
+#     nov p1 1833.33; dez 2166.67 -> 172.23 / 0.00 / 1994.44 (p2 166.67);
+#     evento S-1005 com erro -> lote BLOQUEADO_VALIDACAO
+#   C (bruto 200.000, estadual): acima do teto 44161.63 -> 409 SERVIDOR_ACIMA_TETO
+#     (folha permanece ABERTA; apos desligamento de C o fechamento segue)
+
+function Get-S12Data { param([string]$Body) try { return ($Body | ConvertFrom-Json).data } catch { return $null } }
+function Get-S12Msg { param([string]$Body) try { $j = $Body | ConvertFrom-Json; if ($null -ne $j.message) { return [string]$j.message } } catch {}; return [string]$Body }
+function Get-S12Near { param([object]$V,[decimal]$T) try { return ([math]::Abs(([double][decimal]$V) - [double]$T) -lt 0.005) } catch { return $false } }
+
+$s12fix = Get-Psql @"
+-- pre-clean reentravel: remove estado de rodada anterior abortada (escopo igual ao da limpeza final do bloco S12; tenants 910001/910002 sao do driver neste ciclo)
+delete from sigov.previdencia_folha_calculo_item where calculo_id in (select id from sigov.previdencia_folha_calculo where tenant_id in (910001,910002));
+delete from sigov.previdencia_folha_calculo where tenant_id in (910001,910002);
+delete from sigov.previdencia_remun_item where vinculo_id in (select id from sigov.previdencia_vinculo where tenant_id in (910001,910002));
+delete from sigov.previdencia_ferias_programacao where ferias_id in (select id from sigov.previdencia_ferias where tenant_id in (910001,910002));
+delete from sigov.previdencia_esocial_evento where lote_id in (select id from sigov.previdencia_esocial_lote where tenant_id in (910001,910002));
+delete from sigov.previdencia_decimo where tenant_id in (910001,910002);
+delete from sigov.previdencia_afastamento where tenant_id in (910001,910002);
+delete from sigov.previdencia_esocial_lote where tenant_id in (910001,910002);
+delete from sigov.previdencia_folha_competencia where tenant_id in (910001,910002);
+delete from sigov.previdencia_ferias where tenant_id in (910001,910002);
+delete from sigov.previdencia_vinculo where tenant_id in (910001,910002);
+delete from sigov.previdencia_servidor where tenant_id in (910001,910002);
+delete from sigov.previdencia_cargo where tenant_id in (910001,910002);
+delete from sigov.parametro_modulo_valor where correlation_id='c2s12-frac-override-e2e';
+delete from sigov.autorizacao_decisao_auditoria where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.auditoria_evento where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.identidade_sessao where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.sessao_usuario where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.sessao_contexto_usuario where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.contexto_operacional_auditoria where usuario_executor_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.usuario_contexto_global_log where usuario_global_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.historico_login where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.trilha_auditoria where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.token_mfa where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.senha_redefinicao_token where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.fila_assinatura where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.usuario_preferencia where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.usuario_filtro_salvo where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.perfil_permissao where correlation_id in ('cf58c2ab-1c20-4a90-88f8-0c2000000021','cf58c2ab-1c20-4a90-88f8-0c2000000022','cf58c2ab-1c20-4a90-88f8-0c2000000023','cf58c2ab-1c20-4a90-88f8-0c2000000024');
+delete from sigov.usuario_grupo where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%');
+delete from sigov.grupo_perfil where grupo_acesso_id in (select id from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo='C2S12A-SEMP') or (tenant_id=910002 and codigo_externo in ('C2S12B-ADM','C2S12B-SEMP')));
+delete from sigov.perfil_acesso where (tenant_id=910001 and nome='C2S12A Perfil SemFrente') or (tenant_id=910002 and nome in ('C2S12B Perfil Administracao','C2S12B Perfil SemFrente'));
+delete from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo='C2S12A-SEMP') or (tenant_id=910002 and codigo_externo in ('C2S12B-ADM','C2S12B-SEMP'));
+delete from sigov.entidade where (tenant_id=910001 and codigo_externo='C2S12A-ENT') or (tenant_id=910002 and codigo_externo='C2S12B-ENT');
+-- Entidades com esfera (regra 21/22): A municipal / B estadual - o contexto do usuario define a esfera do motor
+insert into sigov.entidade(tenant_id,nome,cnpj,codigo_externo,esfera_governo,tipo_entidade,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S12A Entidade Municipal','00.000.000/0002-01','C2S12A-ENT','municipal','SECRETARIA',true,false,now(),910301
+where not exists(select 1 from sigov.entidade where tenant_id=910001 and codigo_externo='C2S12A-ENT');
+insert into sigov.entidade(tenant_id,nome,cnpj,codigo_externo,esfera_governo,tipo_entidade,ativo,is_deleted,created_at,created_by)
+select 910002,'C2S12B Entidade Estadual','00.000.000/0002-02','C2S12B-ENT','estadual','SECRETARIA',true,false,now(),910301
+where not exists(select 1 from sigov.entidade where tenant_id=910002 and codigo_externo='C2S12B-ENT');
+-- Grupos/perfis dedicados (admin A reutiliza o grupo 910401 existente do tenant)
+insert into sigov.grupo_acesso(tenant_id,nome,codigo_externo,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S12A Grupo SemFrente','C2S12A-SEMP',true,false,now(),910301
+where not exists(select 1 from sigov.grupo_acesso where tenant_id=910001 and codigo_externo='C2S12A-SEMP');
+insert into sigov.grupo_acesso(tenant_id,nome,codigo_externo,ativo,is_deleted,created_at,created_by)
+select 910002,'C2S12B Grupo Administracao','C2S12B-ADM',true,false,now(),910301
+where not exists(select 1 from sigov.grupo_acesso where tenant_id=910002 and codigo_externo='C2S12B-ADM');
+insert into sigov.grupo_acesso(tenant_id,nome,codigo_externo,ativo,is_deleted,created_at,created_by)
+select 910002,'C2S12B Grupo SemFrente','C2S12B-SEMP',true,false,now(),910301
+where not exists(select 1 from sigov.grupo_acesso where tenant_id=910002 and codigo_externo='C2S12B-SEMP');
+insert into sigov.perfil_acesso(tenant_id,nome,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S12A Perfil SemFrente',true,false,now(),910301
+where not exists(select 1 from sigov.perfil_acesso where tenant_id=910001 and nome='C2S12A Perfil SemFrente');
+insert into sigov.perfil_acesso(tenant_id,nome,ativo,is_deleted,created_at,created_by)
+select 910002,'C2S12B Perfil Administracao',true,false,now(),910301
+where not exists(select 1 from sigov.perfil_acesso where tenant_id=910002 and nome='C2S12B Perfil Administracao');
+insert into sigov.perfil_acesso(tenant_id,nome,ativo,is_deleted,created_at,created_by)
+select 910002,'C2S12B Perfil SemFrente',true,false,now(),910301
+where not exists(select 1 from sigov.perfil_acesso where tenant_id=910002 and nome='C2S12B Perfil SemFrente');
+insert into sigov.grupo_perfil(grupo_acesso_id,perfil_acesso_id,tenant_id,ativo,is_deleted,created_at,created_by)
+select g.id,p.id,g.tenant_id,true,false,now(),910301
+from sigov.grupo_acesso g cross join sigov.perfil_acesso p
+where ((g.tenant_id=910001 and g.codigo_externo='C2S12A-SEMP' and p.tenant_id=910001 and p.nome='C2S12A Perfil SemFrente')
+   or (g.tenant_id=910002 and g.codigo_externo='C2S12B-ADM' and p.tenant_id=910002 and p.nome='C2S12B Perfil Administracao')
+   or (g.tenant_id=910002 and g.codigo_externo='C2S12B-SEMP' and p.tenant_id=910002 and p.nome='C2S12B Perfil SemFrente'))
+and not exists(select 1 from sigov.grupo_perfil gp where gp.grupo_acesso_id=g.id and gp.perfil_acesso_id=p.id and gp.ativo);
+-- Usuarios (senha_hash copiado do admin 910301; contexto institucional = entidade do usuario)
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910001,e.id,1,'C2S12A Administrador','c2s12a.admin','c2s12a.admin@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910001 and e.codigo_externo='C2S12A-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910001 and x.login='c2s12a.admin');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910001,e.id,1,'C2S12A Sem Frente','c2s12a.semperm','c2s12a.semperm@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910001 and e.codigo_externo='C2S12A-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910001 and x.login='c2s12a.semperm');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910002,e.id,1,'C2S12B Administrador','c2s12b.admin','c2s12b.admin@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910002 and e.codigo_externo='C2S12B-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910002 and x.login='c2s12b.admin');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910002,e.id,1,'C2S12B Sem Frente','c2s12b.semperm','c2s12b.semperm@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910002 and e.codigo_externo='C2S12B-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910002 and x.login='c2s12b.semperm');
+insert into sigov.usuario_grupo(usuario_id,grupo_acesso_id,tenant_id,ativo,created_at,created_by)
+select u.id,910401,910001,true,now(),910301
+from sigov.usuario u
+where u.tenant_id=910001 and u.login='c2s12a.admin'
+and not exists(select 1 from sigov.usuario_grupo g where g.usuario_id=u.id and g.grupo_acesso_id=910401 and g.ativo);
+insert into sigov.usuario_grupo(usuario_id,grupo_acesso_id,tenant_id,ativo,created_at,created_by)
+select u.id,g.id,u.tenant_id,true,now(),910301
+from sigov.usuario u cross join sigov.grupo_acesso g
+where ((u.tenant_id=910001 and u.login='c2s12a.semperm' and g.tenant_id=910001 and g.codigo_externo='C2S12A-SEMP')
+   or (u.tenant_id=910002 and u.login='c2s12b.admin' and g.tenant_id=910002 and g.codigo_externo='C2S12B-ADM')
+   or (u.tenant_id=910002 and u.login='c2s12b.semperm' and g.tenant_id=910002 and g.codigo_externo='C2S12B-SEMP'))
+and not exists(select 1 from sigov.usuario_grupo gu where gu.usuario_id=u.id and gu.grupo_acesso_id=g.id and gu.ativo);
+-- Grants sentinel (limpeza cirurgica por correlation_id): 10 chaves da frente previdencia
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910001,'cf58c2ab-1c20-4a90-88f8-0c2000000021'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.id=(select gp.perfil_acesso_id from sigov.grupo_perfil gp where gp.grupo_acesso_id=910401 limit 1)
+  and p.ativo and not p.is_deleted
+  and p.chave in ('previdencia.visualizar','previdencia.cargo.criar','previdencia.servidor.criar','previdencia.folha.fechar','previdencia.folha.reprocessar','previdencia.ferias.apurar','previdencia.ferias.programar','previdencia.afastamento.registrar','previdencia.contracheque.visualizar','previdencia.esocial.enviar')
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910002,'cf58c2ab-1c20-4a90-88f8-0c2000000022'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.tenant_id=910002 and pa.nome='C2S12B Perfil Administracao'
+  and p.ativo and not p.is_deleted
+  and p.chave in ('previdencia.visualizar','previdencia.cargo.criar','previdencia.servidor.criar','previdencia.folha.fechar','previdencia.folha.reprocessar','previdencia.ferias.apurar','previdencia.ferias.programar','previdencia.afastamento.registrar','previdencia.contracheque.visualizar','previdencia.esocial.enviar')
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+-- Perfis SemFrente: 1 chave inofensiva FORA da frente (necessaria p/ o login autenticar)
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910001,'cf58c2ab-1c20-4a90-88f8-0c2000000023'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.tenant_id=910001 and pa.nome='C2S12A Perfil SemFrente'
+  and p.modulo='patrimonio' and p.chave='patrimonio.bem.criar' and p.ativo and not p.is_deleted
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910002,'cf58c2ab-1c20-4a90-88f8-0c2000000024'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.tenant_id=910002 and pa.nome='C2S12B Perfil SemFrente'
+  and p.modulo='almoxarifado' and p.chave='almoxarifado.recebimento.confirmar' and p.ativo and not p.is_deleted
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+-- Override parametrico do tenant B (regra 11/21/24): fracao minima de ferias 7 (padrao institucional 5)
+insert into sigov.parametro_modulo_valor(tenant_id,parametro_id,valor,correlation_id,created_by,is_deleted)
+select 910002,id,'7'::jsonb,'c2s12-frac-override-e2e',910301,false
+from sigov.parametro_modulo
+where modulo='PREVIDENCIA' and codigo='FERIAS_FRAC_MINIMO_DIAS'
+and not exists(select 1 from sigov.parametro_modulo_valor val where val.tenant_id=910002 and val.parametro_id=(select id from sigov.parametro_modulo where modulo='PREVIDENCIA' and codigo='FERIAS_FRAC_MINIMO_DIAS'));
+-- assert DO: banco = autoridade (regras 11/12/13) - sem isto nenhuma etapa da frente e valida
+do `$`$
+begin
+  if (select count(1) from sigov.tenant t where t.id in (910001,910002) and t.ativo and not t.is_deleted) <> 2 then
+    raise exception 'C2S12-FIXTURE: tenants 910001/910002 ausentes ou inativos';
+  end if;
+  if (select count(1) from sigov.permissao p where p.ativo and not p.is_deleted
+      and p.chave in ('previdencia.visualizar','previdencia.cargo.criar','previdencia.servidor.criar','previdencia.folha.fechar','previdencia.folha.reprocessar','previdencia.ferias.apurar','previdencia.ferias.programar','previdencia.afastamento.registrar','previdencia.contracheque.visualizar','previdencia.esocial.enviar')) <> 10 then
+    raise exception 'C2S12-FIXTURE: catalogo de permissoes previdencia incompleto (esperado 10 chaves ativas no banco)';
+  end if;
+  if replace((select coalesce(valor_padrao::text,'') from sigov.parametro_modulo where modulo='PREVIDENCIA' and codigo='PREVIDENCIA_REGIME' and ativo and not is_deleted limit 1),'"','') <> 'RGPS' then
+    raise exception 'C2S12-FIXTURE: parametro padrao PREVIDENCIA_REGIME <> RGPS';
+  end if;
+  if (select coalesce(valor_padrao::text,'') from sigov.parametro_modulo where modulo='PREVIDENCIA' and codigo='TETO_REMUNERACAO_MUNICIPAL' and ativo and not is_deleted limit 1) <> '0' then
+    raise exception 'C2S12-FIXTURE: TETO_REMUNERACAO_MUNICIPAL <> 0 (esfera municipal livre)';
+  end if;
+  if (select coalesce(valor_padrao::text,'') from sigov.parametro_modulo where modulo='PREVIDENCIA' and codigo='TETO_REMUNERACAO_ESTADUAL' and ativo and not is_deleted limit 1) <> '44161.63' then
+    raise exception 'C2S12-FIXTURE: TETO_REMUNERACAO_ESTADUAL <> 44161.63';
+  end if;
+  if (select coalesce(valor_padrao::text,'') from sigov.parametro_modulo where modulo='PREVIDENCIA' and codigo='FERIAS_DIAS_POR_CICLO' and ativo and not is_deleted limit 1) <> '30' then
+    raise exception 'C2S12-FIXTURE: FERIAS_DIAS_POR_CICLO <> 30';
+  end if;
+  if (select coalesce(valor_padrao::text,'') from sigov.parametro_modulo where modulo='PREVIDENCIA' and codigo='AFASTAMENTO_MATERNIDADE_DIAS' and ativo and not is_deleted limit 1) <> '120' then
+    raise exception 'C2S12-FIXTURE: AFASTAMENTO_MATERNIDADE_DIAS <> 120';
+  end if;
+  if (select count(1) from sigov.previdencia_inss_faixa where regime='RGPS' and ano=2026) <> 4 then
+    raise exception 'C2S12-FIXTURE: faixas INSS RGPS 2026 incompletas (esperado 4)';
+  end if;
+  if (select count(1) from sigov.previdencia_irrf_faixa where ano_base=2026) <> 5 then
+    raise exception 'C2S12-FIXTURE: tabela IRRF 2026 incompleta (esperado 5 faixas)';
+  end if;
+end
+`$`$;
+-- ids pipe-separated (alvos numerados dos checks seguintes)
+select coalesce((select id::text from sigov.entidade where tenant_id=910001 and codigo_externo='C2S12A-ENT'),'0') || '|'
+      || coalesce((select id::text from sigov.usuario where tenant_id=910001 and login='c2s12a.admin'),'0') || '|'
+      || coalesce((select id::text from sigov.usuario where tenant_id=910001 and login='c2s12a.semperm'),'0') || '|'
+      || coalesce((select id::text from sigov.entidade where tenant_id=910002 and codigo_externo='C2S12B-ENT'),'0') || '|'
+      || coalesce((select id::text from sigov.usuario where tenant_id=910002 and login='c2s12b.admin'),'0') || '|'
+      || coalesce((select id::text from sigov.usuario where tenant_id=910002 and login='c2s12b.semperm'),'0');
+"@
+$s12ids = $s12fix.text.Trim() -split '\|'
+$entA = $s12ids[0]; $uidA = $s12ids[1]; $semAid = $s12ids[2]
+$entB = $s12ids[3]; $uidB = $s12ids[4]; $semBid = $s12ids[5]
+Add-Check 'S12' 'fixture.criado-idempotente-banco-autoridade' (($s12fix.code -eq 0) -and $entA -ne '0' -and $uidA -ne '0' -and $semAid -ne '0' -and $entB -ne '0' -and $uidB -ne '0' -and $semBid -ne '0') ("pre-clean reentravel + entidades C2S12A-ENT(municipal)/C2S12B-ENT(estadual), 4 usuarios c2s12*, grupos+perfis C2S12, grants sentinel cf58c2ab-...021-024 (10 chaves previdencia x admins + 1 chave inofensiva x semperms), override FERIAS_FRAC_MINIMO_DIAS=7 no tenant B; assert DO: 2 tenants ativos, 10 permissoes ativas, RGPS, tetos 0/44161.63, 30d/ciclo, maternidade 120d, INSS RGPS 2026 = 4 faixas, IRRF 2026 = 5 faixas -> ids=" + ($s12ids -join '|'))
+
+$lg12A = New-SigovLogin -User 'c2s12a.admin' -Pass $Password -Base $WebBase
+$tk12A = if ($lg12A.ok) { Get-ApiToken -Jar $lg12A.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+$lg12SemA = New-SigovLogin -User 'c2s12a.semperm' -Pass $Password -Base $WebBase
+$tk12SemA = if ($lg12SemA.ok) { Get-ApiToken -Jar $lg12SemA.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+$lg12B = New-SigovLogin -User 'c2s12b.admin' -Pass $Password -Base $WebBase
+$tk12B = if ($lg12B.ok) { Get-ApiToken -Jar $lg12B.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+$lg12SemB = New-SigovLogin -User 'c2s12b.semperm' -Pass $Password -Base $WebBase
+$tk12SemB = if ($lg12SemB.ok) { Get-ApiToken -Jar $lg12SemB.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+Add-Check 'S12' 'auth.logins-quatro-usuarios' (($lg12A.ok -and $lg12SemA.ok -and $lg12B.ok -and $lg12SemB.ok) -and ($tk12A.token.Length -gt 20) -and ($tk12B.token.Length -gt 20)) ("login web + emissao de ApiToken bearer para c2s12a.admin/c2s12a.semperm/c2s12b.admin/c2s12b.semperm (senha homologacao, contexto institucional = entidade de cada usuario)")
+
+$s12pgf = Join-Path ([IO.Path]::GetTempPath()) ("c1t2_pg_" + [guid]::NewGuid().ToString('N') + ".html")
+$c12pg = (& curl.exe -s -b $lg12A.jar -o $s12pgf -w "%{http_code}" "$WebBase/Previdencia").Trim()
+$html12 = ''; try { $html12 = [IO.File]::ReadAllText($s12pgf) } catch {}
+Add-Check 'S12' 'web.estacao-previdencia-menu-lateral' (($c12pg -eq '200') -and $html12.Contains('/Previdencia/Folhas') -and $html12.Contains('Cargos e Classes')) ("GET $WebBase/Previdencia (cookie de c2s12a.admin) -> " + $c12pg + "; pagina da estacao renderiza e o menu lateral expoe o grupo 'Previdencia e Folha' (/Previdencia/Cargos..Parametros) apos o revamp")
+
+# --- BR-12.1 cargos -----------------------------------------------------------
+$cgA1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/cargos' -Base $ApiBase -Body '{"codigoExterno":"CARGO-A1","nome":"Analista Administrativo C2S12A","modoRemuneracao":"SUBSIDIO","valorReferencia":10000}'
+$d = Get-S12Data $cgA1.body; $idCGA1 = -1; if ($null -ne $d) { $idCGA1 = [long]$d.id }
+$cgB1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/cargos' -Base $ApiBase -Body '{"codigoExterno":"CARGO-B1","nome":"Assistente Administrativo C2S12A","modoRemuneracao":"VENCIMENTO_ADICIONAIS","valorReferencia":3000}'
+$cgE1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/cargos' -Base $ApiBase -Body '{"codigoExterno":"CARGO-E1","nome":"Tecnico Administrativo C2S12A","modoRemuneracao":"VENCIMENTO_ADICIONAIS","valorReferencia":1000}'
+Add-Check 'S12' 'cargo.criar-tenant-a-3-cargos' (($cgA1.code -eq 200) -and ($idCGA1 -gt 0) -and ($cgB1.code -eq 200) -and ($cgE1.code -eq 200)) ("POST /api/previdencia/cargos tenant A: CARGO-A1 SUBSIDIO 10000 (id=" + $idCGA1 + "), CARGO-B1 VENCIMENTO_ADICIONAIS 3000, CARGO-E1 1000 -> todos 200")
+$cgD1 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/cargos' -Base $ApiBase -Body '{"codigoExterno":"CARGO-D1","nome":"Analista Fiscal C2S12B","modoRemuneracao":"SUBSIDIO","valorReferencia":5000}'
+$cgC1 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/cargos' -Base $ApiBase -Body '{"codigoExterno":"CARGO-C1","nome":"Especialista Superior C2S12B","modoRemuneracao":"SUBSIDIO","valorReferencia":200000}'
+$cgAB1 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/cargos' -Base $ApiBase -Body '{"codigoExterno":"CARGO-AB1","nome":"Auxiliar Operacional C2S12B","modoRemuneracao":"VENCIMENTO_ADICIONAIS","valorReferencia":2000}'
+Add-Check 'S12' 'cargo.criar-tenant-b-3-cargos' (($cgD1.code -eq 200) -and ($cgC1.code -eq 200) -and ($cgAB1.code -eq 200)) ("POST /api/previdencia/cargos tenant B (estadual): CARGO-D1 5000, CARGO-C1 200000 (caso teto), CARGO-AB1 2000 -> todos 200")
+$cgDup = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/cargos' -Base $ApiBase -Body '{"codigoExterno":"CARGO-A1","nome":"Duplicado C2S12A","modoRemuneracao":"SUBSIDIO","valorReferencia":1}'
+$cgMod = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/cargos' -Base $ApiBase -Body '{"codigoExterno":"CARGO-X1","nome":"Modo Invalido C2S12A","modoRemuneracao":"HORISTA","valorReferencia":1}'
+$cgInc = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/cargos' -Base $ApiBase -Body '{"codigoExterno":"CARGO-X2","nome":"","modoRemuneracao":"SUBSIDIO","valorReferencia":1}'
+Add-Check 'S12' 'cargo.falhas-nomeadas-duplicado-modo-incompleto' (($cgDup.code -eq 409) -and (Get-S12Msg $cgDup.body) -like '*CARGO_JA_EXISTE*' -and ($cgMod.code -eq 400) -and (Get-S12Msg $cgMod.body) -like '*MODO_REMUNERACAO_INVALIDO*' -and ($cgInc.code -eq 400) -and (Get-S12Msg $cgInc.body) -like '*CARGO_INCOMPLETO*') ("duplicado codigo -> " + $cgDup.code + " CARGO_JA_EXISTE; modo HORISTA -> " + $cgMod.code + " MODO_REMUNERACAO_INVALIDO; nome vazio -> " + $cgInc.code + " CARGO_INCOMPLETO (falhas nomeadas explicitas - regra 13)")
+$cgList = Invoke-Api -Bearer $tk12A.token -Method GET -Path '/api/previdencia/cargos' -Base $ApiBase
+Add-Check 'S12' 'cargo.lista-isolada-por-tenant' (($cgList.code -eq 200) -and $cgList.body.Contains('CARGO-A1') -and $cgList.body.Contains('CARGO-E1') -and (-not $cgList.body.Contains('CARGO-D1'))) ("GET /api/previdencia/cargos tenant A lista CARGO-A1/B1/E1 e NAO vaza CARGO-D1 (tenant B) - isolamento por tenant (regra 11)")
+
+# --- BR-12.1 servidores -------------------------------------------------------
+$adA = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/servidores' -Base $ApiBase -Body '{"matriculaFuncional":"C2S12A-SRV1","nome":"Servidor C2S12A Alfa","cargoCodigo":"CARGO-A1","dataAdmissao":"2026-01-01","tipoVinculo":"EFETIVO","uf":"SP"}'
+$d = Get-S12Data $adA.body; $vA = -1; if ($null -ne $d) { $vA = [long]$d.vinculoId }
+$adB = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/servidores' -Base $ApiBase -Body '{"matriculaFuncional":"C2S12A-SRV2","nome":"Servidor C2S12A Beta","cargoCodigo":"CARGO-B1","dataAdmissao":"2023-01-10","tipoVinculo":"COMISSAO","uf":"SP"}'
+$d = Get-S12Data $adB.body; $vB = -1; if ($null -ne $d) { $vB = [long]$d.vinculoId }
+$adE = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/servidores' -Base $ApiBase -Body '{"matriculaFuncional":"C2S12A-SRV3","nome":"Servidor C2S12A Epsilon","cargoCodigo":"CARGO-E1","dataAdmissao":"2026-06-01","tipoVinculo":"EFETIVO","uf":"SP"}'
+$d = Get-S12Data $adE.body; $vE = -1; if ($null -ne $d) { $vE = [long]$d.vinculoId }
+Add-Check 'S12' 'servidor.admitir-tenant-a-a-b-e' (($adA.code -eq 200) -and ($vA -gt 0) -and ($adB.code -eq 200) -and ($vB -gt 0) -and ($adE.code -eq 200) -and ($vE -gt 0)) ("admissao tenant A: A (10000, adm 2026-01-01, vinculo " + $vA + "), B (3000, adm 2023-01-10, vinculo " + $vB + ", 3 ciclos aquisitivos ate df 2026-09-20), E (1000, adm 2026-06-01, vinculo " + $vE + ") -> 200 com item VENCIMENTO automatico no valor do cargo")
+$adD = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/servidores' -Base $ApiBase -Body '{"matriculaFuncional":"C2S12B-D1","nome":"Servidor C2S12B Delta","cargoCodigo":"CARGO-D1","dataAdmissao":"2025-01-01","tipoVinculo":"EFETIVO","uf":"RJ"}'
+$d = Get-S12Data $adD.body; $vD = -1; if ($null -ne $d) { $vD = [long]$d.vinculoId }
+$adC = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/servidores' -Base $ApiBase -Body '{"matriculaFuncional":"C2S12B-C1","nome":"Servidor C2S12B Gamma","cargoCodigo":"CARGO-C1","dataAdmissao":"2024-03-01","tipoVinculo":"EFETIVO","uf":"RJ"}'
+$d = Get-S12Data $adC.body; $vC = -1; if ($null -ne $d) { $vC = [long]$d.vinculoId }
+$adAB = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/servidores' -Base $ApiBase -Body '{"matriculaFuncional":"C2S12B-AB","nome":"AB","cargoCodigo":"CARGO-AB1","dataAdmissao":"2026-08-01","tipoVinculo":"TEMPORARIO","uf":"RJ"}'
+$d = Get-S12Data $adAB.body; $vAB = -1; if ($null -ne $d) { $vAB = [long]$d.vinculoId }
+Add-Check 'S12' 'servidor.admitir-tenant-b-d-c-ab' (($adD.code -eq 200) -and ($vD -gt 0) -and ($adC.code -eq 200) -and ($vC -gt 0) -and ($adAB.code -eq 200) -and ($vAB -gt 0)) ("admissao tenant B (estadual): D (5000, vinculo " + $vD + "), C (200000 - caso teto, vinculo " + $vC + "), AB (nome < 5 - caso validacao eSocial, vinculo " + $vAB + ") -> 200")
+$adDup = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/servidores' -Base $ApiBase -Body '{"matriculaFuncional":"C2S12A-SRV1","nome":"Duplicado C2S12A","cargoCodigo":"CARGO-B1","dataAdmissao":"2026-02-01","tipoVinculo":"EFETIVO","uf":"SP"}'
+$adTipo = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/servidores' -Base $ApiBase -Body '{"matriculaFuncional":"C2S12A-X9","nome":"Tipo Invalido C2S12A","cargoCodigo":"CARGO-B1","dataAdmissao":"2026-02-01","tipoVinculo":"TERCEIROS","uf":"SP"}'
+$adInc = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/servidores' -Base $ApiBase -Body '{"matriculaFuncional":"","nome":"Sem Matricula C2S12A","cargoCodigo":"CARGO-B1","dataAdmissao":"2026-02-01","tipoVinculo":"EFETIVO","uf":"SP"}'
+$adCarg = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/servidores' -Base $ApiBase -Body '{"matriculaFuncional":"C2S12A-X8","nome":"Cargo Ausente C2S12A","cargoCodigo":"CARGO-ZZZ","dataAdmissao":"2026-02-01","tipoVinculo":"EFETIVO","uf":"SP"}'
+Add-Check 'S12' 'servidor.falhas-nomeadas-duplicada-tipo-incompleto-cargo' (($adDup.code -eq 409) -and (Get-S12Msg $adDup.body) -like '*MATRICULA_FUNCIONAL_DUPLICADA*' -and ($adTipo.code -eq 400) -and (Get-S12Msg $adTipo.body) -like '*VINCULO_TIPO_INVALIDO*' -and ($adInc.code -eq 400) -and (Get-S12Msg $adInc.body) -like '*SERVIDOR_INCOMPLETO*' -and ($adCarg.code -eq 404) -and (Get-S12Msg $adCarg.body) -like '*PREVIDENCIA_CARGO_INEXISTENTE*') ("matricula duplicada -> " + $adDup.code + " MATRICULA_FUNCIONAL_DUPLICADA (backstop unico); tipo TERCEIROS -> " + $adTipo.code + " VINCULO_TIPO_INVALIDO; matricula vazia -> " + $adInc.code + " SERVIDOR_INCOMPLETO; cargo ausente -> " + $adCarg.code + " PREVIDENCIA_CARGO_INEXISTENTE")
+$svList = Invoke-Api -Bearer $tk12A.token -Method GET -Path '/api/previdencia/servidores' -Base $ApiBase
+Add-Check 'S12' 'servidor.lista-esfera-municipal-cruz-tenant' (($svList.code -eq 200) -and $svList.body.Contains('C2S12A-SRV1') -and $svList.body.Contains('"esferaGoverno":"municipal"') -and (-not $svList.body.Contains('C2S12B-D1'))) ("GET /api/previdencia/servidores tenant A: A/B/E com esferaGoverno=municipal herdada da entidade do contexto (regra 21/22) e NAO vaza C2S12B-D1 (estadual)")
+
+# --- BR-12.2/12.3 folha: validacoes, agosto (E) e setembro (A+B) ---------------
+$fl01 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/fechar' -Base $ApiBase -Body '{"competencia":"2026-08-01","dataFixa":"2026-08-20"}'
+$fl02 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/abrir' -Base $ApiBase -Body '{"competencia":"2026-09-15","dataFixa":"2026-09-20"}'
+$fl03 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/abrir' -Base $ApiBase -Body '{"competencia":"2026-10-01","dataFixa":"2026-09-01"}'
+Add-Check 'S12' 'folha.validacoes-competencia-datafixa-nomeadas' (($fl01.code -eq 404) -and (Get-S12Msg $fl01.body) -like '*PREVIDENCIA_FOLHA_INEXISTENTE*' -and ($fl02.code -eq 400) -and (Get-S12Msg $fl02.body) -like '*COMPETENCIA_INVALIDA*' -and ($fl03.code -eq 400) -and (Get-S12Msg $fl03.body) -like '*DATA_FIXA_INVALIDA*') ("fechar competencia inexistente -> " + $fl01.code + " PREVIDENCIA_FOLHA_INEXISTENTE; competencia dia 15 -> " + $fl02.code + " COMPETENCIA_INVALIDA; data_fixa < competencia -> " + $fl03.code + " DATA_FIXA_INVALIDA")
+$flA1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/abrir' -Base $ApiBase -Body '{"competencia":"2026-08-01","dataFixa":"2026-08-20"}'
+$flA1j = Get-S12Data $flA1.body
+$flA2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/fechar' -Base $ApiBase -Body '{"competencia":"2026-08-01","dataFixa":"2026-08-20"}'
+$d = Get-S12Data $flA2.body
+$okFlA2 = ($flA2.code -eq 200) -and ($null -ne $d) -and ($d.status -eq 'FECHADA') -and ([int]$d.calculosGerados -eq 3) -and ([int]$d.totalCalculos -eq 3)
+Add-Check 'S12' 'folha.augusto-tenant-a-fechado-3-calculos' (($flA1.code -eq 200) -and ($null -ne $flA1j) -and ($flA1j.status -eq 'ABERTA') -and $okFlA2) ("abrir 2026-08 (df 2026-08-20) -> ABERTA (abrir repetido idempotente); fechar -> FECHADA com calculosGerados=3 (A, B e E ainda ativo) - motor deterministico multi-esfera")
+$flR1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/reabrir' -Base $ApiBase -Body '{"competencia":"2026-08-01","dataFixa":"2026-08-20","justificativa":""}'
+$flR2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/reabrir' -Base $ApiBase -Body '{"competencia":"2026-08-01","dataFixa":"2026-08-20","justificativa":"correcao do adicional de titulo homologacao"}'
+$d = Get-S12Data $flR2.body
+Add-Check 'S12' 'folha.reabertura-sem-justificativa-nomeada' (($flR1.code -eq 400) -and (Get-S12Msg $flR1.body) -like '*REABERTURA_SEM_JUSTIFICATIVA*' -and ($flR2.code -eq 200) -and ($null -ne $d) -and ($d.status -eq 'ABERTA')) ("reabrir 2026-08 sem justificativa -> " + $flR1.code + " REABERTURA_SEM_JUSTIFICATIVA; com justificativa registrada -> " + $flR2.code + " ABERTA (auditoria append-only)")
+$rmE1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/remuneracoes' -Base $ApiBase -Body ('{"vinculoId":' + $vE + ',"naturezaCodigo":"ADICIONAL_TITULO","valor":500,"alterar":false}')
+$rmE2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/remuneracoes' -Base $ApiBase -Body ('{"vinculoId":' + $vE + ',"naturezaCodigo":"ADICIONAL_TITULO","valor":700,"alterar":false}')
+$rmE3 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/remuneracoes' -Base $ApiBase -Body ('{"vinculoId":' + $vE + ',"naturezaCodigo":"ADICIONAL_TITULO","valor":300,"alterar":true}')
+$rmE4 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/remuneracoes' -Base $ApiBase -Body ('{"vinculoId":' + $vE + ',"naturezaCodigo":"XPTO","valor":100,"alterar":false}')
+Add-Check 'S12' 'remuneracao.e-fluxo-lancar-duplicado-alterar-natureza' (($rmE1.code -eq 200) -and ($rmE2.code -eq 409) -and (Get-S12Msg $rmE2.body) -like '*REMUNERACAO_JA_EXISTE*' -and ($rmE3.code -eq 200) -and ($rmE4.code -eq 404) -and (Get-S12Msg $rmE4.body) -like '*PREVIDENCIA_NATUREZA_INEXISTENTE*') ("vinculo E: ADICIONAL_TITULO 500 -> 200; novo sem alterar -> " + $rmE2.code + " REMUNERACAO_JA_EXISTE; alterar para 300 -> 200; natureza XPTO fora do catalogo do banco -> " + $rmE4.code + " PREVIDENCIA_NATUREZA_INEXISTENTE (catalogo autoritario - regra 12)")
+$rpE1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/reprocessar' -Base $ApiBase -Body ('{"competencia":"2026-08-01","vinculoId":' + $vE + ',"dataFixa":"2026-08-20","justificativa":"correcao do adicional de titulo homologacao"}')
+$rpE1j = Get-S12Data $rpE1.body
+$dbRep1 = Get-Psql "select k.versao||'|'||k.status||'|'||to_char(k.bruto,'FM999990.00') from sigov.previdencia_folha_calculo k join sigov.previdencia_folha_competencia f on f.id=k.competencia_id where k.tenant_id=910001 and k.vinculo_id=$vE and f.competencia=date '2026-08-01' order by k.versao"
+$normRep1 = ($dbRep1.text.Trim() -replace '\s*\n\s*','|').Trim()
+Add-Check 'S12' 'folha.reprocesso-e-v2-veta-v1-valores' (($rpE1.code -eq 200) -and ($null -ne $rpE1j) -and ([int]$rpE1j.versao -eq 2) -and ($rpE1j.status -eq 'VIGENTE') -and (Get-S12Near $rpE1j.valores.bruto 1300.00m) -and ($dbRep1.code -eq 0) -and ($normRep1 -eq '1|VETADA|1000.00|2|VIGENTE|1300.00')) ("reprocessar E (2026-08, bruto 1000->1300 apos alterar adicional 500->300) -> 200 versao 2 VIGENTE bruto 1300; banco: v1 VETADA 1000.00 / v2 VIGENTE 1300.00 (BR-12.3 versoes auditaveis) db=[" + $dbRep1.text + "]")
+$rmE5 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/remuneracoes' -Base $ApiBase -Body ('{"vinculoId":' + $vE + ',"naturezaCodigo":"ADICIONAL_TITULO","valor":0,"alterar":true}')
+$rpE2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/reprocessar' -Base $ApiBase -Body ('{"competencia":"2026-08-01","vinculoId":' + $vE + ',"dataFixa":"2026-08-20","justificativa":"restauracao do valor original homologacao"}')
+$rpE2j = Get-S12Data $rpE2.body
+$dbRep2 = Get-Psql "select k.versao||'|'||k.status||'|'||to_char(k.bruto,'FM999990.00') from sigov.previdencia_folha_calculo k join sigov.previdencia_folha_competencia f on f.id=k.competencia_id where k.tenant_id=910001 and k.vinculo_id=$vE and f.competencia=date '2026-08-01' order by k.versao"
+$normRep2 = ($dbRep2.text.Trim() -replace '\s*\n\s*','|').Trim()
+Add-Check 'S12' 'folha.reprocesso-e-v3-restaurado-3-versoes' (($rmE5.code -eq 200) -and ($rpE2.code -eq 200) -and ($null -ne $rpE2j) -and ([int]$rpE2j.versao -eq 3) -and (Get-S12Near $rpE2j.valores.bruto 1000.00m) -and ($dbRep2.code -eq 0) -and ($normRep2 -eq '1|VETADA|1000.00|2|VETADA|1300.00|3|VIGENTE|1000.00')) ("adicional E -> 0; reprocessar de novo -> versao 3 VIGENTE bruto 1000 (igual a v1); banco: 3 versoes (1 VETADA 1000 / 2 VETADA 1300 / 3 VIGENTE 1000) - trilhavel e reversivel (BR-12.3)")
+$flA3 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/fechar' -Base $ApiBase -Body '{"competencia":"2026-08-01","dataFixa":"2026-08-20"}'
+$d = Get-S12Data $flA3.body
+Add-Check 'S12' 'folha.augusto-refechado-skip-idempotente' (($flA3.code -eq 200) -and ($null -ne $d) -and ($d.status -eq 'FECHADA') -and ([int]$d.calculosGerados -eq 0) -and ([int]$d.totalCalculos -eq 3)) ("refechar 2026-08 (todos os vinculos ja tem VIGENTE) -> FECHADA com calculosGerados=0 e totalCalculos=3 - nao recalcula o que ja existe (BR-12.2)")
+$dlE0 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/desligamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vE + ',"dataDesligamento":"2026-08-25","motivo":""}')
+$dlE1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/desligamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vE + ',"dataDesligamento":"2026-08-25","motivo":"fim do cenario homologacao"}')
+$dlE2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/desligamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vE + ',"dataDesligamento":"2026-08-25","motivo":"segunda vez homologacao"}')
+Add-Check 'S12' 'desligamento.e-sem-motivo-ok-repetida' (($dlE0.code -eq 400) -and (Get-S12Msg $dlE0.body) -like '*DESLIGAMENTO_SEM_MOTIVO*' -and ($dlE1.code -eq 200) -and ($dlE2.code -eq 409) -and (Get-S12Msg $dlE2.body) -like '*VINCULO_NAO_ATIVO*') ("desligar E sem motivo -> " + $dlE0.code + " DESLIGAMENTO_SEM_MOTIVO; com motivo -> 200; desligar de novo -> " + $dlE2.code + " VINCULO_NAO_ATIVO (E sai da folha de setembro)")
+$flS1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/abrir' -Base $ApiBase -Body '{"competencia":"2026-09-01","dataFixa":"2026-09-20"}'
+$flN1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/abrir' -Base $ApiBase -Body '{"competencia":"2026-11-01","dataFixa":"2026-11-20"}'
+$loN1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/esocial/gerar-lote' -Base $ApiBase -Body '{"competencia":"2026-11-01","tipoLote":"REMUNERACAO_S1200","dataFixa":"2026-11-20"}'
+Add-Check 'S12' 'folha.set-nov-abertos-lote-nov-sem-fechamento' (($flS1.code -eq 200) -and ($flN1.code -eq 200) -and ($loN1.code -eq 409) -and (Get-S12Msg $loN1.body) -like '*FOLHA_NAO_FECHADA_PARA_LOTE*') ("abrir 2026-09 e 2026-11 (tenant A) -> 200; lote REMUNERACAO_S1200 de novembro antes do fechamento -> " + $loN1.code + " FOLHA_NAO_FECHADA_PARA_LOTE (BR-12.8)")
+$flS2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/fechar' -Base $ApiBase -Body '{"competencia":"2026-09-01","dataFixa":"2026-09-20"}'
+$d = Get-S12Data $flS2.body
+$dbSetA = Get-Psql "select s.matricula_funcional||'|'||to_char(k.bruto,'FM999990.00')||'|'||to_char(k.inss_valor,'FM999990.00')||'|'||to_char(k.irrf_valor,'FM999990.00')||'|'||to_char(k.liquido,'FM999990.00')||'|'||to_char(k.decimo_valor,'FM999990.00') from sigov.previdencia_folha_calculo k join sigov.previdencia_vinculo v on v.id=k.vinculo_id join sigov.previdencia_servidor s on s.id=v.servidor_id join sigov.previdencia_folha_competencia f on f.id=k.competencia_id where k.tenant_id=910001 and f.competencia=date '2026-09-01' and k.status='VIGENTE' order by s.matricula_funcional"
+$normSetA = ($dbSetA.text.Trim() -replace '\s*\n\s*','~').Trim()
+Add-Check 'S12' 'folha.setembro-a-fechado-valores-travados-br12-2' (($flS2.code -eq 200) -and ($null -ne $d) -and ($d.status -eq 'FECHADA') -and ([int]$d.calculosGerados -eq 2) -and ([int]$d.totalCalculos -eq 2) -and ($dbSetA.code -eq 0) -and ($normSetA -eq 'C2S12A-SRV1|10000.00|1078.14|900.07|8021.79|0.00~C2S12A-SRV2|3000.00|253.41|0.00|2746.59|0.00')) ("fechar 2026-09 tenant A -> gerados=2 (E desligado); INSS por faixa RGPS 2026 + IRRF progressivo: A 10000.00/1078.14/900.07/8021.79 e B 3000.00/253.41/0.00/2746.59 exatos (valores travados da legislacao LC 51/84 + Decreto 3.048/99)")
+$flS3 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/fechar' -Base $ApiBase -Body '{"competencia":"2026-09-01","dataFixa":"2026-09-20"}'
+$d = Get-S12Data $flS3.body
+Add-Check 'S12' 'folha.setembro-a-refechado-idempotente' (($flS3.code -eq 200) -and ($null -ne $d) -and ($d.status -eq 'FECHADA') -and ($d.idempotente -eq $true) -and ([int]$d.calculosGerados -eq 0)) ("fechar 2026-09 de novo -> 200 FECHADA idempotente=true calculosGerados=0 (BR-12.2: devolve estado consolidado sem recalculo)")
+$ctS1 = Invoke-Api -Bearer $tk12A.token -Method GET -Path ('/api/previdencia/contracheque?vinculoId=' + $vA + '&competencia=2026-09-01') -Base $ApiBase
+$ctS1j = Get-S12Data $ctS1.body
+$okCt = ($ctS1.code -eq 200) -and ($null -ne $ctS1j) -and ($ctS1j.matriculaFuncional -eq 'C2S12A-SRV1') -and ($ctS1j.esferaGoverno -eq 'municipal') -and (Get-S12Near $ctS1j.bruto 10000.00m) -and (Get-S12Near $ctS1j.inssValor 1078.14m) -and (Get-S12Near $ctS1j.irrfValor 900.07m) -and (Get-S12Near $ctS1j.liquido 8021.79m) -and ($null -ne $ctS1j.itens) -and (@($ctS1j.itens).Count -ge 4)
+Add-Check 'S12' 'contracheque.a-setembro-demonstracao-br12-7' $okCt ("GET contracheque A 2026-09: matricula C2S12A-SRV1, esfera municipal, bruto 10000 / inss 1078.14 / irrf 900.07 / liquido 8021.79 + itens demonstrativos (renda/previdencia/irrf) - versionado, LGPD dados minimos, sem CPF (BR-12.7)")
+
+# --- BR-12.4 ferias (tenant A, vinculo B: 3 ciclos = 90 dias) ------------------
+$frA = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/apurar-aquisicao' -Base $ApiBase -Body ('{"vinculoId":' + $vA + ',"dataFixa":"2026-09-20"}')
+$frB1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/apurar-aquisicao' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20"}')
+$d = Get-S12Data $frB1.body
+$okFrB1 = ($frB1.code -eq 200) -and ($null -ne $d) -and ([int]$d.ciclosCriados -eq 3) -and ([int]$d.totalCiclos -eq 3) -and ([int]$d.saldoTotalDias -eq 90)
+$frB2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/apurar-aquisicao' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20"}')
+Add-Check 'S12' 'ferias.apuracao-a-sem-ciclo-b-3-ciclos-b-repetida' (($frA.code -eq 409) -and (Get-S12Msg $frA.body) -like '*SEM_NOVO_CICLO_AQUISITIVO*' -and $okFrB1 -and ($frB2.code -eq 409) -and (Get-S12Msg $frB2.body) -like '*SEM_NOVO_CICLO_AQUISITIVO*') ("apurar A (adm 2026-01-01, ciclo nao concluido) -> " + $frA.code + " SEM_NOVO_CICLO_AQUISITIVO; B (adm 2023-01-10) -> 3 ciclos x 30d = 90 dias; apurar de novo -> " + $frB2.code + " SEM_NOVO_CICLO_AQUISITIVO (idempotente por inicio_aquisitivo)")
+$fpAv = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/programar' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20","dataInicio":"2026-09-25","dataFim":"2026-09-29","diasGoze":5,"diasAbono":0}')
+$fpFc = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/programar' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20","dataInicio":"2026-10-20","dataFim":"2026-10-23","diasGoze":4,"diasAbono":0}')
+$fpAb = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/programar' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20","dataInicio":"2026-10-20","dataFim":"2026-10-24","diasGoze":5,"diasAbono":3}')
+$fpPd = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/programar' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20","dataInicio":"2026-10-24","dataFim":"2026-10-20","diasGoze":5,"diasAbono":0}')
+Add-Check 'S12' 'ferias.validacoes-nomeadas-intervalo-fracao-abono-periodo' (($fpAv.code -eq 400) -and (Get-S12Msg $fpAv.body) -like '*INTERVALO_FERIAS_INSUFICIENTE*' -and ($fpFc.code -eq 400) -and (Get-S12Msg $fpFc.body) -like '*FRACAO_FERIAS_INSUFICIENTE*' -and ($fpAb.code -eq 400) -and (Get-S12Msg $fpAb.body) -like '*ABONO_PECUNIARIO_INFERIOR*' -and ($fpPd.code -eq 400) -and (Get-S12Msg $fpPd.body) -like '*PERIODO_INVALIDO*') ("aviso 5d < minimo 30 -> INTERVALO_FERIAS_INSUFICIENTE; gozo 4d < fracao minima 5 -> FRACAO_FERIAS_INSUFICIENTE; abono 3d < minimo 5 -> ABONO_PECUNIARIO_INFERIOR; fim < inicio -> PERIODO_INVALIDO (ordem deterministica das validacoes - Lei 8.112/90/CLT)")
+$fp1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/programar' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20","dataInicio":"2026-10-20","dataFim":"2026-10-24","diasGoze":5,"diasAbono":0}')
+$fp1j = Get-S12Data $fp1.body; $pF1 = -1; if ($null -ne $fp1j) { $pF1 = [long]$fp1j.id }
+$fp2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/programar' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20","dataInicio":"2026-10-26","dataFim":"2026-10-30","diasGoze":5,"diasAbono":0}')
+$fp2j = Get-S12Data $fp2.body
+$fp3 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/programar' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20","dataInicio":"2026-11-01","dataFim":"2026-11-05","diasGoze":5,"diasAbono":0}')
+$fp3j = Get-S12Data $fp3.body
+$fp4 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/programar' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20","dataInicio":"2026-11-06","dataFim":"2026-11-10","diasGoze":5,"diasAbono":0}')
+Add-Check 'S12' 'ferias.fracionamento-f1-f3-ok-f4-excedido' (($fp1.code -eq 200) -and ($null -ne $fp1j) -and ($fp1j.status -eq 'PROGRAMADA') -and (Get-S12Near $fp1j.adicionalTerco 166.67m) -and ($fp2.code -eq 200) -and (Get-S12Near ((Get-S12Data $fp2.body)).adicionalTerco 166.67m) -and ($fp3.code -eq 200) -and (Get-S12Near ((Get-S12Data $fp3.body)).saldoRestanteDias 15.00m) -and ($fp4.code -eq 400) -and (Get-S12Msg $fp4.body) -like '*FRACIONAMENTO_MAXIMO_EXCEDIDO*') ("F1/F2/F3 (5d cada no mesmo ciclo aquisitivo) -> PROGRAMADA com terco 166.67 = salario_dia 100 x 5/3 auditavel; F4 seria o 4o periodo -> " + $fp4.code + " FRACIONAMENTO_MAXIMO_EXCEDIDO (maximo parametrico 3 - Lei 8.112/90)")
+$fg1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/programar' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20","dataInicio":"2026-10-20","dataFim":"2026-11-03","diasGoze":15,"diasAbono":0}')
+$fg1j = Get-S12Data $fg1.body
+$fg2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/programar' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20","dataInicio":"2026-12-20","dataFim":"2027-01-08","diasGoze":20,"diasAbono":10}')
+$fg2j = Get-S12Data $fg2.body
+Add-Check 'S12' 'ferias.g1-g2-consumo-de-ciclos-tercos' (($fg1.code -eq 200) -and ($null -ne $fg1j) -and (Get-S12Near $fg1j.salarioDia 100.00m) -and (Get-S12Near $fg1j.adicionalTerco 500.00m) -and ([int]$fg1j.saldoRestanteDias -eq 0) -and ($fg2.code -eq 200) -and ($null -ne $fg2j) -and (Get-S12Near $fg2j.adicionalTerco 1000.00m) -and ([int]$fg2j.saldoRestanteDias -eq 0)) ("G1 15d encerra o ciclo mais recente (saldo 15->0, terco 500.00 = 100x15/3); G2 20d+abono 10d consome o ciclo seguinte (30->0, terco 1000.00 = 100x30/3) - abono tambem gera 1/3 (CLT art. 145)")
+$fg3 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/programar' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20","dataInicio":"2027-01-20","dataFim":"2027-02-08","diasGoze":20,"diasAbono":40}')
+$fg3b = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/programar' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20","dataInicio":"2027-02-20","dataFim":"2027-03-11","diasGoze":20,"diasAbono":0}')
+$fg3bj = Get-S12Data $fg3b.body
+$fg4 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/ferias/programar' -Base $ApiBase -Body ('{"vinculoId":' + $vB + ',"dataFixa":"2026-09-20","dataInicio":"2027-03-20","dataFim":"2027-04-08","diasGoze":20,"diasAbono":0}')
+Add-Check 'S12' 'ferias.g3-saldo-g3b-ok-g4-saldo' (($fg3.code -eq 400) -and (Get-S12Msg $fg3.body) -like '*SALDO_FERIAS_INSUFICIENTE*' -and ($fg3b.code -eq 200) -and ($null -ne $fg3bj) -and (Get-S12Near $fg3bj.adicionalTerco 666.67m) -and ([int]$fg3bj.saldoRestanteDias -eq 10) -and ($fg4.code -eq 400) -and (Get-S12Msg $fg4.body) -like '*SALDO_FERIAS_INSUFICIENTE*') ("G3 20d+40d > saldo 30 do ultimo ciclo -> SALDO_FERIAS_INSUFICIENTE; G3b 20d -> OK (saldo 30->10, terco 666.67); G4 20d > saldo 10 -> SALDO_FERIAS_INSUFICIENTE")
+$gzo1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path ('/api/previdencia/ferias/' + $pF1 + '/gozo') -Base $ApiBase -Body ('{"programacaoId":' + $pF1 + ',"dataFixa":"2026-10-20"}')
+$gzo2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path ('/api/previdencia/ferias/' + $pF1 + '/gozo') -Base $ApiBase -Body ('{"programacaoId":' + $pF1 + ',"dataFixa":"2026-10-21"}')
+Add-Check 'S12' 'ferias.gozo-registrado-e-repetido' (($gzo1.code -eq 200) -and ($gzo2.code -eq 409) -and (Get-S12Msg $gzo2.body) -like '*PROGRAMACAO_ESTADO_INVALIDO*') ("registro de gozo da programacao F1 -> 200 (status GOZO); registrar de novo -> " + $gzo2.code + " PROGRAMACAO_ESTADO_INVALIDO (maquina de estados do gozo)")
+$dbFerias = Get-Psql "select to_char(coalesce(sum(saldo_dias),0),'FM9999')||'|'||to_char(coalesce(sum(p.adicional_terco),0),'FM999990.00')||'|'||(select count(1) from sigov.previdencia_ferias_programacao pp where pp.tenant_id=910001 and pp.status='GOZO')||'|'||(select count(1) from sigov.previdencia_ferias_programacao pp where pp.tenant_id=910001 and pp.status='PROGRAMADA') from sigov.previdencia_ferias f left join sigov.previdencia_ferias_programacao p on p.ferias_id=f.id where f.tenant_id=910001"
+Add-Check 'S12' 'ferias.estado-final-ciclos-db' (($dbFerias.code -eq 0) -and ($dbFerias.text.Trim() -eq '10|2666.68|1|5')) ("banco: saldo restante total 10 dias (ciclo 1), soma de tercos 1/3 auditaveis 2666.68 (166.67x3 + 500.00 + 1000.00 + 666.67), programacoes GOZO=1 e PROGRAMADA=5 - consumacao exata dos 90 dias aquisitivos (BR-12.4)")
+
+# --- BR-12.4 afastamentos ------------------------------------------------------
+$afT1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/afastamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vA + ',"tipo":"XPTO","dataFixa":"2026-09-20","dataInicio":"2026-10-01","dataFim":"2026-10-10","documentoGed":"C2S12A-GED-T1","regimeOpcao":"RPSS"}')
+$afD1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/afastamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vA + ',"tipo":"MATERNIDADE","dataFixa":"2026-09-20","dataInicio":"2026-10-01","dataFim":"2027-01-27","documentoGed":"C2S12A-GED-M0","regimeOpcao":"RPSS"}')
+$afG1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/afastamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vA + ',"tipo":"MATERNIDADE","dataFixa":"2026-09-20","dataInicio":"2026-10-01","dataFim":"2027-01-28","documentoGed":"","regimeOpcao":"RPSS"}')
+Add-Check 'S12' 'afastamento.validacoes-nomeadas-tipo-duracao-ged' (($afT1.code -eq 400) -and (Get-S12Msg $afT1.body) -like '*AFASTAMENTO_TIPO_INVALIDO*' -and ($afD1.code -eq 400) -and (Get-S12Msg $afD1.body) -like '*DURACAO_AFASTAMENTO_INCONSISTENTE*' -and ($afG1.code -eq 400) -and (Get-S12Msg $afG1.body) -like '*DOCUMENTO_GED_OBRIGATORIO*') ("tipo XPTO -> AFASTAMENTO_TIPO_INVALIDO; maternidade 119d != parametro 120d -> DURACAO_AFASTAMENTO_INCONSISTENTE; sem documento GED -> DOCUMENTO_GED_OBRIGATORIO (controle TCU - regra 13)")
+$afM1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/afastamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vA + ',"tipo":"MATERNIDADE","dataFixa":"2026-09-20","dataInicio":"2026-10-01","dataFim":"2027-01-28","documentoGed":"C2S12A-GED-M1","regimeOpcao":"RPSS"}')
+$afM1j = Get-S12Data $afM1.body; $afMId = -1; if ($null -ne $afM1j) { $afMId = [long]$afM1j.id }
+$afE1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/afastamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vA + ',"tipo":"ESTUDO","dataFixa":"2026-09-20","dataInicio":"2026-10-10","dataFim":"2026-10-31","documentoGed":"C2S12A-GED-E1","regimeOpcao":"RPSS"}')
+Add-Check 'S12' 'afastamento.maternidade-120d-e-sobreposto' (($afM1.code -eq 200) -and ($afMId -gt 0) -and ($null -ne $afM1j) -and ([int]$afM1j.dias -eq 120) -and ($afM1j.status -eq 'ATIVO') -and ($afE1.code -eq 409) -and (Get-S12Msg $afE1.body) -like '*AFASTAMENTO_SOBREPOSTO*') ("maternidade A 2026-10-01..2027-01-28 (120d parametrico, GED, RPSS) -> ATIVO id=" + $afMId + "; ESTUDO sobreposto 10..31/10 -> " + $afE1.code + " AFASTAMENTO_SOBREPOSTO (backstop por periodo)")
+$afDev1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path ('/api/previdencia/afastamentos/' + $afMId + '/devolver') -Base $ApiBase -Body ('{"afastamentoId":' + $afMId + ',"dataFixa":"2027-01-10","motivo":"retorno antecipado homologacao"}')
+$afDev2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path ('/api/previdencia/afastamentos/' + $afMId + '/devolver') -Base $ApiBase -Body ('{"afastamentoId":' + $afMId + ',"dataFixa":"2027-01-15","motivo":""}')
+$afDev3 = Invoke-Api -Bearer $tk12A.token -Method POST -Path ('/api/previdencia/afastamentos/' + $afMId + '/devolver') -Base $ApiBase -Body ('{"afastamentoId":' + $afMId + ',"dataFixa":"2027-01-28","motivo":"retorno ao servico homologacao"}')
+$afDev3j = Get-S12Data $afDev3.body
+$afDev4 = Invoke-Api -Bearer $tk12A.token -Method POST -Path ('/api/previdencia/afastamentos/' + $afMId + '/devolver') -Base $ApiBase -Body ('{"afastamentoId":' + $afMId + ',"dataFixa":"2027-01-29","motivo":"segunda devolucao homologacao"}')
+Add-Check 'S12' 'afastamento.devolucao-condicional' (($afDev1.code -eq 400) -and (Get-S12Msg $afDev1.body) -like '*DEVOLUCAO_ANTICIPADA*' -and ($afDev2.code -eq 400) -and (Get-S12Msg $afDev2.body) -like '*DEVOLUCAO_SEM_MOTIVO*' -and ($afDev3.code -eq 200) -and ($null -ne $afDev3j) -and ($afDev3j.status -eq 'DEVOLVIDO') -and ($afDev4.code -eq 409) -and (Get-S12Msg $afDev4.body) -like '*AFASTAMENTO_JA_DEVOLVIDO*') ("devolver com data_fixa 2027-01-10 < fim 2027-01-28 -> DEVOLUCAO_ANTICIPADA; sem motivo -> DEVOLUCAO_SEM_MOTIVO; data_fixa >= fim -> DEVOLVIDO; repetir -> AFASTAMENTO_JA_DEVOLVIDO (condicao avaliada no banco, sem manipulacao manual)")
+$afP1 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/afastamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vD + ',"tipo":"PATERNIDADE","dataFixa":"2026-09-20","dataInicio":"2027-02-01","dataFim":"2027-02-04","documentoGed":"C2S12B-GED-P0","regimeOpcao":"RPSS"}')
+$afP2 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/afastamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vD + ',"tipo":"PATERNIDADE","dataFixa":"2026-09-20","dataInicio":"2027-02-01","dataFim":"2027-02-05","documentoGed":"C2S12B-GED-P1","regimeOpcao":"RPSS"}')
+$afP2j = Get-S12Data $afP2.body
+$afAd = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/afastamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vA + ',"tipo":"ADOCAO","dataFixa":"2026-09-20","dataInicio":"2027-02-01","dataFim":"2027-05-31","documentoGed":"C2S12A-GED-AD1","regimeOpcao":"RPSS"}')
+$afAdj = Get-S12Data $afAd.body
+$afSa = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/afastamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vAB + ',"tipo":"SAUDE","dataFixa":"2026-09-20","dataInicio":"2026-10-05","dataFim":"2026-10-12","documentoGed":"C2S12B-GED-AB1","regimeOpcao":"RGPS"}')
+Add-Check 'S12' 'afastamento.paternidade-adocao-saude-parametrizados' (($afP1.code -eq 400) -and (Get-S12Msg $afP1.body) -like '*DURACAO_AFASTAMENTO_INCONSISTENTE*' -and ($afP2.code -eq 200) -and ($null -ne $afP2j) -and ([int]$afP2j.dias -eq 5) -and ($afAd.code -eq 200) -and ($null -ne $afAdj) -and ([int]$afAdj.dias -eq 120) -and ($afSa.code -eq 200)) ("paternidade D 4d != parametro 5 -> DURACAO_AFASTAMENTO_INCONSISTENTE; 5d -> OK (Lei 8.078/90); adocao A 120d -> OK (EC 103/19); saude AB 05..12/10 (inicio em outubro) -> OK p/ o lote MOVIMENTACAO_S1006 de outubro")
+
+# --- BR-12.5 decimo + novembro/dezembro (tenant A) ------------------------------
+$flN2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/fechar' -Base $ApiBase -Body '{"competencia":"2026-11-01","dataFixa":"2026-11-20"}'
+$d = Get-S12Data $flN2.body
+$dbNovA = Get-Psql "select s.matricula_funcional||'|'||to_char(k.bruto,'FM999990.00')||'|'||to_char(k.inss_valor,'FM999990.00')||'|'||to_char(k.irrf_valor,'FM999990.00')||'|'||to_char(k.liquido,'FM999990.00')||'|'||to_char(k.decimo_valor,'FM999990.00') from sigov.previdencia_folha_calculo k join sigov.previdencia_vinculo v on v.id=k.vinculo_id join sigov.previdencia_servidor s on s.id=v.servidor_id join sigov.previdencia_folha_competencia f on f.id=k.competencia_id where k.tenant_id=910001 and f.competencia=date '2026-11-01' and k.status='VIGENTE' order by s.matricula_funcional"
+$normNovA = ($dbNovA.text.Trim() -replace '\s*\n\s*','~').Trim()
+Add-Check 'S12' 'decimo.novembro-a-1a-parcela-11-meses' (($flN2.code -eq 200) -and ($null -ne $d) -and ($d.status -eq 'FECHADA') -and ([int]$d.calculosGerados -eq 2) -and ($dbNovA.code -eq 0) -and ($normNovA -eq 'C2S12A-SRV1|19166.67|2361.48|3021.27|13783.92|9166.67~C2S12A-SRV2|5750.00|614.59|178.41|4957.00|2750.00')) ("fechar 2026-11 (df 2026-11-20): 1a parcela do 13o entra no bruto - A p1 = round2(10000 x 11/12) = 9166.67 (11 meses com >= 15 dias), B p1 = 2750.00; INSS/IRRF recalculados sobre o bruto com 13o: A 19166.67/2361.48/3021.27/13783.92, B 5750.00/614.59/178.41/4957.00 (Lei 4.749/65 - BR-12.5)")
+$dc1 = Invoke-Api -Bearer $tk12A.token -Method GET -Path ('/api/previdencia/decimo?vinculoId=' + $vA + '&ano=2026') -Base $ApiBase
+$dc1j = Get-S12Data $dc1.body
+Add-Check 'S12' 'decimo.situacao-parcela1-registrada' (($dc1.code -eq 200) -and ($null -ne $dc1j) -and ($dc1j.status -eq 'PARCELA1_REGISTRADA') -and (Get-S12Near $dc1j.parcela1Valor 9166.67m) -and ([int]$dc1j.mesesAte1aParcela -eq 11)) ("GET /api/previdencia/decimo A 2026 -> PARCELA1_REGISTRADA parcela1 9166.67 mesesAte1aParcela=11 (situacao persistida e consultavel - 1a parcela ate 30/11)")
+$flD1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/folhas/fechar' -Base $ApiBase -Body '{"competencia":"2026-12-01","dataFixa":"2026-12-20"}'
+$d = Get-S12Data $flD1.body
+$dbDecA = Get-Psql "select s.matricula_funcional||'|'||to_char(k.bruto,'FM999990.00')||'|'||to_char(k.inss_valor,'FM999990.00')||'|'||to_char(k.irrf_valor,'FM999990.00')||'|'||to_char(k.liquido,'FM999990.00')||'|'||to_char(k.decimo_valor,'FM999990.00') from sigov.previdencia_folha_calculo k join sigov.previdencia_vinculo v on v.id=k.vinculo_id join sigov.previdencia_servidor s on s.id=v.servidor_id join sigov.previdencia_folha_competencia f on f.id=k.competencia_id where k.tenant_id=910001 and f.competencia=date '2026-12-01' and k.status='VIGENTE' order by s.matricula_funcional"
+$normDecA = ($dbDecA.text.Trim() -replace '\s*\n\s*','~').Trim()
+$dc2 = Invoke-Api -Bearer $tk12A.token -Method GET -Path ('/api/previdencia/decimo?vinculoId=' + $vA + '&ano=2026') -Base $ApiBase
+$dc2j = Get-S12Data $dc2.body
+Add-Check 'S12' 'decimo.dezembro-a-2a-parcela-encerrado' (($flD1.code -eq 200) -and ($null -ne $d) -and ($d.status -eq 'FECHADA') -and ($dbDecA.code -eq 0) -and ($normDecA -eq 'C2S12A-SRV1|10833.33|1194.81|1061.32|8577.20|833.33~C2S12A-SRV2|3250.00|283.41|0.00|2966.59|250.00') -and ($dc2.code -eq 200) -and ($null -ne $dc2j) -and ($dc2j.status -eq 'ENCERRADO') -and (Get-S12Near $dc2j.parcela1Valor 9166.67m) -and (Get-S12Near $dc2j.parcela2Valor 833.33m) -and ([int]$dc2j.mesesFinais -eq 12)) ("fechar 2026-12: 2a parcela = total anual - p1 (A: 10000-9166.67=833.33; B: 3000-2750=250.00); bruto A 10833.33/1194.81/1061.32/8577.20 e B 3250.00/283.41/0.00/2966.59 exatos; situacao do decimo A -> ENCERRADO mesesFinais=12 (2a parcela ate 20/12)")
+
+# --- BR-12.2 teto constitucional (tenant B estadual) + decimo sem p1 -------------
+$dlC0 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/desligamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vC + ',"dataDesligamento":"2026-08-31","motivo":""}')
+$flB1 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/folhas/abrir' -Base $ApiBase -Body '{"competencia":"2026-09-01","dataFixa":"2026-09-20"}'
+$flB2 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/folhas/fechar' -Base $ApiBase -Body '{"competencia":"2026-09-01","dataFixa":"2026-09-20"}'
+$dbTeto = Get-Psql "select fc.status||'|'||(select count(1) from sigov.previdencia_folha_calculo k where k.competencia_id=fc.id) from sigov.previdencia_folha_competencia fc where fc.tenant_id=910002 and fc.competencia=date '2026-09-01'"
+Add-Check 'S12' 'folha.b-teto-estadual-409-servidor-acima-teto' (($dlC0.code -eq 400) -and (Get-S12Msg $dlC0.body) -like '*DESLIGAMENTO_SEM_MOTIVO*' -and ($flB1.code -eq 200) -and ($flB2.code -eq 409) -and (Get-S12Msg $flB2.body) -like '*SERVIDOR_ACIMA_TETO*' -and ($dbTeto.code -eq 0) -and ($dbTeto.text.Trim() -eq 'ABERTA|0')) ("fechar 2026-09 tenant B com C (bruto 200000 > teto estadual 44161.63) -> " + $flB2.code + " SERVIDOR_ACIMA_TETO (CF/88 art. 37 XV/XVI c/c EC 103/19); transacao rollbackada: folha permanece ABERTA e zero calculos persistidos - falha explicita, sem sucesso simulado (regra 13)")
+$dlC1 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/desligamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vC + ',"dataDesligamento":"2026-08-31","motivo":"ajuste estrutural homologacao"}')
+$dlC2 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/desligamentos' -Base $ApiBase -Body ('{"vinculoId":' + $vC + ',"dataDesligamento":"2026-08-31","motivo":"segunda tentativa homologacao"}')
+$flB3 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/folhas/fechar' -Base $ApiBase -Body '{"competencia":"2026-09-01","dataFixa":"2026-09-20"}'
+$d = Get-S12Data $flB3.body
+$dbSetB = Get-Psql "select s.matricula_funcional||'|'||to_char(k.bruto,'FM999990.00')||'|'||to_char(k.inss_valor,'FM999990.00')||'|'||to_char(k.irrf_valor,'FM999990.00')||'|'||to_char(k.liquido,'FM999990.00')||'|'||to_char(k.decimo_valor,'FM999990.00') from sigov.previdencia_folha_calculo k join sigov.previdencia_vinculo v on v.id=k.vinculo_id join sigov.previdencia_servidor s on s.id=v.servidor_id join sigov.previdencia_folha_competencia f on f.id=k.competencia_id where k.tenant_id=910002 and f.competencia=date '2026-09-01' and k.status='VIGENTE' order by s.matricula_funcional"
+$normSetB = ($dbSetB.text.Trim() -replace '\s*\n\s*','~').Trim()
+Add-Check 'S12' 'folha.b-desligado-c-setembro-fechado-valores' (($dlC1.code -eq 200) -and ($dlC2.code -eq 409) -and (Get-S12Msg $dlC2.body) -like '*VINCULO_NAO_ATIVO*' -and ($flB3.code -eq 200) -and ($null -ne $d) -and ($d.status -eq 'FECHADA') -and ([int]$d.calculosGerados -eq 2) -and ($dbSetB.code -eq 0) -and ($normSetB -eq 'C2S12B-AB|2000.00|157.23|0.00|1842.77|0.00~C2S12B-D1|5000.00|509.59|109.22|4381.19|0.00')) ("desligar C (motivo registrado) -> 200; repetir -> VINCULO_NAO_ATIVO; fechar 2026-09 de novo -> FECHADA com D 5000.00/509.59/109.22/4381.19 e AB 2000.00/157.23/0.00/1842.77 exatos (teto parametrico por esfera resolvido no banco)")
+$flBo1 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/folhas/abrir' -Base $ApiBase -Body '{"competencia":"2026-10-01","dataFixa":"2026-10-20"}'
+$flBd1 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/folhas/abrir' -Base $ApiBase -Body '{"competencia":"2026-12-01","dataFixa":"2026-12-20"}'
+$flBd2 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/folhas/fechar' -Base $ApiBase -Body '{"competencia":"2026-12-01","dataFixa":"2026-12-20"}'
+$dbDecSemP1 = Get-Psql "select fc.status||'|'||(select count(1) from sigov.previdencia_folha_calculo k where k.competencia_id=fc.id) from sigov.previdencia_folha_competencia fc where fc.tenant_id=910002 and fc.competencia=date '2026-12-01'"
+$flBn1 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/folhas/abrir' -Base $ApiBase -Body '{"competencia":"2026-11-01","dataFixa":"2026-11-20"}'
+$flBn2 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/folhas/fechar' -Base $ApiBase -Body '{"competencia":"2026-11-01","dataFixa":"2026-11-20"}'
+$dbNovB = Get-Psql "select s.matricula_funcional||'|'||to_char(k.decimo_valor,'FM999990.00') from sigov.previdencia_folha_calculo k join sigov.previdencia_vinculo v on v.id=k.vinculo_id join sigov.previdencia_servidor s on s.id=v.servidor_id join sigov.previdencia_folha_competencia f on f.id=k.competencia_id where k.tenant_id=910002 and f.competencia=date '2026-11-01' and k.status='VIGENTE' order by s.matricula_funcional"
+$normNovB = ($dbNovB.text.Trim() -replace '\s*\n\s*','~').Trim()
+$flBd3 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/folhas/fechar' -Base $ApiBase -Body '{"competencia":"2026-12-01","dataFixa":"2026-12-20"}'
+$dbDecB = Get-Psql "select s.matricula_funcional||'|'||to_char(k.bruto,'FM999990.00')||'|'||to_char(k.inss_valor,'FM999990.00')||'|'||to_char(k.irrf_valor,'FM999990.00')||'|'||to_char(k.liquido,'FM999990.00')||'|'||to_char(k.decimo_valor,'FM999990.00') from sigov.previdencia_folha_calculo k join sigov.previdencia_vinculo v on v.id=k.vinculo_id join sigov.previdencia_servidor s on s.id=v.servidor_id join sigov.previdencia_folha_competencia f on f.id=k.competencia_id where k.tenant_id=910002 and f.competencia=date '2026-12-01' and k.status='VIGENTE' order by s.matricula_funcional"
+$normDecB = ($dbDecB.text.Trim() -replace '\s*\n\s*','~').Trim()
+Add-Check 'S12' 'decimo.b-dez-sem-p1-409-nov-p1-dez-valor' (($flBo1.code -eq 200) -and ($flBd1.code -eq 200) -and ($flBd2.code -eq 409) -and (Get-S12Msg $flBd2.body) -like '*DECIMO_SEM_PARCELA1*' -and ($dbDecSemP1.code -eq 0) -and ($dbDecSemP1.text.Trim() -eq 'ABERTA|0') -and ($flBn1.code -eq 200) -and ($flBn2.code -eq 200) -and ($dbNovB.code -eq 0) -and ($normNovB -eq 'C2S12B-AB|1833.33~C2S12B-D1|4583.33') -and ($flBd3.code -eq 200) -and ($dbDecB.code -eq 0) -and ($normDecB -eq 'C2S12B-AB|2166.67|172.23|0.00|1994.44|166.67~C2S12B-D1|5416.67|567.93|135.41|4713.33|416.67')) ("fechar dezembro ANTES de novembro -> 409 DECIMO_SEM_PARCELA1 (folha ABERTA, rollback); fechar novembro -> p1 (AB 1833.33, D 4583.33 = round2(bruto x 11/12)); fechar dezembro -> 2a parcela (AB 166.67, D 416.67) com bruto INSS IRRF liquido exatos: AB 2166.67/172.23/0.00/1994.44, D 5416.67/567.93/135.41/4713.33")
+
+# --- BR-12.8 eSocial publico ----------------------------------------------------
+$loA1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/esocial/gerar-lote' -Base $ApiBase -Body '{"competencia":"2026-09-01","tipoLote":"ADMISAO_S1005","dataFixa":"2026-09-20"}'
+$loA1j = Get-S12Data $loA1.body; $lotAAdm = -1; if ($null -ne $loA1j) { $lotAAdm = [long]$loA1j.id }
+$loA1b = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/esocial/gerar-lote' -Base $ApiBase -Body '{"competencia":"2026-09-01","tipoLote":"ADMISAO_S1005","dataFixa":"2026-09-20"}'
+$loA1bj = Get-S12Data $loA1b.body; $lotAAdmB = -1; if ($null -ne $loA1bj) { $lotAAdmB = [long]$loA1bj.id }
+$loAs1 = Invoke-Api -Bearer $tk12A.token -Method POST -Path ('/api/previdencia/esocial/' + $lotAAdm + '/enviar') -Base $ApiBase
+$loAs1j = Get-S12Data $loAs1.body
+$loAs2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path ('/api/previdencia/esocial/' + $lotAAdm + '/enviar') -Base $ApiBase
+$loAs2j = Get-S12Data $loAs2.body
+$loA2 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/esocial/gerar-lote' -Base $ApiBase -Body '{"competencia":"2026-09-01","tipoLote":"TABELAS_S1000_S1010","dataFixa":"2026-09-20"}'
+$loA2j = Get-S12Data $loA2.body; $lotATab = -1; if ($null -ne $loA2j) { $lotATab = [long]$loA2j.id }
+$loAs3 = Invoke-Api -Bearer $tk12A.token -Method POST -Path ('/api/previdencia/esocial/' + $lotATab + '/enviar') -Base $ApiBase
+$loA3 = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/esocial/gerar-lote' -Base $ApiBase -Body '{"competencia":"2026-09-01","tipoLote":"REMUNERACAO_S1200","dataFixa":"2026-09-20"}'
+$loA3j = Get-S12Data $loA3.body; $lotARem = -1; if ($null -ne $loA3j) { $lotARem = [long]$loA3j.id }
+$loAs4 = Invoke-Api -Bearer $tk12A.token -Method POST -Path ('/api/previdencia/esocial/' + $lotARem + '/enviar') -Base $ApiBase
+$loAd1 = Invoke-Api -Bearer $tk12A.token -Method GET -Path ('/api/previdencia/esocial/lotes/' + $lotAAdm) -Base $ApiBase
+$loAd1j = Get-S12Data $loAd1.body
+$loBad = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/esocial/gerar-lote' -Base $ApiBase -Body '{"competencia":"2026-09-01","tipoLote":"XPTO","dataFixa":"2026-09-20"}'
+$loBcomp = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/esocial/gerar-lote' -Base $ApiBase -Body '{"competencia":"2026-06-01","tipoLote":"ADMISAO_S1005","dataFixa":"2026-06-20"}'
+$loBenv = Invoke-Api -Bearer $tk12A.token -Method POST -Path '/api/previdencia/esocial/999999/enviar' -Base $ApiBase
+$okLoA = ($loA1.code -eq 200) -and ($null -ne $loA1j) -and ($loA1j.status -eq 'GERADO') -and ([int]$loA1j.totalEventos -eq 3) -and ([int]$loA1j.eventosComErro -eq 0) -and ($lotAAdmB -eq $lotAAdm) -and ($loAs1.code -eq 200) -and ($loAs1j.status -eq 'VALIDADO') -and ($loAs2.code -eq 200) -and ($loAs2j.status -eq 'VALIDADO') -and ($loA2.code -eq 200) -and ([int](($loA2j)).totalEventos -eq 4) -and ($loAs3.code -eq 200) -and ($loA3.code -eq 200) -and ([int](($loA3j)).totalEventos -eq 2) -and ($loAs4.code -eq 200) -and ($loAd1.code -eq 200) -and ($null -ne $loAd1j) -and (@($loAd1j.eventos).Count -eq 3) -and ($loBad.code -eq 400) -and (Get-S12Msg $loBad.body) -like '*LOTE_TIPO_INVALIDO*' -and ($loBcomp.code -eq 404) -and (Get-S12Msg $loBcomp.body) -like '*PREVIDENCIA_FOLHA_INEXISTENTE*' -and ($loBenv.code -eq 404) -and (Get-S12Msg $loBenv.body) -like '*PREVIDENCIA_LOTE_INEXISTENTE*'
+Add-Check 'S12' 'esocial.a-lotes-idempotentes-validados-invalidos' $okLoA ("lote ADMISAO_S1005 set/2026 -> GERADO 3 eventos (A,B,E) 0 erros; gerar de novo -> MESMO lote (idempotente); enviar -> VALIDADO e reenvio idempotente; TABELAS_S1000_S1010 -> 4 eventos (S-1000 + 3 S-1010) VALIDADO; REMUNERACAO_S1200 -> 2 eventos (calculos vigentes) VALIDADO; detalhe lista 3 alvos; tipo XPTO -> 400 LOTE_TIPO_INVALIDO; competencia 2026-06 sem folha -> 404 PREVIDENCIA_FOLHA_INEXISTENTE; lote 999999 -> 404 PREVIDENCIA_LOTE_INEXISTENTE (Portaria MTP 672/19)")
+$loB1 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/esocial/gerar-lote' -Base $ApiBase -Body '{"competencia":"2026-09-01","tipoLote":"ADMISAO_S1005","dataFixa":"2026-09-20"}'
+$loB1j = Get-S12Data $loB1.body; $lotBAdm = -1; if ($null -ne $loB1j) { $lotBAdm = [long]$loB1j.id }
+$loB1s = Invoke-Api -Bearer $tk12B.token -Method POST -Path ('/api/previdencia/esocial/' + $lotBAdm + '/enviar') -Base $ApiBase
+$dbBloq = Get-Psql "select l.status||'|'||case when l.enviado_em is null then 'NULL' else 'SET' end from sigov.previdencia_esocial_lote l where l.id=$lotBAdm"
+$loB1d = Invoke-Api -Bearer $tk12B.token -Method GET -Path ('/api/previdencia/esocial/lotes/' + $lotBAdm) -Base $ApiBase
+$loB1dj = Get-S12Data $loB1d.body
+$evAB = $null; if ($null -ne $loB1dj) { $evAB = @($loB1dj.eventos) | Where-Object { $_.alvoTexto -eq 'C2S12B-AB' } | Select-Object -First 1 }
+$okEvAB = ($null -ne $evAB) -and ($evAB.validacaoOk -eq $false) -and (($evAB.mensagens -join ' ') -like '*nome do servidor curto*')
+Add-Check 'S12' 'esocial.b-admisao-erro-validacao-bloqueada' (($loB1.code -eq 200) -and ($null -ne $loB1j) -and ([int]$loB1j.totalEventos -eq 3) -and ([int]$loB1j.eventosComErro -eq 1) -and ($loB1s.code -eq 409) -and (Get-S12Msg $loB1s.body) -like '*BLOQUEADO_VALIDACAO*' -and ($dbBloq.code -eq 0) -and ($dbBloq.text.Trim() -eq 'BLOQUEADO_VALIDACAO|NULL') -and $okEvAB) ("lote ADMISAO_S1005 tenant B: 3 eventos (D,C,AB) com 1 erro - servidor AB tem nome < 5 caracteres; enviar -> 409 BLOQUEADO_VALIDACAO; banco: status BLOQUEADO_VALIDACAO e enviado_em NULL (sem sucesso simulado - regra 13); detalhe aponta o evento C2S12B-AB invalido com mensagem")
+$loB2 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/esocial/gerar-lote' -Base $ApiBase -Body '{"competencia":"2026-10-01","tipoLote":"MOVIMENTACAO_S1006","dataFixa":"2026-10-20"}'
+$loB2j = Get-S12Data $loB2.body; $lotBMov = -1; if ($null -ne $loB2j) { $lotBMov = [long]$loB2j.id }
+$loB2s = Invoke-Api -Bearer $tk12B.token -Method POST -Path ('/api/previdencia/esocial/' + $lotBMov + '/enviar') -Base $ApiBase
+$loB3 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/esocial/gerar-lote' -Base $ApiBase -Body '{"competencia":"2026-09-01","tipoLote":"REMUNERACAO_S1200","dataFixa":"2026-09-20"}'
+$loB3j = Get-S12Data $loB3.body; $lotBRem = -1; if ($null -ne $loB3j) { $lotBRem = [long]$loB3j.id }
+$loB3s = Invoke-Api -Bearer $tk12B.token -Method POST -Path ('/api/previdencia/esocial/' + $lotBRem + '/enviar') -Base $ApiBase
+$loB4 = Invoke-Api -Bearer $tk12B.token -Method POST -Path '/api/previdencia/esocial/gerar-lote' -Base $ApiBase -Body '{"competencia":"2026-10-01","tipoLote":"REMUNERACAO_S1200","dataFixa":"2026-10-20"}'
+Add-Check 'S12' 'esocial.b-movimentacao-oct-validado-remuneracao-set-ok-out-409' (($loB2.code -eq 200) -and ($null -ne $loB2j) -and ([int]$loB2j.totalEventos -eq 1) -and ([int]$loB2j.eventosComErro -eq 0) -and ($loB2s.code -eq 200) -and ($loB3.code -eq 200) -and ([int](($loB3j)).totalEventos -eq 2) -and ($loB3s.code -eq 200) -and ($loB4.code -eq 409) -and (Get-S12Msg $loB4.body) -like '*FOLHA_NAO_FECHADA_PARA_LOTE*') ("MOVIMENTACAO_S1006 out/2026 -> 1 evento (saude AB iniciada em outubro, GED presente) VALIDADO; REMUNERACAO_S1200 set (fechada) -> 2 eventos VALIDADO; out (ABERTA) -> 409 FOLHA_NAO_FECHADA_PARA_LOTE")
+
+# --- BR-12.6 parametros (banco = autoridade) ------------------------------------
+$parA = Invoke-Api -Bearer $tk12A.token -Method GET -Path '/api/previdencia/parametros' -Base $ApiBase
+$parAj = Get-S12Data $parA.body
+$rowTeto = $null; $rowReg = $null; if ($null -ne $parAj) { $rowsA = @($parAj); $rowTeto = $rowsA | Where-Object { $_.codigo -eq 'TETO_REMUNERACAO_ESTADUAL' } | Select-Object -First 1; $rowReg = $rowsA | Where-Object { $_.codigo -eq 'PREVIDENCIA_REGIME' } | Select-Object -First 1 }
+$parB = Invoke-Api -Bearer $tk12B.token -Method GET -Path '/api/previdencia/parametros' -Base $ApiBase
+$parBj = Get-S12Data $parB.body
+$rowOvr = $null; if ($null -ne $parBj) { $rowsB = @($parBj); $rowOvr = $rowsB | Where-Object { $_.codigo -eq 'FERIAS_FRAC_MINIMO_DIAS' } | Select-Object -First 1 }
+$okParA = ($parA.code -eq 200) -and ($null -ne $parAj) -and (@($parAj).Count -ge 17) -and ($null -ne $rowTeto) -and ($rowTeto.origem -eq 'PADRAO') -and ($rowTeto.valorEfetivo -eq '44161.63') -and ($null -ne $rowReg) -and ($rowReg.valorEfetivo -eq 'RGPS')
+$okParB = ($parB.code -eq 200) -and ($null -ne $rowOvr) -and ($rowOvr.origem -eq 'OVERRIDE') -and ($rowOvr.valorEfetivo -eq '7')
+Add-Check 'S12' 'parametros.a-padrao-b-override-observaveis' ($okParA -and $okParB) ("GET /api/previdencia/parametros: tenant A expoe >= 17 parametros do modulo PREVIDENCIA com TETO_REMUNERACAO_ESTADUAL=44161.63 (PADRAO) e PREVIDENCIA_REGIME=RGPS; tenant B expoe FERIAS_FRAC_MINIMO_DIAS=7 com origem OVERRIDE (override por tenant sobre o padrao institucional - regra 11/12/24 observavel no banco)")
+
+# --- Dashboard + contexto institucional + fail-closed ---------------------------
+$dashA = Invoke-Api -Bearer $tk12A.token -Method GET -Path '/api/previdencia/dashboard' -Base $ApiBase
+$dashAj = Get-S12Data $dashA.body
+$dashB = Invoke-Api -Bearer $tk12B.token -Method GET -Path '/api/previdencia/dashboard' -Base $ApiBase
+$dashBj = Get-S12Data $dashB.body
+$okDashA = ($dashA.code -eq 200) -and ($null -ne $dashAj) -and ($dashAj.esferaGoverno -eq 'municipal') -and ([int]$dashAj.cargosAtivos -eq 3) -and ([int]$dashAj.servidoresAtivos -eq 2) -and ([int]$dashAj.competenciasFechadas -eq 4) -and ([int]$dashAj.calculosVigentes -eq 9) -and ([int]$dashAj.feriasCiclosComSaldo -eq 1) -and ([int]$dashAj.afastamentosAtivos -eq 1) -and ([int]$dashAj.lotesEsocialValidados -eq 3) -and (Get-S12Near $dashAj.totalLiquidoUltimaFolha 11543.79m)
+$okDashB = ($dashB.code -eq 200) -and ($null -ne $dashBj) -and ($dashBj.esferaGoverno -eq 'estadual')
+Add-Check 'S12' 'dashboard.indicadores-travados-multi-esfera' ($okDashA -and $okDashB) ("dashboard A: esfera municipal (contexto do usuario), 3 cargos, 2 servidores ativos, 4 competencias fechadas, 9 calculos vigentes, 1 ciclo com saldo, 1 afastamento ativo (adocao), 3 lotes eSocial validados, liquido ultima folha 11543.79 (A 8577.20 + B 2966.59); dashboard B: esfera estadual - cada usuario ve a propria esfera (regra 21/22, nada municipal hardcoded)")
+$fa1 = Invoke-Api -Bearer $tk12SemA.token -Method GET -Path '/api/previdencia/dashboard' -Base $ApiBase
+$fa2 = Invoke-Api -Bearer $tk12SemA.token -Method POST -Path '/api/previdencia/cargos' -Base $ApiBase -Body '{"codigoExterno":"CARGO-SEM","nome":"Sem Permissao C2S12A","modoRemuneracao":"SUBSIDIO","valorReferencia":1}'
+$fa3 = Invoke-Api -Bearer $tk12SemB.token -Method GET -Path '/api/previdencia/dashboard' -Base $ApiBase
+Add-Check 'S12' 'auth.failclosed-semperm-403' (($fa1.code -eq 403) -and ($fa2.code -eq 403) -and ($fa3.code -eq 403)) ("usuarios semperm (perfil logavel com 1 chave inofensiva FORA da frente): GET dashboard -> 403, POST cargos -> 403 nos dois tenants - autorizacao fail-closed por chave pontuada (regra 11)")
+$cx1 = Invoke-Api -Bearer $tk12B.token -Method GET -Path ('/api/previdencia/contracheque?vinculoId=' + $vA + '&competencia=2026-09-01') -Base $ApiBase
+$cx2 = Invoke-Api -Bearer $tk12A.token -Method GET -Path ('/api/previdencia/contracheque?vinculoId=' + $vD + '&competencia=2026-09-01') -Base $ApiBase
+Add-Check 'S12' 'auth.cruz-tenant-404-calculo-isolado' (($cx1.code -eq 404) -and (Get-S12Msg $cx1.body) -like '*PREVIDENCIA_CALCULO_INEXISTENTE*' -and ($cx2.code -eq 404) -and (Get-S12Msg $cx2.body) -like '*PREVIDENCIA_CALCULO_INEXISTENTE*') ("admin B consulta contracheque do vinculo A (tenant 910001) -> 404 PREVIDENCIA_CALCULO_INEXISTENTE; admin A consulta o vinculo D (tenant 910002) -> 404 - isolamento de tenant no acesso aos calculos")
+$sc1 = Get-Psql "alter table sigov.previdencia_cargo rename to previdencia_cargo_s12probe"
+$sc2 = Invoke-Api -Bearer $tk12A.token -Method GET -Path '/api/previdencia/cargos' -Base $ApiBase
+$sc3 = Get-Psql "alter table sigov.previdencia_cargo_s12probe rename to previdencia_cargo"
+$sc4 = Invoke-Api -Bearer $tk12A.token -Method GET -Path '/api/previdencia/cargos' -Base $ApiBase
+Add-Check 'S12' 'schema.ausente-404-nomeado-restaurado' (($sc1.code -eq 0) -and ($sc2.code -eq 404) -and (Get-S12Msg $sc2.body) -like '*PREVIDENCIA_NAO_DISPONIVEL*' -and ($sc3.code -eq 0) -and ($sc4.code -eq 200)) ("schema ausente (previdencia_cargo renomeada): GET /api/previdencia/cargos -> 404 PREVIDENCIA_NAO_DISPONIVEL com causa nomeada; schema restaurada -> 200 (falha explicita em vez de lista vazia - regra 13)")
+
+# --- limpeza do fixture S12 -----------------------------------------------------
+$s12cl = Get-Psql @"
+delete from sigov.previdencia_folha_calculo_item where calculo_id in (select id from sigov.previdencia_folha_calculo where tenant_id in (910001,910002));
+delete from sigov.previdencia_folha_calculo where tenant_id in (910001,910002);
+delete from sigov.previdencia_remun_item where vinculo_id in (select id from sigov.previdencia_vinculo where tenant_id in (910001,910002));
+delete from sigov.previdencia_ferias_programacao where ferias_id in (select id from sigov.previdencia_ferias where tenant_id in (910001,910002));
+delete from sigov.previdencia_esocial_evento where lote_id in (select id from sigov.previdencia_esocial_lote where tenant_id in (910001,910002));
+delete from sigov.previdencia_decimo where tenant_id in (910001,910002);
+delete from sigov.previdencia_afastamento where tenant_id in (910001,910002);
+delete from sigov.previdencia_esocial_lote where tenant_id in (910001,910002);
+delete from sigov.previdencia_folha_competencia where tenant_id in (910001,910002);
+delete from sigov.previdencia_ferias where tenant_id in (910001,910002);
+delete from sigov.previdencia_vinculo where tenant_id in (910001,910002);
+delete from sigov.previdencia_servidor where tenant_id in (910001,910002);
+delete from sigov.previdencia_cargo where tenant_id in (910001,910002);
+delete from sigov.parametro_modulo_valor where correlation_id='c2s12-frac-override-e2e';
+delete from sigov.autorizacao_decisao_auditoria where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.auditoria_evento where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.identidade_sessao where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.sessao_usuario where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.sessao_contexto_usuario where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.contexto_operacional_auditoria where usuario_executor_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.usuario_contexto_global_log where usuario_global_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.historico_login where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.trilha_auditoria where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.token_mfa where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.senha_redefinicao_token where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.fila_assinatura where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.usuario_preferencia where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.usuario_filtro_salvo where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.perfil_permissao where correlation_id in ('cf58c2ab-1c20-4a90-88f8-0c2000000021','cf58c2ab-1c20-4a90-88f8-0c2000000022','cf58c2ab-1c20-4a90-88f8-0c2000000023','cf58c2ab-1c20-4a90-88f8-0c2000000024');
+delete from sigov.usuario_grupo where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'));
+delete from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%');
+delete from sigov.grupo_perfil where grupo_acesso_id in (select id from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo='C2S12A-SEMP') or (tenant_id=910002 and codigo_externo in ('C2S12B-ADM','C2S12B-SEMP')));
+delete from sigov.perfil_acesso where (tenant_id=910001 and nome='C2S12A Perfil SemFrente') or (tenant_id=910002 and nome in ('C2S12B Perfil Administracao','C2S12B Perfil SemFrente'));
+delete from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo='C2S12A-SEMP') or (tenant_id=910002 and codigo_externo in ('C2S12B-ADM','C2S12B-SEMP'));
+delete from sigov.entidade where (tenant_id=910001 and codigo_externo='C2S12A-ENT') or (tenant_id=910002 and codigo_externo='C2S12B-ENT');
+select (select count(*) from sigov.previdencia_folha_calculo_item ci join sigov.previdencia_folha_calculo k on k.id=ci.calculo_id where k.tenant_id in (910001,910002))
+  + (select count(*) from sigov.previdencia_folha_calculo where tenant_id in (910001,910002))
+  + (select count(*) from sigov.previdencia_remun_item ri join sigov.previdencia_vinculo v on v.id=ri.vinculo_id where v.tenant_id in (910001,910002))
+  + (select count(*) from sigov.previdencia_ferias_programacao pp join sigov.previdencia_ferias f on f.id=pp.ferias_id where f.tenant_id in (910001,910002))
+  + (select count(*) from sigov.previdencia_esocial_evento ee join sigov.previdencia_esocial_lote l on l.id=ee.lote_id where l.tenant_id in (910001,910002))
+  + (select count(*) from sigov.previdencia_decimo where tenant_id in (910001,910002))
+  + (select count(*) from sigov.previdencia_afastamento where tenant_id in (910001,910002))
+  + (select count(*) from sigov.previdencia_esocial_lote where tenant_id in (910001,910002))
+  + (select count(*) from sigov.previdencia_folha_competencia where tenant_id in (910001,910002))
+  + (select count(*) from sigov.previdencia_ferias where tenant_id in (910001,910002))
+  + (select count(*) from sigov.previdencia_vinculo where tenant_id in (910001,910002))
+  + (select count(*) from sigov.previdencia_servidor where tenant_id in (910001,910002))
+  + (select count(*) from sigov.previdencia_cargo where tenant_id in (910001,910002))
+  + (select count(*) from sigov.parametro_modulo_valor where correlation_id='c2s12-frac-override-e2e')
+  + (select count(*) from sigov.perfil_permissao where correlation_id in ('cf58c2ab-1c20-4a90-88f8-0c2000000021','cf58c2ab-1c20-4a90-88f8-0c2000000022','cf58c2ab-1c20-4a90-88f8-0c2000000023','cf58c2ab-1c20-4a90-88f8-0c2000000024'))
+  + (select count(*) from sigov.usuario where (tenant_id=910001 and login like 'c2s12a.%') or (tenant_id=910002 and login like 'c2s12b.%'))
+  + (select count(*) from sigov.grupo_perfil where grupo_acesso_id in (select id from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo='C2S12A-SEMP') or (tenant_id=910002 and codigo_externo in ('C2S12B-ADM','C2S12B-SEMP'))))
+  + (select count(*) from sigov.perfil_acesso where (tenant_id=910001 and nome='C2S12A Perfil SemFrente') or (tenant_id=910002 and nome in ('C2S12B Perfil Administracao','C2S12B Perfil SemFrente')))
+  + (select count(*) from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo='C2S12A-SEMP') or (tenant_id=910002 and codigo_externo in ('C2S12B-ADM','C2S12B-SEMP')))
+  + (select count(*) from sigov.entidade where (tenant_id=910001 and codigo_externo='C2S12A-ENT') or (tenant_id=910002 and codigo_externo='C2S12B-ENT'));
+"@
+Add-Check 'S12' 'fixture.removido-auto-limpeza-restantes-zero' (($s12cl.code -eq 0) -and ($s12cl.text -eq '0')) ("cleanup cirurgico S12 nos DOIS tenants (calculos+items, remun_items, ferias+programacoes, afastamentos, decimo, lotes+eventos eSocial, competencias, vinculos, servidores, cargos, override c2s12-frac-override-e2e, sessoes/auditorias dos 4 usuarios, grants sentinel cf58c2ab-...021-024, usuarios c2s12a.*/c2s12b.*, grupos+perfis dedicados C2S12, entidades C2S12A-ENT/C2S12B-ENT) -> restantes=" + $s12cl.text)
+
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"
 create temp table if not exists c1t2_alvo (diario_id bigint, aula_id bigint);

@@ -1,0 +1,90 @@
+@{ ViewData["Title"] = "Servidores"; }
+<section class="previdencia-station" aria-labelledby="titulo-servidores">
+  <header class="mb-3">
+    <h1 id="titulo-servidores">Servidores</h1>
+    <p class="text-muted mb-0">Admissão por cargo, itens de remuneração por natureza catalogada e desligamento com motivo — vínculo único ativo por servidor.</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <div class="card mb-4"><div class="card-header fw-semibold">Admitir servidor</div><div class="card-body">
+    <form id="form-admissao" novalidate class="row g-2 align-items-end">
+      <label class="col-md-3 col-lg-2">Matrícula funcional<input class="form-control" name="matriculaFuncional" required maxlength="40" /></label>
+      <label class="col-md-5 col-lg-3">Nome completo<input class="form-control" name="nome" required maxlength="160" /></label>
+      <label class="col-md-2 col-lg-2">Código do cargo<input class="form-control" name="cargoCodigo" required maxlength="40" /></label>
+      <label class="col-md-2 col-lg-2">Data de admissão<input class="form-control" name="dataAdmissao" type="date" required /></label>
+      <label class="col-md-2 col-lg-2">Tipo de vínculo
+        <select class="form-select" name="tipoVinculo" required>
+          <option value="EFETIVO">Efetivo</option>
+          <option value="COMISSAO">Comissão</option>
+          <option value="TEMPORARIO">Temporário</option>
+        </select></label>
+      <label class="col-md-2 col-lg-2">UF<input class="form-control" name="uf" maxlength="2" /></label>
+      <div class="col-12"><button class="btn btn-primary" type="submit">Admitir</button></div>
+    </form>
+  </div></div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-6"><div class="card h-100"><div class="card-header fw-semibold">Lançar remuneração (natureza catalogada)</div><div class="card-body">
+      <form id="form-remuneracao" novalidate class="row g-2 align-items-end">
+        <label class="col-6">Vínculo (id)<input class="form-control" name="vinculoId" type="number" min="1" required /></label>
+        <label class="col-6">Natureza (código)<input class="form-control" name="naturezaCodigo" required maxlength="40" list="nats" /></label>
+        <datalist id="nats"><option value="VENCIMENTO"></option><option value="ADICIONAL_TITULO"></option><option value="GRATIFICACAO_FUNCAO"></option><option value="ABONO_PERMANENCIA"></option><option value="OUTRAS_RENDA"></option><option value="DESCONTO_OUTROS"></option></datalist>
+        <label class="col-6">Valor (R$)<input class="form-control" name="valor" type="number" min="0" step="0.01" required /></label>
+        <label class="col-6 form-check mb-0"><input class="form-check-input" name="alterar" type="checkbox" />Alterar item existente</label>
+        <div class="col-12"><button class="btn btn-outline-primary" type="submit">Lançar item</button></div>
+      </form>
+    </div></div></div>
+    <div class="col-lg-6"><div class="card h-100"><div class="card-header fw-semibold">Desligar servidor</div><div class="card-body">
+      <form id="form-desligamento" novalidate class="row g-2 align-items-end">
+        <label class="col-4">Vínculo (id)<input class="form-control" name="vinculoId" type="number" min="1" required /></label>
+        <label class="col-4">Data do desligamento<input class="form-control" name="dataDesligamento" type="date" required /></label>
+        <label class="col-4">Motivo registrado<input class="form-control" name="motivo" required maxlength="160" /></label>
+        <div class="col-12"><button class="btn btn-outline-danger" type="submit">Desligar</button></div>
+      </form>
+    </div></div></div>
+  </div>
+
+  <div class="alert d-none" data-mensagem role="status" aria-live="polite"></div>
+  <div class="loading-skeleton" data-loading hidden aria-live="polite">Carregando servidores…</div>
+  <div data-resultado hidden>
+    <div class="responsive-data-table"><table class="table table-striped table-hover"><caption class="visually-hidden">Servidores e vínculos</caption>
+      <thead><tr><th>Matrícula</th><th>Nome</th><th>Esfera</th><th>Cargo</th><th>Vínculo (id)</th><th>Tipo</th><th>Admissão</th><th>Base (R$)</th><th>Situação</th></tr></thead>
+      <tbody data-lista></tbody>
+    </table></div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const loading = root.querySelector('[data-loading]'), result = root.querySelector('[data-resultado]'), message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; };
+  const brl = v => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  async function listar() {
+    loading.hidden = false; message.classList.add('d-none');
+    try {
+      const rows = await envelope(await fetch('/api/previdencia/servidores', { credentials: 'same-origin' }));
+      const body = result.querySelector('[data-lista]');
+      body.replaceChildren(...rows.map(s => {
+        const tr = document.createElement('tr');
+        [s.matriculaFuncional, s.nome, s.esferaGoverno, `${s.cargoCodigo} — ${s.cargoNome}`, s.vinculoId, s.tipoVinculo, s.dataAdmissao, brl(s.vencimentoBase), s.situacaoVinculo].forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.append(td); });
+        return tr;
+      }));
+      if (!rows.length) body.innerHTML = '<tr><td colspan="9">Nenhum servidor admitido ainda.</td></tr>';
+      result.hidden = false;
+    } catch (e) { notice(e.message); result.hidden = true; }
+    finally { loading.hidden = true; }
+  }
+  const post = async (form, url, payload) => {
+    if (!form.reportValidity()) return false;
+    try { await envelope(await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })); notice('Operação concluída.', 'success'); form.reset(); await listar(); return true; }
+    catch (e) { notice(e.message); return false; }
+  };
+  root.querySelector('#form-admissao').addEventListener('submit', async e => { e.preventDefault(); const f = new FormData(e.target); await post(e.target, '/api/previdencia/servidores', { matriculaFuncional: f.get('matriculaFuncional'), nome: f.get('nome'), cargoCodigo: f.get('cargoCodigo'), dataAdmissao: f.get('dataAdmissao'), tipoVinculo: f.get('tipoVinculo'), uf: f.get('uf') || null }); });
+  root.querySelector('#form-remuneracao').addEventListener('submit', async e => { e.preventDefault(); const f = new FormData(e.target); await post(e.target, '/api/previdencia/remuneracoes', { vinculoId: Number(f.get('vinculoId')), naturezaCodigo: f.get('naturezaCodigo'), valor: Number(f.get('valor')), alterar: f.get('alterar') }); });
+  root.querySelector('#form-desligamento').addEventListener('submit', async e => { e.preventDefault(); const f = new FormData(e.target); const motivo = prompt('Confirme o motivo do desligamento (será auditado):'); if (motivo) f.set('motivo', motivo); await post(e.target, '/api/previdencia/desligamentos', { vinculoId: Number(f.get('vinculoId')), dataDesligamento: f.get('dataDesligamento'), motivo: f.get('motivo') }); });
+  listar();
+})();
+</script>

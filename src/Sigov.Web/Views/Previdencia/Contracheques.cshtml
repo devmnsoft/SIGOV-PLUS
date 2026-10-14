@@ -1,0 +1,60 @@
+@{ ViewData["Title"] = "Contracheques"; }
+<section class="previdencia-station" aria-labelledby="titulo-contracheques">
+  <header class="mb-3">
+    <h1 id="titulo-contracheques">Contracheques</h1>
+    <p class="text-muted mb-0">Comprovante de pagamento versionado: composição do bruto, contribuições, deduções e líquido, com fórmulas auditáveis de cada item (LGPD: dados mínimos, sem CPF).</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <form class="filter-bar mb-4" novalidate>
+    <label for="ct-vinculo">Vínculo (id)<input class="form-control" id="ct-vinculo" type="number" min="1" required /></label>
+    <label for="ct-comp">Competência<input class="form-control" id="ct-comp" type="date" required /></label>
+    <button class="btn btn-primary align-self-end" type="submit">Carregar contracheque</button>
+  </form>
+
+  <div class="alert d-none" data-mensagem role="status" aria-live="polite"></div>
+  <div data-resultado hidden>
+    <div class="card mb-3"><div class="card-body" data-servidor>—</div></div>
+    <div class="row g-3 mb-4" aria-label="Totais do contracheque">
+      <article class="col-6 col-md"><div class="card h-100"><div class="card-body"><strong class="fs-5" data-bruto>—</strong><span class="text-muted d-block">Bruto (R$)</span></div></div></article>
+      <article class="col-6 col-md"><div class="card h-100"><div class="card-body"><strong class="fs-5 text-danger" data-inss>—</strong><span class="text-muted d-block">Contribuição previdenciária (R$)</span></div></div></article>
+      <article class="col-6 col-md"><div class="card h-100"><div class="card-body"><strong class="fs-5 text-danger" data-irrf>—</strong><span class="text-muted d-block">IRRF (R$)</span></div></div></article>
+      <article class="col-6 col-md"><div class="card h-100"><div class="card-body"><strong class="fs-5 text-success" data-liquido>—</strong><span class="text-muted d-block">Líquido (R$)</span></div></div></article>
+    </div>
+    <div class="responsive-data-table"><table class="table table-striped table-sm"><caption class="visually-hidden">Itens do cálculo</caption>
+      <thead><tr><th>#</th><th>Grupo</th><th>Descrição</th><th>Base</th><th>Valor</th><th>Fórmula / fundamento</th></tr></thead>
+      <tbody data-itens></tbody>
+    </table></div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const form = root.querySelector('.filter-bar'), loading = null, message = root.querySelector('[data-mensagem]'), result = root.querySelector('[data-resultado]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; };
+  const brl = v => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!form.reportValidity()) return;
+    try {
+      const d = await envelope(await fetch(`/api/previdencia/contracheque?vinculoId=${form.querySelector('#ct-vinculo').value}&competencia=${form.querySelector('#ct-comp').value}`, { credentials: 'same-origin' }));
+      result.querySelector('[data-servidor]').textContent = `${d.matriculaFuncional} — ${d.nome} | ${d.cargoCodigo} ${d.cargoNome} (${d.esferaGoverno}) | competência ${d.competencia}, versão ${d.versao} (data-base ${d.dataBaseCalculo}), status ${d.status}.`;
+      result.querySelector('[data-bruto]').textContent = brl(d.bruto);
+      result.querySelector('[data-inss]').textContent = brl(d.inssValor);
+      result.querySelector('[data-irrf]').textContent = brl(d.irrfValor);
+      result.querySelector('[data-liquido]').textContent = brl(d.liquido);
+      const body = result.querySelector('[data-itens]');
+      body.replaceChildren(...(d.itens || []).map(i => {
+        const tr = document.createElement('tr');
+        [i.sequencia, i.grupo, i.descricao, i.base != null ? brl(i.base) : '—', brl(i.valor), i.formula || '—'].forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.append(td); });
+        return tr;
+      }));
+      result.hidden = false;
+      notice('Contracheque carregado.', 'success');
+    } catch (err) { notice(err.message); }
+  });
+})();
+</script>

@@ -1,0 +1,41 @@
+@{ ViewData["Title"] = "Parâmetros da Frente"; }
+<section class="previdencia-station" aria-labelledby="titulo-parametros">
+  <header class="mb-3">
+    <h1 id="titulo-parametros">Parâmetros da Frente de Previdência</h1>
+    <p class="text-muted mb-0">Fonte de autoridade das regras: regime, tetos por esfera, prazos de férias, parcelas do 13º e durações de afastamento. Override por tenant sobre o padrão institucional.</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <div class="alert d-none" data-mensagem role="status" aria-live="polite"></div>
+  <div class="loading-skeleton" data-loading hidden aria-live="polite">Carregando parâmetros…</div>
+  <div data-resultado hidden>
+    <div class="responsive-data-table"><table class="table table-sm table-striped"><caption class="visually-hidden">Parâmetros efetivos do módulo PREVIDENCIA</caption>
+      <thead><tr><th>Código</th><th>Nome</th><th>Tipo</th><th>Valor efetivo</th><th>Origem</th><th>Descrição</th></tr></thead>
+      <tbody data-lista></tbody>
+    </table></div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const loading = root.querySelector('[data-loading]'), result = root.querySelector('[data-resultado]'), message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = t => { message.className = 'alert alert-danger'; message.textContent = t; };
+  (async () => {
+    loading.hidden = false;
+    try {
+      const rows = await envelope(await fetch('/api/previdencia/parametros', { credentials: 'same-origin' }));
+      const body = result.querySelector('[data-lista]');
+      body.replaceChildren(...rows.map(p => {
+        const tr = document.createElement('tr');
+        [p.codigo, p.nome, p.tipo, p.valorEfetivo, p.origem, p.descricao || '—'].forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.append(td); });
+        return tr;
+      }));
+      result.hidden = false;
+    } catch (e) { notice(e.message); }
+    finally { loading.hidden = true; }
+  })();
+})();
+</script>

@@ -164,6 +164,9 @@ public static class DependencyInjection
         // RC-EVO Ciclo 2 Sprint 8: frente integrada de compras (demanda -> contratacao -> contrato)
         services.AddScoped<Sigov.Infrastructure.Compras.ComprasIntegradasRepository>();
         services.AddScoped<Sigov.Application.Compras.Integradas.IComprasIntegradasService>(p => p.GetRequiredService<Sigov.Infrastructure.Compras.ComprasIntegradasRepository>());
+        // RC-EVO Ciclo 2 Sprint 12: estacao de folha e previdencia publica (BR-12.1 a BR-12.8)
+        services.AddScoped<Sigov.Infrastructure.Previdencia.PrevidenciaFolhaRepository>();
+        services.AddScoped<Sigov.Application.Rh.Previdencia.IPrevidenciaFolhaService>(p => p.GetRequiredService<Sigov.Infrastructure.Previdencia.PrevidenciaFolhaRepository>());
         services.AddScoped<Sigov.Application.Compras.ILicitaProService, LicitaProService>();
         services.AddScoped<TributarioAvancadoRepository>();
         services.AddScoped<ITributarioCarnesBoletosRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());

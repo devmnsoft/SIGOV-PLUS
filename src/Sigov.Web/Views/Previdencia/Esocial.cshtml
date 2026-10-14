@@ -1,0 +1,81 @@
+@{ ViewData["Title"] = "eSocial Pública"; }
+<section class="previdencia-station" aria-labelledby="titulo-esocial">
+  <header class="mb-3">
+    <h1 id="titulo-esocial">eSocial Pública (Portaria MTP 672/2019)</h1>
+    <p class="text-muted mb-0">Lotes de eventos por competência e tipo, validação prévia determinística e bloqueio explícito quando há erro — sem sucesso simulado.</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-6"><div class="card h-100"><div class="card-header fw-semibold">Gerar lote (idempotente por competência e tipo)</div><div class="card-body">
+      <form id="form-lote" novalidate class="row g-2 align-items-end">
+        <label class="col-6">Competência<input class="form-control" name="competencia" type="date" required /></label>
+        <label class="col-6">Tipo de lote
+          <select class="form-select" name="tipoLote" required>
+            <option value="TABELAS_S1000_S1010">Tabelas S-1000/S-1010</option>
+            <option value="ADMISAO_S1005">Admissão S-1005</option>
+            <option value="MOVIMENTACAO_S1006">Movimentação S-1006</option>
+            <option value="REMUNERACAO_S1200">Remuneração S-1200 (folha fechada)</option>
+          </select></label>
+        <label class="col-12">Data-base<input class="form-control" name="dataFixa" type="date" required /></label>
+        <div class="col-12"><button class="btn btn-primary" type="submit">Gerar lote</button></div>
+      </form>
+    </div></div></div>
+    <div class="col-lg-6"><div class="card h-100"><div class="card-header fw-semibold">Enviar / consultar lote</div><div class="card-body">
+      <form id="form-envio" novalidate class="row g-2 align-items-end">
+        <label class="col-5">Lote (id)<input class="form-control" name="loteId" type="number" min="1" required /></label>
+        <div class="col-7 d-flex gap-2">
+          <button class="btn btn-outline-primary" type="button" data-enviar>Enviar (valida antes)</button>
+          <button class="btn btn-outline-secondary" type="button" data-detalhe>Detalhar eventos</button>
+        </div>
+      </form>
+    </div></div></div>
+  </div>
+
+  <div class="alert d-none" data-mensagem role="status" aria-live="polite"></div>
+  <div data-lote hidden>
+    <p class="text-muted mb-2" data-resumo-lote>—</p>
+    <div class="responsive-data-table"><table class="table table-sm table-striped"><caption class="visually-hidden">Eventos do lote</caption>
+      <thead><tr><th>Seq</th><th>Evento</th><th>Alvo</th><th>Validação</th><th>Mensagens</th></tr></thead>
+      <tbody data-eventos></tbody>
+    </table></div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; };
+  root.querySelector('#form-lote').addEventListener('submit', async e => {
+    e.preventDefault(); const f = new FormData(e.target);
+    try {
+      const d = await envelope(await fetch('/api/previdencia/esocial/gerar-lote', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ competencia: f.get('competencia'), tipoLote: f.get('tipoLote'), dataFixa: f.get('dataFixa') }) }));
+      notice(`Lote #${d.id} ${d.status}: ${d.totalEventos} evento(s), ${d.eventosComErro} com erro.`, d.eventosComErro ? 'warning' : 'success');
+      root.querySelector('#form-envio').loteId.value = d.id;
+    } catch (err) { notice(err.message); }
+  });
+  root.querySelector('[data-detalhe]').addEventListener('click', async () => {
+    const id = root.querySelector('#form-envio').loteId.value; if (!id) return notice('Informe o id do lote.');
+    try {
+      const d = await envelope(await fetch(`/api/previdencia/esocial/lotes/${id}`, { credentials: 'same-origin' }));
+      const box = root.querySelector('[data-lote]'); box.hidden = false;
+      box.querySelector('[data-resumo-lote]').textContent = `Lote #${d.lote.id} — ${d.lote.competencia} — ${d.lote.tipoLote} — versão ${d.lote.versao} — status ${d.lote.status} — ${d.lote.totalEventos} evento(s), ${d.lote.eventosComErro} com erro.`;
+      box.querySelector('[data-eventos]').replaceChildren(...d.eventos.map(ev => {
+        const tr = document.createElement('tr');
+        [ev.sequencia, ev.evento, ev.alvoTexto, ev.validacaoOk ? 'OK' : 'COM ERRO', (ev.mensagens || []).join('; ') || '—'].forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.append(td); });
+        return tr;
+      }));
+    } catch (err) { notice(err.message); }
+  });
+  root.querySelector('[data-enviar]').addEventListener('click', async () => {
+    const id = root.querySelector('#form-envio').loteId.value; if (!id) return notice('Informe o id do lote.');
+    try {
+      const d = await envelope(await fetch(`/api/previdencia/esocial/${id}/enviar`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' }));
+      notice(`Lote #${d.id} enviado — status ${d.status}.`, 'success');
+    } catch (err) { notice(err.message); }
+  });
+})();
+</script>

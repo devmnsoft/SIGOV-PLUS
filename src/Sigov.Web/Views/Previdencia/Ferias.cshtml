@@ -1,0 +1,84 @@
+@{ ViewData["Title"] = "Férias"; }
+<section class="previdencia-station" aria-labelledby="titulo-ferias">
+  <header class="mb-3">
+    <h1 id="titulo-ferias">Férias e Ciclos Aquisitivos</h1>
+    <p class="text-muted mb-0">Apuração do ciclo aquisitivo (30 dias por 12 meses), programação com aviso prévio, fracionamento, abono pecuniário e adicional constitucional de 1/3 — tudo parametrizado.</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-5"><div class="card h-100"><div class="card-header fw-semibold">Apurar ciclos aquisitivos</div><div class="card-body">
+      <form id="form-apuracao" novalidate class="row g-2 align-items-end">
+        <label class="col-6">Vínculo (id)<input class="form-control" name="vinculoId" type="number" min="1" required /></label>
+        <label class="col-6">Data-base<input class="form-control" name="dataFixa" type="date" required /></label>
+        <div class="col-12"><button class="btn btn-primary" type="submit">Apurar</button></div>
+      </form>
+      <p class="text-muted small mt-2 mb-0" data-apuracao>—</p>
+    </div></div></div>
+    <div class="col-lg-7"><div class="card h-100"><div class="card-header fw-semibold">Programar período de gozo (Lei 8.112/90 art. 80: até 3 períodos, 1ª fração ≥ 14 dias)</div><div class="card-body">
+      <form id="form-programacao" novalidate class="row g-2 align-items-end">
+        <label class="col-6 col-md-4">Vínculo (id)<input class="form-control" name="vinculoId" type="number" min="1" required /></label>
+        <label class="col-6 col-md-4">Data-base<input class="form-control" name="dataFixa" type="date" required /></label>
+        <label class="col-6 col-md-4">Início do gozo<input class="form-control" name="dataInicio" type="date" required /></label>
+        <label class="col-6 col-md-4">Fim do gozo<input class="form-control" name="dataFim" type="date" required /></label>
+        <label class="col-6 col-md-4">Dias de gozo<input class="form-control" name="diasGoze" type="number" min="1" max="30" required /></label>
+        <label class="col-6 col-md-4">Dias de abono (mín. 10 se &gt; 0)<input class="form-control" name="diasAbono" type="number" min="0" max="30" value="0" /></label>
+        <div class="col-12"><button class="btn btn-outline-primary" type="submit">Programar</button></div>
+        <p class="col-12 text-muted small mb-0" data-programacao>—</p>
+      </form>
+    </div></div></div>
+  </div>
+
+  <div class="card mb-4"><div class="card-header fw-semibold">Registrar início de gozo</div><div class="card-body">
+    <form id="form-gozo" novalidate class="row g-2 align-items-end">
+      <label class="col-md-4 col-lg-3">Programação (id)<input class="form-control" name="programacaoId" type="number" min="1" required /></label>
+      <label class="col-md-4 col-lg-3">Data-base<input class="form-control" name="dataFixa" type="date" required /></label>
+      <div class="col-12"><button class="btn btn-outline-success" type="submit">Registrar gozo</button></div>
+    </form>
+  </div></div>
+
+  <div class="alert d-none" data-mensagem role="status" aria-live="polite"></div>
+  <div data-ciclos hidden>
+    <h2 class="h5">Ciclos aquisitivos</h2>
+    <div class="responsive-data-table"><table class="table table-sm table-striped"><caption class="visually-hidden">Ciclos aquisitivos de férias</caption>
+      <thead><tr><th>Início</th><th>Fim</th><th>Adquiridos</th><th>Gozados</th><th>Abonados</th><th>Saldo</th></tr></thead>
+      <tbody data-lista-ciclos></tbody>
+    </table></div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; };
+  root.querySelector('#form-apuracao').addEventListener('submit', async e => {
+    e.preventDefault(); const f = new FormData(e.target);
+    try {
+      const d = await envelope(await fetch('/api/previdencia/ferias/apurar-aquisicao', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vinculoId: Number(f.get('vinculoId')), dataFixa: f.get('dataFixa') }) }));
+      root.querySelector('[data-apuracao]').textContent = `${d.ciclosCriados} ciclo(s) criado(s); total ${d.totalCiclos} ciclos e saldo de ${d.saldoTotalDias} dias.`;
+      notice('Apuração concluída.', 'success');
+      const box = root.querySelector('[data-ciclos]'); box.hidden = false;
+      const body = root.querySelector('[data-lista-ciclos]');
+      body.replaceChildren(...d.ciclos.map(c => { const tr = document.createElement('tr'); [c.inicioAquisitivo, c.fimAquisitivo, c.diasAdquiridos, c.diasGozados, c.diasAbonados, c.saldoDias].forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.append(td); }); return tr; }));
+    } catch (err) { notice(err.message); }
+  });
+  root.querySelector('#form-programacao').addEventListener('submit', async e => {
+    e.preventDefault(); const f = new FormData(e.target);
+    try {
+      const d = await envelope(await fetch('/api/previdencia/ferias/programar', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vinculoId: Number(f.get('vinculoId')), dataFixa: f.get('dataFixa'), dataInicio: f.get('dataInicio'), dataFim: f.get('dataFim'), diasGoze: Number(f.get('diasGoze')), diasAbono: Number(f.get('diasAbono')) }) }));
+      root.querySelector('[data-programacao]').textContent = `Programação #${d.id}: ${d.dataInicio} a ${d.dataFim}, gozo ${d.diasGoze}d + abono ${d.diasAbono}d, 1/3 R$ ${Number(d.adicionalTerco).toLocaleString('pt-BR')} (salário-dia R$ ${Number(d.salarioDia).toLocaleString('pt-BR')}). Saldo restante: ${d.saldoRestanteDias} dias.`;
+      notice('Período programado.', 'success');
+    } catch (err) { notice(err.message); }
+  });
+  root.querySelector('#form-gozo').addEventListener('submit', async e => {
+    e.preventDefault(); const f = new FormData(e.target);
+    try {
+      await envelope(await fetch(`/api/previdencia/ferias/${f.get('programacaoId')}/gozo`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ programacaoId: Number(f.get('programacaoId')), dataFixa: f.get('dataFixa') }) }));
+      notice('Início de gozo registrado.', 'success');
+    } catch (err) { notice(err.message); }
+  });
+})();
+</script>

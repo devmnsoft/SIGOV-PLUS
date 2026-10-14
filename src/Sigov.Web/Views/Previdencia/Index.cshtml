@@ -1,0 +1,68 @@
+@{ ViewData["Title"] = "Folha e Previdência Pública"; }
+<section class="previdencia-station" aria-labelledby="titulo-previdencia">
+  <header class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+    <div>
+      <span class="lgpd-badge">Acesso autorizado e auditado</span>
+      <h1 id="titulo-previdencia">Folha e Previdência Pública</h1>
+      <p class="text-muted mb-0">Cargos, servidores, folha determinística, férias, afastamentos, 13º e eSocial pública — multi-esfera (municipal, estadual e federal).</p>
+    </div>
+    <button class="btn btn-outline-primary" type="button" data-atualizar>Atualizar painel</button>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <form class="filter-bar" novalidate>
+    <label for="comp-painel">Última competência <input class="form-control" id="comp-painel" type="date" /></label>
+    <p class="text-muted small mb-0">O indicador de total líquido usa a última competência fechada registrada para o órgão.</p>
+  </form>
+
+  <div class="alert d-none" data-mensagem role="status" aria-live="polite"></div>
+  <div class="loading-skeleton" data-loading hidden aria-live="polite">Carregando o painel com dados persistidos…</div>
+
+  <div data-resultado hidden>
+    <div class="row g-3" aria-label="Indicadores da folha e previdência">
+      <article class="col-6 col-md-4 col-xl-2"><div class="card h-100"><div class="card-body"><strong class="fs-4" data-esfera>—</strong><span class="text-muted d-block">Esfera do órgão</span></div></div></article>
+      <article class="col-6 col-md-4 col-xl-2"><div class="card h-100"><div class="card-body"><strong class="fs-4" data-cargos>—</strong><span class="text-muted d-block">Cargos ativos</span></div></div></article>
+      <article class="col-6 col-md-4 col-xl-2"><div class="card h-100"><div class="card-body"><strong class="fs-4" data-servidores>—</strong><span class="text-muted d-block">Servidores ativos</span></div></div></article>
+      <article class="col-6 col-md-4 col-xl-2"><div class="card h-100"><div class="card-body"><strong class="fs-4" data-fechadas>—</strong><span class="text-muted d-block">Competências fechadas</span></div></div></article>
+      <article class="col-6 col-md-4 col-xl-2"><div class="card h-100"><div class="card-body"><strong class="fs-4" data-calc>—</strong><span class="text-muted d-block">Cálculos vigentes</span></div></div></article>
+      <article class="col-6 col-md-4 col-xl-2"><div class="card h-100"><div class="card-body"><strong class="fs-4" data-ferias>—</strong><span class="text-muted d-block">Ciclos de férias com saldo</span></div></div></article>
+      <article class="col-6 col-md-4 col-xl-2"><div class="card h-100"><div class="card-body"><strong class="fs-4" data-afast>—</strong><span class="text-muted d-block">Afastamentos ativos</span></div></div></article>
+      <article class="col-6 col-md-4 col-xl-2"><div class="card h-100"><div class="card-body"><strong class="fs-4" data-lotes>—</strong><span class="text-muted d-block">Lotes eSocial gerados</span></div></div></article>
+      <article class="col-6 col-md-4 col-xl-2"><div class="card h-100"><div class="card-body"><strong class="fs-4" data-validados>—</strong><span class="text-muted d-block">Lotes validados</span></div></div></article>
+      <article class="col-6 col-md-4 col-xl-2"><div class="card h-100"><div class="card-body"><strong class="fs-4" data-bloqueados>—</strong><span class="text-muted d-block">Lotes bloqueados em validação</span></div></div></article>
+      <article class="col-6 col-md-4 col-xl-2"><div class="card h-100"><div class="card-body"><strong class="fs-4" data-liquido>—</strong><span class="text-muted d-block">Líquido última folha fechada (R$)</span></div></div></article>
+    </div>
+    <p class="text-muted small mt-3 mb-0">Zero é estado real do banco (nenhum registro ainda), nunca indisponibilidade — regra 13.</p>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const loading = root.querySelector('[data-loading]'), result = root.querySelector('[data-resultado]'), message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; };
+  async function carregar() {
+    loading.hidden = false; message.classList.add('d-none');
+    try {
+      const d = await envelope(await fetch('/api/previdencia/dashboard', { credentials: 'same-origin' }));
+      root.querySelector('[data-esfera]').textContent = d.esferaGoverno ?? 'não configurada';
+      root.querySelector('[data-cargos]').textContent = d.cargosAtivos;
+      root.querySelector('[data-servidores]').textContent = d.servidoresAtivos;
+      root.querySelector('[data-fechadas]').textContent = d.competenciasFechadas;
+      root.querySelector('[data-calc]').textContent = d.calculosVigentes;
+      root.querySelector('[data-ferias]').textContent = d.feriasCiclosComSaldo;
+      root.querySelector('[data-afast]').textContent = d.afastamentosAtivos;
+      root.querySelector('[data-lotes]').textContent = d.lotesEsocialGerados;
+      root.querySelector('[data-validados]').textContent = d.lotesEsocialValidados;
+      root.querySelector('[data-bloqueados]').textContent = d.lotesEsocialBloqueados;
+      root.querySelector('[data-liquido]').textContent = Number(d.totalLiquidoUltimaFolha || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      result.hidden = false;
+    } catch (e) { notice(e.message); result.hidden = true; }
+    finally { loading.hidden = true; }
+  }
+  root.querySelector('[data-atualizar]').addEventListener('click', carregar);
+  carregar();
+})();
+</script>
