@@ -1,6 +1,6 @@
 # Relatório Ciclo 2 · Sprint 12 — RH e Previdência (servidores públicos) (BR-12.1 a BR-12.8)
 
-Data: 2026-10-14 · Trilha: commit `4d2055c0` (Ciclo 2 S1–S11) + commit desta sprint (motor previdenciário + estação Web + menu + driver) · Banco: `p1_dev` no container oficial `sigov-postgres` (PostgreSQL 16) · Apps reais: Web :5099 / Api :5100 (+ :5001 health)
+Data: 2026-10-14 · Trilha: `4d2055c0` (Ciclo 2 S1–S11) → `56f27b43` (motor previdenciário + estação Web + menu + driver) → commit desta entrega (4 defeitos de produto descobertos na prova ao vivo + refinamentos do driver e self-healing de ambiente) · Banco: `p1_dev` no container oficial `sigov-postgres` (PostgreSQL 16) · Apps reais: Web :5099 / Api :5100 (+ :5001 health)
 
 ## Escopo desta sprint
 
@@ -72,23 +72,28 @@ AB(2.000), C(200.000 — caso teto). Data-base sempre dia 20.
 
 | Servidor | Competência | Bruto | INSS | IRRF (acum.) | Líquido | Nota |
 |---|---|---|---|---|---|---|
-| A (municipal) | 2026-08 | 10000.00 | 1078.14 | 900.07 | 8021.79 | v1→v2→v3 por reprocesso (v2 vetada, ambas auditáveis) |
-| A | 2026-09 | 19166.67 | 2361.48 | 3021.27 | 13783.92 | 13º 1ª p. 9166.67 (n=11 meses ≥15d) |
+| A (municipal) | 2026-08 | 10000.00 | 1078.14 | 900.07 | 8021.79 | fechamento 3 cálculos (A+B+E); reprocesso de E: v2 1300.00 VIGENTE vetando v1, v3 restaura 1000.00 (versões auditáveis) |
+| A | 2026-09 | 10000.00 | 1078.14 | 900.07 | 8021.79 | fecho idempotente (repetição -> 200 `idempotente=true`); contracheque de setembro travado nesta competência |
+| A | 2026-11 | 19166.67 | 2361.48 | 3021.27 | 13783.92 | 13º 1ª p. 9166.67 (n=11 meses ≥15d) |
 | A | 2026-12 | 10833.33 | 1194.81 | 1061.32 | 8577.20 | 13º 2ª p. 833.33 → situação ENCERRADA nFinal=12 |
 | B (adm 2023) | 2026-09 | 3000.00 | 253.41 | 0 | 2746.59 | isento IRRF (abaixo da faixa) |
 | B | 2026-11 | 5750.00 | 614.59 | 178.41 | 4957.00 | 13º p1 2750.00 |
 | B | 2026-12 | 3250.00 | 283.41 | 0 | 2966.59 | 13º p2 250.00 |
 | D (estadual) | 2026-09 | 5000.00 | 509.59 | 109.22 | 4381.19 | teto estadual ativo não bloqueia (dentro do limite) |
-| AB (estadual) | 2026-09 | 2000.00 | 157.23 | 0 | 1842.77 | adm 2026-08 |
+| AB (estadual) | 2026-09 | 2000.00 | 157.23 | 0 | 1842.77 | adm 2025-08 (ano completo p/ 13º) |
 | AB | 2026-12 | 2166.67 | 172.23 | 0 | 1994.44 | 13º p2 166.67 |
 | C (estadual) | 2026-09 | 200000.00 | — | — | — | **409 SERVIDOR_ACIBA_TETO** (bruto > 44161.63) → folha permanece ABERTA (rollback integral); após desligar, fecha OK |
 
-Férias B (3 ciclos aquisitivos × 30 dias): F1/F2/F3 de 5 dias no mesmo ciclo (terço 166.67 cada) →
-F4 = 4º período → `FRACIONAMENTO_MAXIMO_EXCEDIDO`; G1 15 dias encerra o ciclo mais recente
-(terço 500.00); G2 20 dias + abono 10 (terço 1000.00 = 100×30/3); G3 20+40 > saldo →
-`SALDO_FERIAS_INSUFICIENTE`; G3b 20 dias (terço 666.67); G4 → saldo insuficiente; estado final
-no banco `saldo 10 | somatorio tercos 2666.68 | GOZO 1 | PROGRAMADA 5`. Aviso 5 dias < 30 →
-`INTERVALO_FERIAS_INSUFICIENTE`; período invertido → `PERIODO_INVALIDO`.
+Férias B (3 ciclos aquisitivos × 30 dias; consumo determinístico do ciclo MAIS RECENTE com
+saldo>0): G3 20+40 > saldo 30 → `SALDO_FERIAS_INSUFICIENTE`; G3b 20 dias no ciclo mais recente
+(30→10, terço 666.67 = 100×20/3); G4 20 dias > saldo 10 → insuficiente; G1 10 dias encerra o
+restante do ciclo (10→0, terço 333.33 = 100×10/3); G2 20 dias + abono 10 consome o ciclo
+seguinte (30→0, terço 1000.00 = 100×30/3 — abono também gera 1/3, CLT art. 145); F1/F2/F3 de
+5 dias no ciclo restante (terço 166.67 cada; saldo residual 15); F4 = 4º período →
+`FRACIONAMENTO_MAXIMO_EXCEDIDO`; gozo de F1 → `GOZO`. Estado final conferido no banco:
+`saldo 15 | somatório de terços 2500.01 | GOZO 1 | PROGRAMADA 5` (SQL sem fan-out de join —
+ver defeito 9). Aviso 5 dias < 30 → `INTERVALO_FERIAS_INSUFICIENTE`; período invertido →
+`PERIODO_INVALIDO`.
 
 Afastamentos: maternidade A 120 dias (paramétrico) com GED + regime RPPS; duração 119 dias →
 `DURACAO_AFASTAMENTO_INCONSISTENTE`; sem GED → `DOCUMENTO_GED_OBRIGATORIO`; sobreposição →
@@ -126,6 +131,40 @@ totalLiquidoÚltimaFolha 11543.79; B estadual coerente. Cross-tenant: 404 nomead
    (sem registro de erro no log) com ~340 MB livres enquanto 12 nós MSBuild órfãos ocupavam
    ~1,5 GB; kill dirigido + restart limpo dos apps antes da rodada oficial. Declarado, não
    mascarado (regra 13).
+5. **`ON CONFLICT` contra índice parcial (PG `42P10`)**: `AdmitirServidorAsync` usava
+   `on conflict (vinculo_id,natureza_codigo) do nothing` contra a unique parcial
+   `ux_previdencia_remun_natureza ... where not is_deleted` — o PostgreSQL exige espelhar a
+   cláusula parcial, senão devolve `42P10` e o admitir caía em 500 genérico. Corrigido com o
+   `where not is_deleted` no ON CONFLICT e os 3 inserts (servidor/vínculo/VENCIMENTO) em
+   transação única com rollback integral.
+6. **`BeginTransaction` sobre conexão fechada**: a `NpgsqlConnectionFactory.CreateConnection()`
+   devolve conexão FECHADA (Dapper só abre na execução de comandos — não em `BeginTransaction`)
+   → "Connection is not open" em todo método transacional do motor. Helper `BeginTx` com
+   `Open()` explícito, padronizado nos 4 blocos de transação (admissão, fechamento, reprocesso,
+   eSocial), consistente com o padrão da codebase (Almoxarifado/Compras).
+7. **`tx.Commit()` ausente no reprocessamento**: o novo cálculo era inserido dentro da
+   transação mas o dispose a rolbava antes de montar a resposta → 409
+   "Sequence contains no elements" e banco inalterado (versão nova desaparecia). Commit
+   adicionado após `BackfillDecimoAsync`; v2/v3 do reprocesso de E passaram a persistir.
+8. **Parâmetros jsonb expostos com aspas**: `ParametrosEfetivosAsync` usava
+   `valor_padrao::text`, que para string jsonb devolve `"RGPS"` (com aspas) enquanto o motor
+   lê sem aspas — o endpoint divergia do valor efetivo realmente aplicado. Normalização
+   `JsonTextoEfetivo` alinha exposição e cálculo (regra 11: banco continua autoridade).
+9. **Cenário de férias do driver incompatível com a regra de fracionamento**: a ordem original
+   programava F1–F3 antes de G1–G4, fazendo G1 (15d) cair como 4º período do ciclo já ocupado
+   (`FRACIONAMENTO_MAXIMO_EXCEDIDO`) — o cenário contradizia o próprio produto. Reordenado para
+   G3/G3b/G4 → G1 (10d) → G2 → F1–F4 preservando todas as intents; além disso: `abrir`
+   faltante do A-dezembro no driver (a prova mostrou o 404 nomeado), admissão do AB movida para
+   2025-08-01 (ano completo exigido pelos valores travados do 13º: p1 1833.33 / p2 166.67) e
+   SQL do estado final reescrito sem fan-out de join (o saldo do ciclo estava sendo
+   multiplicado pelo nº de programações do próprio ciclo).
+10. **Corte externo de processos dotnet na máquina compartilhada**: outra sessão (projeto
+    PlantaoPro) matou os hosts SIGOV ~4 min após o início de uma rodada full (corte abrupto,
+    sem exceção na log Serilog, RAM liberada) → 288 checks em cascata HTTP 0. Mitigação
+    declarada e comprovada: self-heal no driver (`Ensure-SigovUp` + retry único por chamada) —
+    restart ALVO dos hosts SIGOV verificado ao vivo em ~12s, transparente à rodada porque todo
+    o estado vive em Postgres. A rodada oficial subsequente passou 485/485 sem nem acionar o
+    self-heal.
 
 ## Gates
 

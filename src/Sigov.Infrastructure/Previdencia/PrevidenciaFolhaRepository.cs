@@ -33,6 +33,15 @@ public sealed class PrevidenciaFolhaRepository(NpgsqlConnectionFactory factory, 
 
     long U(PrevidenciaContext x) => x.UsuarioId ?? throw new InvalidOperationException("usuário obrigatório no contexto.");
 
+    // BeginTransaction nao abre a conexao automaticamente (Dapper so abre na execucao de comandos);
+    // Open explicit segue o padrao da codebase (AlmoxarifadoService, ComprasService etc.).
+    static NpgsqlTransaction BeginTx(NpgsqlConnection c)
+    {
+        if (c.State != System.Data.ConnectionState.Open)
+            c.Open();
+        return c.BeginTransaction();
+    }
+
     static string SqlParametro =>
         """
         select coalesce((select val.valor::text from sigov.parametro_modulo_valor val where val.tenant_id=@T and val.parametro_id=c.pid and not val.is_deleted limit 1), c.vp)
@@ -310,22 +319,30 @@ public sealed class PrevidenciaFolhaRepository(NpgsqlConnectionFactory factory, 
             "select count(1) from sigov.previdencia_servidor where tenant_id=@T and matricula_funcional=@M", new { T = x.TenantId, M = r.MatriculaFuncional.Trim() }, cancellationToken: ct)).ConfigureAwait(false);
         if (dup > 0) throw new MatriculaFuncionalDuplicadaException();
         var esfera = await EsferaAsync(c, null, x, ct).ConfigureAwait(false);
-        var servId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
-            """
-            insert into sigov.previdencia_servidor(tenant_id,entidade_id,matricula_funcional,nome,esfera_governo,uf,data_cadastro,created_by)
-            values (@T,@E,@M,@N,@Es,@Uf,current_date,@U) returning id
-            """, new { T = x.TenantId, E = x.EntidadeId ?? throw new EntidadeSemEsferaException(), M = r.MatriculaFuncional.Trim(), N = r.Nome.Trim(), Es = esfera, Uf = r.Uf, U = U(x) }, cancellationToken: ct)).ConfigureAwait(false);
-        var vincId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
-            """
-            insert into sigov.previdencia_vinculo(tenant_id,servidor_id,cargo_id,tipo_vinculo,data_admissao,situacao,created_by)
-            values (@T,@S,@C,@Tipo,@Ad,'ATIVO',@U) returning id
-            """, new { T = x.TenantId, S = servId, C = cargo.Id, Tipo = tipo, Ad = r.DataAdmissao, U = U(x) }, cancellationToken: ct)).ConfigureAwait(false);
-        await c.ExecuteAsync(new CommandDefinition(
-            """
-            insert into sigov.previdencia_remun_item(tenant_id,vinculo_id,natureza_codigo,valor,created_by)
-            values (@T,@V,'VENCIMENTO',@Vr,@U) on conflict (vinculo_id,natureza_codigo) do nothing
-            """, new { T = x.TenantId, V = vincId, Vr = cargo.Vr, U = U(x) }, cancellationToken: ct)).ConfigureAwait(false);
-        return new ServidorDto(servId, r.MatriculaFuncional.Trim(), r.Nome.Trim(), esfera, r.Uf, vincId, "ATIVO", tipo, r.DataAdmissao, cargo.Codigo, cargo.Nome, cargo.Vr);
+        long servId;
+        // Transacao unica: servidor + vinculo + VENCIMENTO atomicos (falha -> rollback integral).
+        using (var tx = BeginTx(c))
+        {
+            servId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+                """
+                insert into sigov.previdencia_servidor(tenant_id,entidade_id,matricula_funcional,nome,esfera_governo,uf,data_cadastro,created_by)
+                values (@T,@E,@M,@N,@Es,@Uf,current_date,@U) returning id
+                """, new { T = x.TenantId, E = x.EntidadeId ?? throw new EntidadeSemEsferaException(), M = r.MatriculaFuncional.Trim(), N = r.Nome.Trim(), Es = esfera, Uf = r.Uf, U = U(x) }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            var vincId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
+                """
+                insert into sigov.previdencia_vinculo(tenant_id,servidor_id,cargo_id,tipo_vinculo,data_admissao,situacao,created_by)
+                values (@T,@S,@C,@Tipo,@Ad,'ATIVO',@U) returning id
+                """, new { T = x.TenantId, S = servId, C = cargo.Id, Tipo = tipo, Ad = r.DataAdmissao, U = U(x) }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            // ON CONFLICT deve espelhar a partial index ux_previdencia_remun_natureza (where not is_deleted),
+            // senao PG devolve 42P10 (constraint nao corresponde a especificacao).
+            await c.ExecuteAsync(new CommandDefinition(
+                """
+                insert into sigov.previdencia_remun_item(tenant_id,vinculo_id,natureza_codigo,valor,created_by)
+                values (@T,@V,'VENCIMENTO',@Vr,@U) on conflict (vinculo_id,natureza_codigo) where not is_deleted do nothing
+                """, new { T = x.TenantId, V = vincId, Vr = cargo.Vr, U = U(x) }, tx, cancellationToken: ct)).ConfigureAwait(false);
+            tx.Commit();
+            return new ServidorDto(servId, r.MatriculaFuncional.Trim(), r.Nome.Trim(), esfera, r.Uf, vincId, "ATIVO", tipo, r.DataAdmissao, cargo.Codigo, cargo.Nome, cargo.Vr);
+        }
     }
 
     public async Task<IReadOnlyList<ServidorDto>> ListarServidoresAsync(PrevidenciaContext x, CancellationToken ct)
@@ -465,7 +482,7 @@ public sealed class PrevidenciaFolhaRepository(NpgsqlConnectionFactory factory, 
             .Select(t => new VincCalc(t.Id, t.ServidorId, t.Matricula, t.Admissao)).ToList();
 
         var gerados = 0;
-        using (var tx = c.BeginTransaction())
+        using (var tx = BeginTx(c))
         {
             foreach (var v in vinculos)
             {
@@ -537,7 +554,7 @@ public sealed class PrevidenciaFolhaRepository(NpgsqlConnectionFactory factory, 
         var mes1 = await ParamIntAsync(c, null, x, "DECIMO_1A_PARCELA_MES", ct).ConfigureAwait(false);
         var mes2 = await ParamIntAsync(c, null, x, "DECIMO_2A_PARCELA_MES", ct).ConfigureAwait(false);
         long novoId;
-        using (var tx = c.BeginTransaction())
+        using (var tx = BeginTx(c))
         {
             var calc = await CalcularVinculoAsync(c, tx, x, v, r.Competencia, r.DataFixa, regime, teto, esfera, mes1, mes2, ct).ConfigureAwait(false);
             await c.ExecuteAsync(new CommandDefinition(
@@ -545,6 +562,7 @@ public sealed class PrevidenciaFolhaRepository(NpgsqlConnectionFactory factory, 
                 new { J = r.Justificativa.Trim(), U = U(x), Id = vigente.Id }, tx, cancellationToken: ct)).ConfigureAwait(false);
             novoId = await InsertCalculoAsync(c, tx, x, comp, v, r.DataFixa, vigente.Versao + 1, calc, ct).ConfigureAwait(false);
             await BackfillDecimoAsync(c, tx, x, v.Id, r.Competencia.Year, calc.DecimoParcela, novoId, ct).ConfigureAwait(false);
+            tx.Commit();
         }
         return await MontarCalculoAsync(c, x, novoId, r.VinculoId, r.Competencia, ct).ConfigureAwait(false);
     }
@@ -796,8 +814,12 @@ public sealed class PrevidenciaFolhaRepository(NpgsqlConnectionFactory factory, 
                    (select val.valor::text from sigov.parametro_modulo_valor val where val.tenant_id=@T and val.parametro_id=p.id and not val.is_deleted limit 1)
             from sigov.parametro_modulo p where p.modulo='PREVIDENCIA' and p.ativo and not p.is_deleted order by p.ordem
             """, new { T = x.TenantId }, cancellationToken: ct)).ConfigureAwait(false);
-        return rows.Select(r => new ParametroEfetivoDto(r.Cod, r.Nome, r.Tipo, r.Ov ?? r.Padrao, r.Ov is null ? "PADRAO" : "OVERRIDE", r.Desc)).ToList();
+        // Representacao ::text de jsonb preserva aspas para strings ("RGPS"); o valor efetivo
+        // exposto deve ser identico ao lido pelo motor (que ja faz o strip nas aspas).
+        return rows.Select(r => new ParametroEfetivoDto(r.Cod, r.Nome, r.Tipo, JsonTextoEfetivo(r.Ov ?? r.Padrao), r.Ov is null ? "PADRAO" : "OVERRIDE", r.Desc)).ToList();
     }
+
+    static string JsonTextoEfetivo(string v) => (v.Length >= 2 && v.StartsWith('"') && v.EndsWith('"')) ? v.Substring(1, v.Length - 2) : v;
 
     // --------------------------- ESOCIAL PUBLICO (BR-12.8) -----------------------------
     // Lote unico por tenant x competencia x tipo: gerar de novo devolve o MESMO lote
@@ -894,7 +916,7 @@ public sealed class PrevidenciaFolhaRepository(NpgsqlConnectionFactory factory, 
 
         var erros = eventos.Count(e => !e.Ok);
         long loteId;
-        using (var tx = c.BeginTransaction())
+        using (var tx = BeginTx(c))
         {
             loteId = await c.ExecuteScalarAsync<long>(new CommandDefinition(
                 """
