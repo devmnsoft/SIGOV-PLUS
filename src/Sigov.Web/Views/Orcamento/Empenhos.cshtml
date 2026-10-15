@@ -1,0 +1,126 @@
+@{ ViewData["Title"] = "Empenhos (CP)"; }
+<section class="orcamento-station" aria-labelledby="titulo-empenhos">
+  <header class="mb-3">
+    <h1 id="titulo-empenhos">Empenhos (Compromissos)</h1>
+    <p class="text-muted mb-0">Abertura de empenho CP com validação de disponibilidade por dotação (lock por linha) e teto LRF pós-movimento; anulação total com justificativa parametrizada (Lei 4.320/64 arts. 57–64).</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <div class="card mb-4"><div class="card-body py-2">
+    <form id="form-filtro" class="row g-2 align-items-end" novalidate>
+      <label class="col-auto">Exercício<select class="form-select" name="ano" id="sel-ano" required></select></label>
+      <div class="col-auto"><button type="submit" class="btn btn-primary btn-sm">Carregar</button></div>
+    </form>
+  </div></div>
+
+  <div data-mensagem class="alert alert-danger d-none" role="alert"></div>
+  <div class="loading-skeleton" data-loading hidden aria-live="polite">Carregando empenhos…</div>
+  <div data-resultado hidden>
+    <div class="card mb-4"><div class="card-header fw-semibold">Novo empenho</div><div class="card-body">
+      <form id="form-empenho" novalidate class="row g-2">
+        <label class="col-md-2 col-lg-1">Número<input class="form-control" name="numero" required maxlength="40" placeholder="CP/ano/seq" /></label>
+        <label class="col-md-2 col-lg-2">Data<input class="form-control" type="date" name="dataEmpenho" required /></label>
+        <label class="col-md-3 col-lg-2">Tipo<select class="form-select" name="tipoEmpenho" required><option value="CP">CP (compras e serviços)</option><option value="CP_GLOBAL">CP Global</option><option value="SUPLEMENTAR">Suplementar</option></select></label>
+        <label class="col-md-2 col-lg-2">Fornecedor (pessoa)<input class="form-control" type="number" name="fornecedorPessoaId" placeholder="id sigov.pessoa" /></label>
+        <label class="col-md-3 col-lg-3">Histórico<input class="form-control" name="historico" required maxlength="300" /></label>
+        <div class="col-12 border-top pt-2"><div class="fw-semibold small mb-1">Itens (dotação + valor)</div>
+          <table class="table table-sm mb-1"><thead><tr><th style="width:45%">Dotação</th><th style="width:25%">Valor (R$)</th><th></th></tr></thead><tbody data-itens></tbody></table>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-add-item">+ Adicionar item</button>
+        </div>
+        <div class="col-12"><button type="submit" class="btn btn-primary btn-sm">Abrir empenho</button></div>
+      </form>
+    </div></div>
+    <div class="card"><div class="card-header fw-semibold">Empenhos do exercício</div><div class="card-body table-responsive">
+      <table class="table table-sm table-striped"><caption class="visually-hidden">Empenhos</caption>
+        <thead><tr><th>Número</th><th>Data</th><th>Fornecedor</th><th>Tipo</th><th class="text-end">Total</th><th class="text-end">Anulado</th><th class="text-end">Liquidado</th><th class="text-end">Disponível</th><th>Situação</th><th>Ações</th></tr></thead>
+        <tbody data-lista></tbody>
+      </table>
+    </div></div>
+    <div class="card mt-4" id="card-detalhe" hidden><div class="card-header fw-semibold">Detalhe do empenho <span data-det-id></span></div><div class="card-body table-responsive">
+      <p class="small text-muted mb-2" data-det-info></p>
+      <table class="table table-sm table-striped mb-0"><thead><tr><th>Item</th><th>Ação</th><th>Fonte</th><th class="text-end">Valor</th><th class="text-end">Anulado</th><th class="text-end">Liquidado</th><th class="text-end">Disponível</th></tr></thead>
+      <tbody data-det-itens></tbody></table>
+    </div></div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const formFiltro = root.querySelector('#form-filtro'), selAno = root.querySelector('#sel-ano'), loading = root.querySelector('[data-loading]'), result = root.querySelector('[data-resultado]'), message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; message.classList.remove('d-none'); };
+  const brl = v => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const anoAtual = new Date().getFullYear();
+  [anoAtual - 1, anoAtual, anoAtual + 1].forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = String(a); selAno.append(o); });
+  selAno.value = String(anoAtual);
+  let dotacoes = [];
+  const tbodyItens = root.querySelector('#form-empenho [data-itens]');
+  function addItensRow() {
+    const trEl = document.createElement('tr');
+    const tdD = document.createElement('td'); const sel = document.createElement('select'); sel.className = 'form-select form-select-sm';
+    dotacoes.forEach(d => { const o = document.createElement('option'); o.value = d.id; o.textContent = `#${d.id} ${d.acaoCodigo}/${d.fonteRecursoCodigo} — disp. ${brl(d.disponivel)}`; sel.append(o); });
+    tdD.append(sel);
+    const tdV = document.createElement('td'); const inp = document.createElement('input'); inp.className = 'form-control form-control-sm'; inp.type = 'number'; inp.step = '0.01'; inp.min = '0.01'; inp.required = true; tdV.append(inp);
+    const tdX = document.createElement('td'); const bx = document.createElement('button'); bx.type = 'button'; bx.className = 'btn btn-outline-danger btn-sm'; bx.textContent = '✕'; bx.addEventListener('click', () => trEl.remove()); tdX.append(bx);
+    trEl.append(tdD, tdV, tdX); tbodyItens.append(trEl);
+  }
+  root.querySelector('#btn-add-item').addEventListener('click', addItensRow);
+  async function carregar() {
+    loading.hidden = false;
+    try {
+      const ano = Number(selAno.value);
+      const [dots, emps] = await Promise.all([
+        envelope(await fetch(`/api/orcamento/dotacoes?ano=${ano}`, { credentials: 'same-origin' })),
+        envelope(await fetch(`/api/orcamento/empenhos?ano=${ano}`, { credentials: 'same-origin' }))]);
+      dotacoes = dots;
+      tbodyItens.innerHTML = ''; addItensRow();
+      const body = result.querySelector('[data-lista]');
+      body.replaceChildren(...emps.map(e => {
+        const trEl = document.createElement('tr');
+        [e.numero, e.dataEmpenho, e.fornecedorNome || '—', e.tipoEmpenho].forEach(v => { const td = document.createElement('td'); td.textContent = v; trEl.append(td); });
+        [e.valorTotal, e.valorAnulado, e.valorLiquidado, e.disponivel].forEach(v => { const td = document.createElement('td'); td.className = 'text-end'; td.textContent = brl(v); trEl.append(td); });
+        const tdS = document.createElement('td'); tdS.textContent = e.situacao; trEl.append(tdS);
+        const tdA = document.createElement('td');
+        const bV = document.createElement('button'); bV.className = 'btn btn-outline-secondary btn-sm me-1'; bV.textContent = 'Detalhar';
+        bV.addEventListener('click', async () => {
+          try { const d = await envelope(await fetch(`/api/orcamento/empenhos/${e.id}?ano=${ano}`, { credentials: 'same-origin' }));
+            root.querySelector('#card-detalhe').hidden = false;
+            root.querySelector('[data-det-id]').textContent = '#' + d.empenho.id + ' ' + d.empenho.numero;
+            root.querySelector('[data-det-info]').textContent = `${d.empenho.tipoEmpenho} — ${d.empenho.historico || ''}`;
+            const bi = root.querySelector('[data-det-itens]');
+            bi.replaceChildren(...d.itens.map((i, n) => { const trEl = document.createElement('tr'); [String(n + 1), i.acaoCodigo + ' ' + i.acaoNome, i.fonteRecursoCodigo].forEach(v => { const td = document.createElement('td'); td.textContent = v; trEl.append(td); }); [i.valor, i.valorAnulado, i.valorLiquidado, i.disponivel].forEach(v => { const td = document.createElement('td'); td.className = 'text-end'; td.textContent = brl(v); trEl.append(td); }); return trEl; }));
+            root.querySelector('#card-detalhe').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          } catch (err) { notice(err.message); }
+        });
+        const bA = document.createElement('button'); bA.className = 'btn btn-outline-danger btn-sm'; bA.textContent = 'Anular';
+        if (e.situacao === 'ANULADO') bA.disabled = true;
+        bA.addEventListener('click', async () => {
+          const j = prompt('Justificativa da anulação (mínimo 10 caracteres):');
+          if (!j) return;
+          try { await envelope(await fetch(`/api/orcamento/empenhos/${e.id}/anular?ano=${ano}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ justificativa: j }) })); notice('Empenho anulado.', 'success'); await carregar(); }
+          catch (err) { notice(err.message); }
+        });
+        tdA.append(bV, bA); trEl.append(tdA);
+        return trEl;
+      }));
+      if (!emps.length) body.innerHTML = '<tr><td colspan="10">Nenhum empenho neste exercício.</td></tr>';
+      result.hidden = false;
+    } catch (e) { notice(e.message); }
+    finally { loading.hidden = true; }
+  }
+  root.querySelector('#form-empenho').addEventListener('submit', async e => {
+    e.preventDefault();
+    const itens = [...tbodyItens.querySelectorAll('tr')].map(trEl => ({ dotacaoId: Number(trEl.querySelector('select').value), valor: Number(trEl.querySelector('input').value) })).filter(i => i.dotacaoId && i.valor > 0);
+    if (!itens.length) { notice('Informe ao menos um item com valor.'); return; }
+    const f = new FormData(e.target);
+    try {
+      await envelope(await fetch(`/api/orcamento/empenhos?ano=${selAno.value}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ numero: f.get('numero'), dataEmpenho: f.get('dataEmpenho'), fornecedorPessoaId: f.get('fornecedorPessoaId') ? Number(f.get('fornecedorPessoaId')) : null, tipoEmpenho: f.get('tipoEmpenho'), historico: f.get('historico'), chaveIdempotencia: 'web-' + crypto.randomUUID(), itens }) }));
+      notice('Empenho aberto.', 'success'); e.target.reset(); addItensRow(); await carregar();
+    } catch (err) { notice(err.message); }
+  });
+  formFiltro.addEventListener('submit', e => { e.preventDefault(); if (formFiltro.reportValidity()) carregar(); });
+  carregar();
+})();
+</script>

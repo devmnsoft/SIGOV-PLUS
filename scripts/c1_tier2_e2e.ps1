@@ -21,7 +21,7 @@
 #           somente a secao SPRINT 12 + limpeza/auditoria final (iteracao rapida sob
 #           ambiente compartilhado; fixture S12 e self-contained/reentravel).
 # =============================================================================
-param([switch]$OnlyS12)
+param([switch]$OnlyS12,[switch]$OnlyS13)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $out  = Join-Path $root 'artifacts/c1_tier2_e2e'
@@ -180,7 +180,7 @@ $tk = Get-ApiToken -Jar $lg.jar -Base $WebBase
 Add-Check 'E0' 'auth.api-token-mint' ($tk.token.Length -eq 64) ("GET /Auth/ApiToken len=" + $tk.token.Length)
 
 # --- fixture idempotente (dados ficticios; removido em CX) ---------------------
-if (-not $OnlyS12) {
+if (-not $OnlyS12 -and -not $OnlyS13) {
 $fixSrc = Join-Path $root 'database/postgres/seeds/homologacao/20261010_c1_educacao_avancada_tier2_fixture.sql'
 $hf = Join-Path ([IO.Path]::GetTempPath()) 'c1t2_fixture.sql'
 Copy-Item -LiteralPath $fixSrc -Destination $hf -Force
@@ -3629,6 +3629,8 @@ Add-Check 'S11' 'fixture.removido-auto-limpeza-restantes-zero' (($s11cl.code -eq
 # =============================================================================
 # SPRINT 12 (C2S12) - Folha e Previdencia Publica multi-esfera (BR-12.1..BR-12.8)
 # =============================================================================
+
+if (-not $OnlyS13) {
 # E2E HTTP real (Web :5099 -> ApiToken -> bearer na Api :5100 -> Dapper -> PG16):
 #   BR-12.1 cadastro cargo/servidor/vinculo (matricula unica por tenant, 1 vinculo
 #           ATIVO, esfera herdada da entidade do contexto - regra 21/22)
@@ -4197,6 +4199,544 @@ select (select count(*) from sigov.previdencia_folha_calculo_item ci join sigov.
   + (select count(*) from sigov.entidade where (tenant_id=910001 and codigo_externo='C2S12A-ENT') or (tenant_id=910002 and codigo_externo='C2S12B-ENT'));
 "@
 Add-Check 'S12' 'fixture.removido-auto-limpeza-restantes-zero' (($s12cl.code -eq 0) -and ($s12cl.text -eq '0')) ("cleanup cirurgico S12 nos DOIS tenants (calculos+items, remun_items, ferias+programacoes, afastamentos, decimo, lotes+eventos eSocial, competencias, vinculos, servidores, cargos, override c2s12-frac-override-e2e, sessoes/auditorias dos 4 usuarios, grants sentinel cf58c2ab-...021-024, usuarios c2s12a.*/c2s12b.*, grupos+perfis dedicados C2S12, entidades C2S12A-ENT/C2S12B-ENT) -> restantes=" + $s12cl.text)
+
+} # fim bloco S12 (pulado com -OnlyS13)
+
+# =============================================================================
+# SPRINT 13 (C2S13) - Orcamento e Responsabilidade Fiscal multi-esfera (BR-13.1..BR-13.8)
+# =============================================================================
+# E2E HTTP real (Web :5099 -> ApiToken -> bearer na Api :5100 -> Dapper -> PG16):
+#   BR-13.1 estrutura Lei 4.320/64 (catalogo nacional de funcoes/subfuncoes no banco;
+#           programa; acao c/ poder, categoria economica e grupo de despesa)
+#   BR-13.2 dotacao unica por acao x fonte + credito suplementar c/ ato legal e
+#           justificativa parametrizada; disponibilidade = inicial + creditos - reducoes - empenhado
+#   BR-13.3 empenho CP com trava de disponibilidade (EMPENHO_ORCAMENTO_INSUFICIENTE) e
+#           teto LRF pos-movimento por TRANSICAO (LRF_LIMITE_BLOQUEADO; ja em bloqueio passa)
+#   BR-13.4 liquidacao SL <= empenho disponivel por item (LIQUIDACAO_SUPER_EMPENHO)
+#   BR-13.5 limites LRF LC 101/2000 por esfera + override por tenant (OVERRIDE_TENANT) +
+#           apuracao versionada append-only (MDE CF art. 212 parametrico; pessoal art. 20)
+#   BR-13.6 previsao bimestral deterministica (art. 51) com vigente unico por bimestre
+#   BR-13.7 RREO semestral/anual (art. 54) com conjuntos travados dos dados reais
+#   BR-13.8 competencia fechada (EXERCICIO_ENCERRADO bloqueia movimento novo; reabertura auditavel)
+# Valores travados: tenant A municipal (base receita prevista 1.000.000; dotacao MDE 1.000.000
+#   + credito suplementar 250.000 -> autorizado 1.250.000 / disponivel 650.000 apos empenho
+#   600.000; empenho 700.000 insuficiente; liquidacao 400.000 ok / 300.000 super empenho;
+#   pessoal executivo 45% ok, +5% -> 50% BLOQUEADO por transicao; MDE 2025 = 23,5% ALERTA)
+#   tenant B estadual (base 1.000.000; pessoal 48% ALERTA institucional 45/50 -> override
+#   tenant bloqueio 45,5% -> apuracao BLOQUEIO persistida; empenho ja-em-bloqueio permitido)
+function Get-S13Data { param([string]$Body) try { return ($Body | ConvertFrom-Json).data } catch { return $null } }
+function Get-S13Msg { param([string]$Body) try { $j = $Body | ConvertFrom-Json; if ($null -ne $j.message) { return [string]$j.message } } catch {}; return [string]$Body }
+function Get-S13Near { param([object]$V,[object]$T) try { $dV = [decimal]([string]$V).Trim().TrimEnd('m'); $dT = [decimal]([string]$T).Trim().TrimEnd('m'); return ([math]::Abs([double]$dV - [double]$dT) -lt 0.005) } catch { return $false } }
+
+$s13fix = Get-Psql @"
+-- pre-clean reentravel (escopo igual ao da limpeza final do bloco S13; tenants 910001/910002 sao do driver neste ciclo)
+delete from sigov.orcamento_liquidacao_item where liquidacao_id in (select id from sigov.orcamento_liquidacao where tenant_id in (910001,910002));
+delete from sigov.orcamento_liquidacao where tenant_id in (910001,910002);
+delete from sigov.orcamento_empenho_item where empenho_id in (select id from sigov.orcamento_empenho where tenant_id in (910001,910002));
+delete from sigov.orcamento_empenho where tenant_id in (910001,910002);
+delete from sigov.orcamento_credito_adicional where tenant_id in (910001,910002);
+delete from sigov.orcamento_dotacao where tenant_id in (910001,910002);
+delete from sigov.orcamento_receita_arrecadacao where tenant_id in (910001,910002);
+delete from sigov.orcamento_receita_prevista where tenant_id in (910001,910002);
+delete from sigov.orcamento_lrf_apuracao where tenant_id in (910001,910002);
+delete from sigov.orcamento_previsao_bimestral where tenant_id in (910001,910002);
+delete from sigov.orcamento_rreo_item where lote_id in (select id from sigov.orcamento_rreo_lote where tenant_id in (910001,910002));
+delete from sigov.orcamento_rreo_lote where tenant_id in (910001,910002);
+delete from sigov.orcamento_estado_exercicio where tenant_id in (910001,910002);
+delete from sigov.orcamento_acao where tenant_id in (910001,910002);
+delete from sigov.orcamento_programa where tenant_id in (910001,910002);
+delete from sigov.orcamento_limite_lrf where tenant_id in (910001,910002);
+delete from sigov.parametro_modulo_valor where correlation_id='c2s13-anul-override-e2e';
+delete from sigov.autorizacao_decisao_auditoria where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.auditoria_evento where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.identidade_sessao where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.sessao_usuario where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.sessao_contexto_usuario where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.contexto_operacional_auditoria where usuario_executor_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.usuario_contexto_global_log where usuario_global_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.historico_login where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.trilha_auditoria where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.token_mfa where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.senha_redefinicao_token where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.fila_assinatura where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.usuario_preferencia where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.usuario_filtro_salvo where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.perfil_permissao where correlation_id in ('cf58c2ab-1c20-4a90-88f8-0c2000000031','cf58c2ab-1c20-4a90-88f8-0c2000000032','cf58c2ab-1c20-4a90-88f8-0c2000000033');
+delete from sigov.usuario_grupo where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%');
+delete from sigov.grupo_perfil where grupo_acesso_id in (select id from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo='C2S13A-SEMP') or (tenant_id=910002 and codigo_externo='C2S13B-ADM'));
+delete from sigov.perfil_acesso where (tenant_id=910001 and nome='C2S13A Perfil SemFrente') or (tenant_id=910002 and nome='C2S13B Perfil Orcamento');
+delete from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo='C2S13A-SEMP') or (tenant_id=910002 and codigo_externo='C2S13B-ADM');
+delete from sigov.exercicio where entidade_id in (select id from sigov.entidade where (tenant_id=910001 and codigo_externo='C2S13A-ENT') or (tenant_id=910002 and codigo_externo='C2S13B-ENT'));
+delete from sigov.entidade where (tenant_id=910001 and codigo_externo='C2S13A-ENT') or (tenant_id=910002 and codigo_externo='C2S13B-ENT');
+-- Entidades com esfera (regras 21/22): A municipal / B estadual - o contexto do usuario define a esfera do motor
+insert into sigov.entidade(tenant_id,nome,cnpj,codigo_externo,esfera_governo,tipo_entidade,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S13A Entidade Municipal','00.000.000/0004-01','C2S13A-ENT','municipal','SECRETARIA',true,false,now(),910301
+where not exists(select 1 from sigov.entidade where tenant_id=910001 and codigo_externo='C2S13A-ENT');
+insert into sigov.entidade(tenant_id,nome,cnpj,codigo_externo,esfera_governo,tipo_entidade,ativo,is_deleted,created_at,created_by)
+select 910002,'C2S13B Entidade Estadual','00.000.000/0004-02','C2S13B-ENT','estadual','SECRETARIA',true,false,now(),910301
+where not exists(select 1 from sigov.entidade where tenant_id=910002 and codigo_externo='C2S13B-ENT');
+-- Competencias do exercicio orcamentario (sigov.exercicio por entidade x ano)
+insert into sigov.exercicio(entidade_id,ano,data_inicio,data_fim,codigo_externo,observacao,ativo,is_deleted,created_at,created_by,tenant_id)
+select e.id,2025,date '2025-01-01',date '2025-12-31','C2S13A-EX2025','Homologacao C2S13',true,false,now(),910301,e.tenant_id
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S13A-ENT'
+on conflict (entidade_id,ano) do nothing;
+insert into sigov.exercicio(entidade_id,ano,data_inicio,data_fim,codigo_externo,observacao,ativo,is_deleted,created_at,created_by,tenant_id)
+select e.id,2026,date '2026-01-01',date '2026-12-31','C2S13A-EX2026','Homologacao C2S13',true,false,now(),910301,e.tenant_id
+from sigov.entidade e where e.tenant_id=910001 and e.codigo_externo='C2S13A-ENT'
+on conflict (entidade_id,ano) do nothing;
+insert into sigov.exercicio(entidade_id,ano,data_inicio,data_fim,codigo_externo,observacao,ativo,is_deleted,created_at,created_by,tenant_id)
+select e.id,2026,date '2026-01-01',date '2026-12-31','C2S13B-EX2026','Homologacao C2S13',true,false,now(),910301,e.tenant_id
+from sigov.entidade e where e.tenant_id=910002 and e.codigo_externo='C2S13B-ENT'
+on conflict (entidade_id,ano) do nothing;
+-- Grupos/perfis dedicados (admin A reutiliza o grupo 910401 existente do tenant)
+insert into sigov.grupo_acesso(tenant_id,nome,codigo_externo,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S13A Grupo SemFrente','C2S13A-SEMP',true,false,now(),910301
+where not exists(select 1 from sigov.grupo_acesso where tenant_id=910001 and codigo_externo='C2S13A-SEMP');
+insert into sigov.grupo_acesso(tenant_id,nome,codigo_externo,ativo,is_deleted,created_at,created_by)
+select 910002,'C2S13B Grupo Administracao','C2S13B-ADM',true,false,now(),910301
+where not exists(select 1 from sigov.grupo_acesso where tenant_id=910002 and codigo_externo='C2S13B-ADM');
+insert into sigov.perfil_acesso(tenant_id,nome,ativo,is_deleted,created_at,created_by)
+select 910001,'C2S13A Perfil SemFrente',true,false,now(),910301
+where not exists(select 1 from sigov.perfil_acesso where tenant_id=910001 and nome='C2S13A Perfil SemFrente');
+insert into sigov.perfil_acesso(tenant_id,nome,ativo,is_deleted,created_at,created_by)
+select 910002,'C2S13B Perfil Orcamento',true,false,now(),910301
+where not exists(select 1 from sigov.perfil_acesso where tenant_id=910002 and nome='C2S13B Perfil Orcamento');
+insert into sigov.grupo_perfil(grupo_acesso_id,perfil_acesso_id,tenant_id,ativo,is_deleted,created_at,created_by)
+select g.id,p.id,g.tenant_id,true,false,now(),910301
+from sigov.grupo_acesso g cross join sigov.perfil_acesso p
+where ((g.tenant_id=910001 and g.codigo_externo='C2S13A-SEMP' and p.tenant_id=910001 and p.nome='C2S13A Perfil SemFrente')
+   or (g.tenant_id=910002 and g.codigo_externo='C2S13B-ADM' and p.tenant_id=910002 and p.nome='C2S13B Perfil Orcamento'))
+and not exists(select 1 from sigov.grupo_perfil gp where gp.grupo_acesso_id=g.id and gp.perfil_acesso_id=p.id and gp.ativo);
+-- Usuarios (senha_hash copiado do admin 910301; contexto institucional = entidade do usuario)
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910001,e.id,1,'C2S13A Administrador','c2s13a.admin','c2s13a.admin@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910001 and e.codigo_externo='C2S13A-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910001 and x.login='c2s13a.admin');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910001,e.id,1,'C2S13A SemFrente','c2s13a.semperm','c2s13a.semperm@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910001 and e.codigo_externo='C2S13A-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910001 and x.login='c2s13a.semperm');
+insert into sigov.usuario(tenant_id,entidade_id,exercicio_id,nome,login,email,senha_hash,tipo_usuario,ativo,is_deleted,created_at,created_by)
+select 910002,e.id,1,'C2S13B Administrador','c2s13b.admin','c2s13b.admin@homolog.local',u.senha_hash,'OPERADOR',true,false,now(),910301
+from sigov.entidade e cross join sigov.usuario u
+where e.tenant_id=910002 and e.codigo_externo='C2S13B-ENT' and u.id=910301
+and not exists(select 1 from sigov.usuario x where x.tenant_id=910002 and x.login='c2s13b.admin');
+insert into sigov.usuario_grupo(usuario_id,grupo_acesso_id,tenant_id,ativo,created_at,created_by)
+select u.id,910401,910001,true,now(),910301
+from sigov.usuario u
+where u.tenant_id=910001 and u.login='c2s13a.admin'
+and not exists(select 1 from sigov.usuario_grupo g where g.usuario_id=u.id and g.grupo_acesso_id=910401 and g.ativo);
+insert into sigov.usuario_grupo(usuario_id,grupo_acesso_id,tenant_id,ativo,created_at,created_by)
+select u.id,g.id,u.tenant_id,true,now(),910301
+from sigov.usuario u cross join sigov.grupo_acesso g
+where ((u.tenant_id=910001 and u.login='c2s13a.semperm' and g.tenant_id=910001 and g.codigo_externo='C2S13A-SEMP')
+   or (u.tenant_id=910002 and u.login='c2s13b.admin' and g.tenant_id=910002 and g.codigo_externo='C2S13B-ADM'))
+and not exists(select 1 from sigov.usuario_grupo gu where gu.usuario_id=u.id and gu.grupo_acesso_id=g.id and gu.ativo);
+-- Grants sentinel (limpeza cirurgica por correlation_id): 13 chaves orcamento.* x admins
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910001,'cf58c2ab-1c20-4a90-88f8-0c2000000031'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.id=(select gp.perfil_acesso_id from sigov.grupo_perfil gp where gp.grupo_acesso_id=910401 limit 1)
+  and p.ativo and not p.is_deleted and p.modulo='orcamento'
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910002,'cf58c2ab-1c20-4a90-88f8-0c2000000032'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.tenant_id=910002 and pa.nome='C2S13B Perfil Orcamento'
+  and p.ativo and not p.is_deleted and p.modulo='orcamento'
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+-- Perfil SemFrente: 1 chave inofensiva FORA da frente (necessaria p/ o login autenticar)
+insert into sigov.perfil_permissao(perfil_acesso_id,permissao_id,efeito,ativo,is_deleted,created_at,tenant_id,correlation_id)
+select pa.id,p.id,'PERMITIR',true,false,now(),910001,'cf58c2ab-1c20-4a90-88f8-0c2000000033'
+from sigov.perfil_acesso pa cross join sigov.permissao p
+where pa.tenant_id=910001 and pa.nome='C2S13A Perfil SemFrente'
+  and p.modulo='patrimonio' and p.chave='patrimonio.bem.criar' and p.ativo and not p.is_deleted
+on conflict (perfil_acesso_id,permissao_id) do nothing;
+-- Overrides LRF de tenant (organicos, regras 11/24): RESTOS A alerta 55/bloqueio 75 e B alerta 50/bloqueio 75 (institucional 25/30)
+insert into sigov.orcamento_limite_lrf(tenant_id,esfera_governo,chave,nome,tipo_comparacao,valor_alvo,alerta_pct,bloqueio_pct,base_receita,ativo,created_by)
+select 910001,'municipal','RESTOS_A_PAGAR_MAX',l.nome,'MAX',30.0000,55.0000,75.0000,'PREVISTA',true,910301
+from sigov.orcamento_limite_lrf l
+where l.tenant_id is null and l.esfera_governo='municipal' and l.chave='RESTOS_A_PAGAR_MAX' and not l.is_deleted
+and not exists(select 1 from sigov.orcamento_limite_lrf x where x.tenant_id=910001 and x.esfera_governo='municipal' and x.chave='RESTOS_A_PAGAR_MAX');
+insert into sigov.orcamento_limite_lrf(tenant_id,esfera_governo,chave,nome,tipo_comparacao,valor_alvo,alerta_pct,bloqueio_pct,base_receita,ativo,created_by)
+select 910002,'estadual','RESTOS_A_PAGAR_MAX',l.nome,'MAX',30.0000,50.0000,75.0000,'PREVISTA',true,910301
+from sigov.orcamento_limite_lrf l
+where l.tenant_id is null and l.esfera_governo='estadual' and l.chave='RESTOS_A_PAGAR_MAX' and not l.is_deleted
+and not exists(select 1 from sigov.orcamento_limite_lrf x where x.tenant_id=910002 and x.esfera_governo='estadual' and x.chave='RESTOS_A_PAGAR_MAX');
+-- Override parametrico do tenant A (comportamental, regra 24): min justificativa de anulacao 30 (padrao institucional 5)
+insert into sigov.parametro_modulo_valor(tenant_id,parametro_id,valor,correlation_id,created_by,is_deleted)
+select 910001,id,'30'::jsonb,'c2s13-anul-override-e2e',910301,false
+from sigov.parametro_modulo
+where modulo='ORCAMENTO' and codigo='ORCAMENTO_ANULACAO_JUSTIFICATIVA_MIN_CARACTERES'
+and not exists(select 1 from sigov.parametro_modulo_valor val where val.correlation_id='c2s13-anul-override-e2e');
+-- assert DO: banco = autoridade (regras 11/12/13) - sem isto nenhuma etapa da frente e valida
+do `$`$
+begin
+  if (select count(1) from sigov.tenant t where t.id in (910001,910002) and t.ativo and not t.is_deleted) <> 2 then
+    raise exception 'C2S13-FIXTURE: tenants 910001/910002 ausentes ou inativos';
+  end if;
+  if (select count(1) from sigov.orcamento_funcao where ativo and not is_deleted) <> 19 then
+    raise exception 'C2S13-FIXTURE: catalogo nacional de funcoes incompleto (esperado 19)';
+  end if;
+  if (select count(distinct codigo) from sigov.orcamento_funcao where codigo in ('09','17') and ativo and not is_deleted) <> 2 then
+    raise exception 'C2S13-FIXTURE: funcoes 09/17 ausentes do catalogo';
+  end if;
+  if (select count(distinct codigo) from sigov.orcamento_subfuncao where codigo in ('302','271') and ativo and not is_deleted) <> 2 then
+    raise exception 'C2S13-FIXTURE: subfuncoes 302/271 ausentes do catalogo';
+  end if;
+  if (select count(1) from sigov.orcamento_limite_lrf where tenant_id is null and ativo and not is_deleted) <> 18 then
+    raise exception 'C2S13-FIXTURE: limites institucionais por esfera <> 18';
+  end if;
+  if (select count(1) from sigov.orcamento_limite_lrf where tenant_id in (910001,910002) and ativo and not is_deleted) <> 2 then
+    raise exception 'C2S13-FIXTURE: overrides LRF por tenant <> 2';
+  end if;
+  if (select count(1) from sigov.permissao p where p.modulo='orcamento' and p.chave like 'orcamento.%' and p.ativo and not p.is_deleted) <> 13 then
+    raise exception 'C2S13-FIXTURE: permissoes orcamento.* (dotted) <> 13';
+  end if;
+  if (select count(1) from sigov.parametro_modulo p where p.modulo='ORCAMENTO' and p.ativo and not p.is_deleted) <> 5 then
+    raise exception 'C2S13-FIXTURE: parametros ORCAMENTO <> 5';
+  end if;
+  if replace((select coalesce(valor_padrao::text,'') from sigov.parametro_modulo where modulo='ORCAMENTO' and codigo='ORCAMENTO_APURO_LRF_AUTO' and ativo and not is_deleted limit 1),'"','') <> 'true' then
+    raise exception 'C2S13-FIXTURE: padrao ORCAMENTO_APURO_LRF_AUTO <> true';
+  end if;
+  if (select count(1) from sigov.exercicio e join sigov.entidade en on en.id=e.entidade_id where ((en.tenant_id=910001 and en.codigo_externo='C2S13A-ENT') or (en.tenant_id=910002 and en.codigo_externo='C2S13B-ENT')) and not e.is_deleted) <> 3 then
+    raise exception 'C2S13-FIXTURE: competencias do fixture <> 3';
+  end if;
+end
+`$`$;
+-- ids pipe-separated: competencias A2025|A2026|B2026
+select coalesce((select e.id::text from sigov.exercicio e join sigov.entidade en on en.id=e.entidade_id where en.tenant_id=910001 and en.codigo_externo='C2S13A-ENT' and e.ano=2025),'0')
+  || '|' || coalesce((select e.id::text from sigov.exercicio e join sigov.entidade en on en.id=e.entidade_id where en.tenant_id=910001 and en.codigo_externo='C2S13A-ENT' and e.ano=2026),'0')
+  || '|' || coalesce((select e.id::text from sigov.exercicio e join sigov.entidade en on en.id=e.entidade_id where en.tenant_id=910002 and en.codigo_externo='C2S13B-ENT' and e.ano=2026),'0');
+"@
+$s13ids = $s13fix.text.Trim() -split '\|'
+$exA25 = $s13ids[0]; $exA26 = $s13ids[1]; $exB26 = $s13ids[2]
+Add-Check 'S13' 'fixture.criado-idempotente-banco-autoridade' (($s13fix.code -eq 0) -and $exA25 -ne '0' -and $exA26 -ne '0' -and $exB26 -ne '0') ("pre-clean reentravel + entidades C2S13A-ENT(municipal)/C2S13B-ENT(estadual) com competencias 2025/2026(A) e 2026(B), 3 usuarios c2s13*, grupos+perfis C2S13, grants sentinel cf58c2ab-...031/032 (13 chaves orcamento) / 033 (1 chave inofensiva), overrides LRF RESTOS A 55/75 e B 50/75, override parametro ANULACAO_MIN=30 no tenant A; assert DO: tenants ativos, 19 funcoes, funcoes/subfuncoes usadas, 18 limites institucionais, 2 overrides, 13 permissoes, 5 parametros, apuro auto true, 3 competencias -> ids=" + ($s13ids -join '|'))
+
+$lg13A = New-SigovLogin -User 'c2s13a.admin' -Pass $Password -Base $WebBase
+$tk13A = if ($lg13A.ok) { Get-ApiToken -Jar $lg13A.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+$lg13SemA = New-SigovLogin -User 'c2s13a.semperm' -Pass $Password -Base $WebBase
+$tk13SemA = if ($lg13SemA.ok) { Get-ApiToken -Jar $lg13SemA.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+$lg13B = New-SigovLogin -User 'c2s13b.admin' -Pass $Password -Base $WebBase
+$tk13B = if ($lg13B.ok) { Get-ApiToken -Jar $lg13B.jar -Base $WebBase } else { [pscustomobject]@{ token='' } }
+$dash13A0 = Invoke-Api -Bearer $tk13A.token -Method GET -Path '/api/orcamento/dashboard?ano=2026' -Base $ApiBase
+$dash13A0j = Get-S13Data $dash13A0.body
+$dash13B0 = Invoke-Api -Bearer $tk13B.token -Method GET -Path '/api/orcamento/dashboard?ano=2026' -Base $ApiBase
+$dash13B0j = Get-S13Data $dash13B0.body
+Add-Check 'S13' 'auth.logins-contexto-multi-esfera' (($lg13A.ok) -and ($lg13SemA.ok) -and ($lg13B.ok) -and ($tk13A.token.Length -gt 20) -and ($tk13B.token.Length -gt 20) -and ($dash13A0.code -eq 200) -and ($null -ne $dash13A0j) -and ($dash13A0j.esferaGoverno -eq 'municipal') -and ($dash13B0.code -eq 200) -and ($null -ne $dash13B0j) -and ($dash13B0j.esferaGoverno -eq 'estadual')) ("login web + ApiToken bearer para c2s13a.admin/c2s13a.semperm/c2s13b.admin; o motor herda a esfera da entidade do contexto do usuario (dashboard expoe municipal/estadual - regras 21/22, nada municipal hardcoded)")
+
+$cat13 = Invoke-Api -Bearer $tk13A.token -Method GET -Path '/api/orcamento/catalogo-funcional' -Base $ApiBase
+$cat13j = Get-S13Data $cat13.body
+$f09 = $null; $s302 = $null
+if ($null -ne $cat13j) {
+  $fs13 = @($cat13j.funcoes); $ss13 = @($cat13j.subfuncoes)
+  $f09 = $fs13 | Where-Object { $_.codigo -eq '09' } | Select-Object -First 1
+  $s302 = $ss13 | Where-Object { $_.codigo -eq '302' } | Select-Object -First 1
+}
+$okCat = ($cat13.code -eq 200) -and ($null -ne $cat13j) -and (@($cat13j.funcoes).Count -eq 19) -and (@($cat13j.subfuncoes).Count -ge 9) -and ($null -ne $f09) -and ($f09.areaSaudeEducacao -eq $true) -and ($f09.nome -eq 'SAUDE') -and ($null -ne $s302) -and ($s302.funcaoCodigo -eq '09')
+Add-Check 'S13' 'catalogo.nacional-funcoes-subfuncoes-no-banco' $okCat ("catalogo funcional expoe 19 funcoes e 9 subfuncoes catalogadas somente no banco (classificacao nacional, regra 12): funcao 09 SAUDE com area_saude_educacao=true (base do MDE CF art. 212) e subfuncao 302 vinculada")
+
+# --- BR-13.1/13.5 competencia 2025 (A municipal, executada antes de 2026: zeros os restos antevedentes) ---
+$pg25 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/programas?ano=2025' -Base $ApiBase -Body '{"codigo":"PG-S13A25","nome":"Programa Saude 2025 Homologacao C2S13","objetivo":"Programa do exercicio de homologacao C2S13"}'
+$pg25j = Get-S13Data $pg25.body
+$acMde25 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/acoes?ano=2025' -Base $ApiBase -Body ('{"codigo":"ACAO-MDE25","nome":"Atividade Saude 2025 C2S13","tipo":"ATIVIDADE","programaId":' + $pg25j.id + ',"subfuncaoCodigo":"302","funcaoCodigo":"09","poder":"EXECUTIVO","categoriaEconomica":"CORRENTE","grupoDespesa":"OUTRAS_DESPESAS_CORRENTES"}')
+$acMde25j = Get-S13Data $acMde25.body
+$rec25 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/receitas?ano=2025' -Base $ApiBase -Body '{"codigo":"R-S13A25-IMP","nome":"Imposto Predial 2025 Homologacao C2S13","natureza":"TRIBUTARIA","valorPrevisto":1000000}'
+$rec25j = Get-S13Data $rec25.body
+$arq25 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/receitas/arrecadar?ano=2025' -Base $ApiBase -Body ('{"receitaId":' + $rec25j.id + ',"valor":1000000,"dataArrecadacao":"2025-12-15","historico":"Arrecadacao 2025 homologacao C2S13","chaveIdempotencia":"c2s13-a-arq25"}')
+$arq25j = Get-S13Data $arq25.body
+$dotMde25 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/dotacoes?ano=2025' -Base $ApiBase -Body ('{"acaoId":' + $acMde25j.id + ',"fonteRecursoCodigo":"FNT-1","dotacaoInicial":1000000}')
+$dotMde25j = Get-S13Data $dotMde25.body
+Add-Check 'S13' 'estrutura.2025-programa-acao-saude-receita-base' (($pg25.code -eq 200) -and ($null -ne $pg25j) -and ($pg25j.situacao -eq 'ATIVO') -and ($acMde25.code -eq 200) -and ($null -ne $acMde25j) -and ($acMde25j.ativo -eq $true) -and ($rec25.code -eq 200) -and ($null -ne $rec25j) -and (Get-S13Near $rec25j.valorPrevista 1000000) -and ($arq25.code -eq 200) -and (Get-S13Near $arq25j.valorArrecadado 1000000) -and (Get-S13Near $arq25j.saldoAArrecadar 0) -and ($dotMde25.code -eq 200) -and (Get-S13Near $dotMde25j.disponivel 1000000)) ("competencia 2025 montada via API (programa, acao saude funcao 09 subfuncao 302, receita TRIBUTARIA prevista 1.000.000 + arrecadacao integral idempotente, dotacao 1.000.000 FNT-1)")
+
+$empMde25 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/empenhos?ano=2025' -Base $ApiBase -Body ('{"numero":"EMP-S13A25-001","dataEmpenho":"2025-08-10","tipoEmpenho":"CP","historico":"Empenho saude 2025 homologacao C2S13","chaveIdempotencia":"c2s13-e-mde25","itens":[{"dotacaoId":' + $dotMde25j.id + ',"valor":235000}]}')
+$empMde25j = Get-S13Data $empMde25.body
+$detMde25 = Invoke-Api -Bearer $tk13A.token -Method GET -Path ('/api/orcamento/empenhos/' + $empMde25j.id + '?ano=2025') -Base $ApiBase
+$detMde25j = Get-S13Data $detMde25.body
+$itemId25 = if ($null -ne $detMde25j) { ($detMde25j.itens | Select-Object -First 1).id } else { 0 }
+$liqMde25 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/liquidacoes?ano=2025' -Base $ApiBase -Body ('{"numero":"LIQ-S13A25-001","dataLiquidacao":"2025-09-10","empenhoId":' + $empMde25j.id + ',"historico":"Liquidacao integral 2025 C2S13","chaveIdempotencia":"c2s13-l-mde25","itens":[{"empenhoItemId":' + $itemId25 + ',"valor":235000}]}')
+$liqMde25j = Get-S13Data $liqMde25.body
+$ap25 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/lrf/apurar?ano=2025' -Base $ApiBase -Body '{"periodo":"2025-12-20"}'
+$ap25j = @()
+if ($null -ne (Get-S13Data $ap25.body)) { $ap25j = @(Get-S13Data $ap25.body) }
+$mde25row = $ap25j | Where-Object { $_.limiteChave -eq 'MDE_MIN' } | Select-Object -First 1
+$ra25row = $ap25j | Where-Object { $_.limiteChave -eq 'RESTOS_A_PAGAR_MAX' } | Select-Object -First 1
+$ap25v = Get-Psql ("select count(distinct versao) from sigov.orcamento_lrf_apuracao where tenant_id=910001 and exercicio_id=" + $exA25 + " and limite_chave='MDE_MIN'")
+Add-Check 'S13' 'lrf.mde-2025-23p5-alerta-apuracao-versionada' (($empMde25.code -eq 200) -and (Get-S13Near $empMde25j.valorTotal 235000) -and ($empMde25j.situacao -eq 'ATIVO') -and ($liqMde25.code -eq 200) -and (Get-S13Near $liqMde25j.valorTotal 235000) -and ($liqMde25j.situacao -eq 'ATIVA') -and ($ap25.code -eq 200) -and ($null -ne $mde25row) -and ($mde25row.situacao -eq 'ALERTA') -and (Get-S13Near $mde25row.percentual 23.5) -and (Get-S13Near $mde25row.baseValor 1000000) -and (Get-S13Near $mde25row.valorAtual 235000) -and ($null -ne $ra25row) -and ($ra25row.situacao -eq 'DENTRO') -and ([int]$ap25v.text.Trim() -ge 2)) ("empenho MDE 2025 de 235.000 abre dentro da janela (0 -> 23,5% entre bloqueio 23 e alerta 24); liquidacao integral zera os restos; apuracao explicita persiste MDE_MIN = ALERTA 23,5000% (base 1.000.000, atual 235.000 - CF art. 212 parametrizado) e RESTOS DENTRO (zero apos liquidacao); versoes append-only >= 2 conferidas no banco")
+
+$excA = Invoke-Api -Bearer $tk13A.token -Method GET -Path '/api/orcamento/exercicios' -Base $ApiBase
+$excAj = @()
+if ($null -ne (Get-S13Data $excA.body)) { $excAj = @(Get-S13Data $excA.body) }
+$ex25row = $excAj | Where-Object { [int]$_.ano -eq 2025 } | Select-Object -First 1
+$ex26rowA = $excAj | Where-Object { [int]$_.ano -eq 2026 } | Select-Object -First 1
+$enc25 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/exercicios/encerrar' -Base $ApiBase -Body ('{"exercicioId":' + [long]$ex25row.exercicioId + ',"motivo":"Encerramento anual homologacao C2S13"}')
+$enc25j = Get-S13Data $enc25.body
+$empEnc25 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/empenhos?ano=2025' -Base $ApiBase -Body ('{"numero":"EMP-S13A25-002","dataEmpenho":"2025-12-28","tipoEmpenho":"CP","historico":"Empenho apos encerramento C2S13","chaveIdempotencia":"c2s13-e-enc25","itens":[{"dotacaoId":' + $dotMde25j.id + ',"valor":10000}]}')
+$rea25 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/exercicios/reabrir' -Base $ApiBase -Body ('{"exercicioId":' + [long]$ex25row.exercicioId + ',"justificativa":"Reabertura homologacao para liquidacao de restos a pagar C2S13"}')
+$rea25j = Get-S13Data $rea25.body
+Add-Check 'S13' 'exercicio.2025-encerrado-bloqueia-movimento-reaberto' (($excA.code -eq 200) -and ($null -ne $ex25row) -and ($ex25row.situacao -eq 'ABERTO') -and ($null -ne $ex26rowA) -and ($ex26rowA.situacao -eq 'ABERTO') -and ($enc25.code -eq 200) -and ($null -ne $enc25j) -and ($enc25j.situacao -eq 'ENCERRADO') -and ($enc25j.encerramentoMotivo -eq 'Encerramento anual homologacao C2S13') -and ($empEnc25.code -eq 409) -and ((Get-S13Msg $empEnc25.body) -like '*EXERCICIO_ENCERRADO*') -and ($rea25.code -eq 200) -and ($null -ne $rea25j) -and ($rea25j.situacao -eq 'ABERTO') -and ($null -ne $rea25j.reabertoEm) -and ($rea25j.reaberturaJustificativa -eq 'Reabertura homologacao para liquidacao de restos a pagar C2S13')) ("GET exercicios lista 2025 e 2026 ABERTO; encerrar 2025 (motivo auditavel) -> ENCERRADO; novo empenho em 2025 -> 409 EXERCICIO_ENCERRADO (competencia fechada bloqueia movimentos - BR-13.8); reabrir com justificativa >= minimo parametrizado -> ABERTO com reabertoEm e justificativa persistidos")
+
+# --- BR-13.1 estrutura 2026 (A municipal) + validacoes nomeadas ---
+$pgA = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/programas?ano=2026' -Base $ApiBase -Body '{"codigo":"PG-S13A","nome":"Programa Homologacao Orcamento C2S13","objetivo":"Objetivo do programa de homologacao C2S13"}'
+$pgAj = Get-S13Data $pgA.body
+$pgAdup = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/programas?ano=2026' -Base $ApiBase -Body '{"codigo":"PG-S13A","nome":"Programa Homologacao Orcamento C2S13","objetivo":"Objetivo do programa de homologacao C2S13"}'
+$acMde = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/acoes?ano=2026' -Base $ApiBase -Body ('{"codigo":"ACAO-MDE","nome":"Atividade Saude 2026 C2S13","tipo":"ATIVIDADE","programaId":' + $pgAj.id + ',"subfuncaoCodigo":"302","funcaoCodigo":"09","poder":"EXECUTIVO","categoriaEconomica":"CORRENTE","grupoDespesa":"OUTRAS_DESPESAS_CORRENTES"}')
+$acMdej = Get-S13Data $acMde.body
+$acPes = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/acoes?ano=2026' -Base $ApiBase -Body ('{"codigo":"ACAO-PES","nome":"Atividade Pessoal 2026 C2S13","tipo":"ATIVIDADE","programaId":' + $pgAj.id + ',"subfuncaoCodigo":"271","funcaoCodigo":"17","poder":"EXECUTIVO","categoriaEconomica":"CORRENTE","grupoDespesa":"PESSOAL_E_ENCARGOS"}')
+$acPesj = Get-S13Data $acPes.body
+$acTipoX = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/acoes?ano=2026' -Base $ApiBase -Body ('{"codigo":"ACAO-XPTO","nome":"Acao tipo invalida","tipo":"XPTO","programaId":' + $pgAj.id + ',"subfuncaoCodigo":"302","funcaoCodigo":"09","poder":"EXECUTIVO","categoriaEconomica":"CORRENTE","grupoDespesa":"OUTRAS_DESPESAS_CORRENTES"}')
+$acFnX = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/acoes?ano=2026' -Base $ApiBase -Body ('{"codigo":"ACAO-FN99","nome":"Acao funcao ausente","tipo":"ATIVIDADE","programaId":' + $pgAj.id + ',"subfuncaoCodigo":"302","funcaoCodigo":"99","poder":"EXECUTIVO","categoriaEconomica":"CORRENTE","grupoDespesa":"OUTRAS_DESPESAS_CORRENTES"}')
+$acSfX = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/acoes?ano=2026' -Base $ApiBase -Body ('{"codigo":"ACAO-SF99","nome":"Acao subfuncao ausente","tipo":"ATIVIDADE","programaId":' + $pgAj.id + ',"subfuncaoCodigo":"999","funcaoCodigo":"09","poder":"EXECUTIVO","categoriaEconomica":"CORRENTE","grupoDespesa":"OUTRAS_DESPESAS_CORRENTES"}')
+Add-Check 'S13' 'estrutura.2026-programa-acoes-validacoes-nomeadas' (($pgA.code -eq 200) -and ($null -ne $pgAj) -and ($pgAj.situacao -eq 'ATIVO') -and ($pgAdup.code -eq 409) -and ((Get-S13Msg $pgAdup.body) -like '*PROGRAMA_JA_EXISTE*') -and ($acMde.code -eq 200) -and ($null -ne $acMdej) -and ($acMdej.ativo -eq $true) -and ($acPes.code -eq 200) -and ($null -ne $acPesj) -and ($acPesj.grupoDespesa -eq 'PESSOAL_E_ENCARGOS') -and ($acTipoX.code -eq 400) -and ((Get-S13Msg $acTipoX.body) -like '*ACAO_TIPO_INVALIDO*') -and ($acFnX.code -eq 404) -and ((Get-S13Msg $acFnX.body) -like '*ORCAMENTO_FUNCAO_INEXISTENTE*') -and ($acSfX.code -eq 404) -and ((Get-S13Msg $acSfX.body) -like '*ORCAMENTO_SUBFUNCAO_INEXISTENTE*')) ("programa PG-S13A ok + duplicata 409 PROGRAMA_JA_EXISTE (backstop unico); acao MDE (saude) e acao PESSOAL (grupo PESSOAL_E_ENCARGOS) criadas; falhas nomeadas: tipo fora do catalogo 400 ACAO_TIPO_INVALIDO, funcao 99 404 ORCAMENTO_FUNCAO_INEXISTENTE, subfuncao 999 404 ORCAMENTO_SUBFUNCAO_INEXISTENTE (catalogo nacional no banco)")
+
+# --- BR-13.2 dotacoes 2026 ---
+$dotMde = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/dotacoes?ano=2026' -Base $ApiBase -Body ('{"acaoId":' + $acMdej.id + ',"fonteRecursoCodigo":"FNT-1","dotacaoInicial":1000000}')
+$dotMdej = Get-S13Data $dotMde.body
+$dotMdeDup = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/dotacoes?ano=2026' -Base $ApiBase -Body ('{"acaoId":' + $acMdej.id + ',"fonteRecursoCodigo":"FNT-1","dotacaoInicial":1000000}')
+$dotPes = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/dotacoes?ano=2026' -Base $ApiBase -Body ('{"acaoId":' + $acPesj.id + ',"fonteRecursoCodigo":"FNT-1","dotacaoInicial":1000000}')
+$dotPesj = Get-S13Data $dotPes.body
+Add-Check 'S13' 'dotacoes.linhas-unicas-acao-fonte-a' (($dotMde.code -eq 200) -and ($null -ne $dotMdej) -and (Get-S13Near $dotMdej.disponivel 1000000) -and ($dotMdeDup.code -eq 409) -and ((Get-S13Msg $dotMdeDup.body) -like '*DOTACAO_JA_EXISTE*') -and ($dotPes.code -eq 200) -and ($null -ne $dotPesj) -and (Get-S13Near $dotPesj.autorizado 1000000)) ("dotacao MDE 1.000.000 (disponivel inicial igual ao autorizado) + duplicata mesma acao x fonte -> 409 DOTACAO_JA_EXISTE (sem rollover entre exercicios); dotacao PESSOAL 1.000.000 criada")
+
+# --- base de receita 2026 (base PREVISTA dos limites LRF) ---
+$recA = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/receitas?ano=2026' -Base $ApiBase -Body '{"codigo":"R-S13A-IMP","nome":"Imposto Predial Homologacao C2S13","natureza":"TRIBUTARIA","valorPrevisto":1000000}'
+$recAj = Get-S13Data $recA.body
+$recADup = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/receitas?ano=2026' -Base $ApiBase -Body '{"codigo":"R-S13A-IMP","nome":"Imposto Predial Homologacao C2S13","natureza":"TRIBUTARIA","valorPrevisto":1000000}'
+$recNatX = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/receitas?ano=2026' -Base $ApiBase -Body '{"codigo":"R-S13A-XPTO","nome":"Receita natureza invalida","natureza":"XPTO","valorPrevisto":100}'
+$arqA = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/receitas/arrecadar?ano=2026' -Base $ApiBase -Body ('{"receitaId":' + $recAj.id + ',"valor":1000000,"dataArrecadacao":"2026-06-30","historico":"Arrecadacao homologacao C2S13","chaveIdempotencia":"c2s13-a-a1"}')
+$arqAj = Get-S13Data $arqA.body
+$arqAreps = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/receitas/arrecadar?ano=2026' -Base $ApiBase -Body ('{"receitaId":' + $recAj.id + ',"valor":1000000,"dataArrecadacao":"2026-06-30","historico":"Arrecadacao homologacao C2S13","chaveIdempotencia":"c2s13-a-a1"}')
+$arqArepsj = Get-S13Data $arqAreps.body
+$arqZero = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/receitas/arrecadar?ano=2026' -Base $ApiBase -Body ('{"receitaId":' + $recAj.id + ',"valor":0,"dataArrecadacao":"2026-06-30","historico":"Arrecadacao zero","chaveIdempotencia":"c2s13-a-zero"}')
+Add-Check 'S13' 'receita.base-prevista-arrecadacao-idempotente' (($recA.code -eq 200) -and ($null -ne $recAj) -and (Get-S13Near $recAj.valorPrevista 1000000) -and ($recADup.code -eq 409) -and ((Get-S13Msg $recADup.body) -like '*RECEITA_JA_EXISTE*') -and ($recNatX.code -eq 400) -and ((Get-S13Msg $recNatX.body) -like '*RECEITA_NATUREZA_INVALIDA*') -and ($arqA.code -eq 200) -and ($null -ne $arqAj) -and (Get-S13Near $arqAj.valorArrecadado 1000000) -and (Get-S13Near $arqAj.saldoAArrecadar 0) -and ($arqAj.idempotente -eq $false) -and ($arqAreps.code -eq 200) -and ($null -ne $arqArepsj) -and ($arqArepsj.idempotente -eq $true) -and (Get-S13Near $arqArepsj.valorArrecadado 1000000) -and ($arqZero.code -eq 400) -and ((Get-S13Msg $arqZero.body) -like '*ARRECADACAO_INVALIDA*')) ("receita TRIBUTARIA prevista 1.000.000 (base PREVISTA de todos os limites LRF) + duplicata 409 RECEITA_JA_EXISTE + natureza XPTO 400 RECEITA_NATUREZA_INVALIDA; arrecadacao integral ok e REPLAY com a mesma chave -> idempotente=true sem somar de novo (saldo continua 0); valor zero -> 400 ARRECADACAO_INVALIDA")
+
+# --- BR-13.3 empenho CP 600k ok + idempotente ---
+$empA1 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/empenhos?ano=2026' -Base $ApiBase -Body ('{"numero":"EMP-S13A-001","dataEmpenho":"2026-06-15","tipoEmpenho":"CP","historico":"Empenho saude homologacao C2S13","chaveIdempotencia":"c2s13-e-a1","itens":[{"dotacaoId":' + $dotMdej.id + ',"valor":600000}]}')
+$empA1j = Get-S13Data $empA1.body
+$empA1rep = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/empenhos?ano=2026' -Base $ApiBase -Body ('{"numero":"EMP-S13A-001","dataEmpenho":"2026-06-15","tipoEmpenho":"CP","historico":"Empenho saude homologacao C2S13","chaveIdempotencia":"c2s13-e-a1","itens":[{"dotacaoId":' + $dotMdej.id + ',"valor":600000}]}')
+$empA1repj = Get-S13Data $empA1rep.body
+Add-Check 'S13' 'empenho.a1-600k-ok-idempotente' (($empA1.code -eq 200) -and ($null -ne $empA1j) -and (Get-S13Near $empA1j.valorTotal 600000) -and (Get-S13Near $empA1j.disponivel 600000) -and ($empA1j.situacao -eq 'ATIVO') -and ($empA1j.idempotente -eq $false) -and ($empA1rep.code -eq 200) -and ($null -ne $empA1repj) -and ($empA1repj.idempotente -eq $true) -and ([long]$empA1repj.id -eq [long]$empA1j.id)) ("empenho CP 600.000 sobre dotacao MDE aprovado (transicoes LRF pos-movimento dentro dos limites: MDE 0->60% DENTRO, RESTOS 0->60% ALERTA sob override 55/75); replay com a mesma chave_idempotencia -> 200 idempotente=true com o mesmo id (1 evento = 1 empenho)")
+
+# --- BR-13.2 credito suplementar com ato legal + justificativa parametrizada ---
+$credA = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/creditos?ano=2026' -Base $ApiBase -Body ('{"dotacaoId":' + $dotMdej.id + ',"tipo":"SUPLEMENTAR","valor":250000,"atoLegal":"DL 042/2026","justificativa":"Suplementacao para custeio de acoes de saude - homologacao C2S13","chaveIdempotencia":"c2s13-c-a1"}')
+$credAj = Get-S13Data $credA.body
+$credAreps = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/creditos?ano=2026' -Base $ApiBase -Body ('{"dotacaoId":' + $dotMdej.id + ',"tipo":"SUPLEMENTAR","valor":250000,"atoLegal":"DL 042/2026","justificativa":"Suplementacao para custeio de acoes de saude - homologacao C2S13","chaveIdempotencia":"c2s13-c-a1"}')
+$credArepsj = Get-S13Data $credAreps.body
+$credTipoX = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/creditos?ano=2026' -Base $ApiBase -Body ('{"dotacaoId":' + $dotMdej.id + ',"tipo":"XPTO","valor":1000,"atoLegal":"DL 99/2026","justificativa":"Tipo de credito invalido homologacao C2S13","chaveIdempotencia":"c2s13-c-x1"}')
+$credJustCurta = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/creditos?ano=2026' -Base $ApiBase -Body ('{"dotacaoId":' + $dotMdej.id + ',"tipo":"SUPLEMENTAR","valor":1000,"atoLegal":"DL 98/2026","justificativa":"x","chaveIdempotencia":"c2s13-c-x2"}')
+$dotGet = Invoke-Api -Bearer $tk13A.token -Method GET -Path '/api/orcamento/dotacoes?ano=2026' -Base $ApiBase
+$dotGetj = @()
+if ($null -ne (Get-S13Data $dotGet.body)) { $dotGetj = @(Get-S13Data $dotGet.body) }
+$dotMdeRow = $dotGetj | Where-Object { [long]$_.id -eq [long]$dotMdej.id } | Select-Object -First 1
+Add-Check 'S13' 'credito.suplementar-ato-legal-disponibilidade' (($credA.code -eq 200) -and ($null -ne $credAj) -and ($credAj.situacao -eq 'APLICADO') -and (Get-S13Near $credAj.valor 250000) -and ($credAj.idempotente -eq $false) -and ($credAreps.code -eq 200) -and ($credArepsj.idempotente -eq $true) -and ($credTipoX.code -eq 400) -and ((Get-S13Msg $credTipoX.body) -like '*CREDITO_TIPO_INVALIDO*') -and ($credJustCurta.code -eq 400) -and ((Get-S13Msg $credJustCurta.body) -like '*JUSTIFICATIVA_INSUFICIENTE*') -and ($credJustCurta.body -like '*credito adicional*') -and ($null -ne $dotMdeRow) -and (Get-S13Near $dotMdeRow.dotacaoInicial 1000000) -and (Get-S13Near $dotMdeRow.creditosSuplementares 250000) -and (Get-S13Near $dotMdeRow.autorizado 1250000) -and (Get-S13Near $dotMdeRow.empenhado 600000) -and (Get-S13Near $dotMdeRow.disponivel 650000)) ("credito SUPLEMENTAR 250.000 c/ ato legal DL 042/2026 e justificativa >= minimo parametrizado -> APLICADO (replay idempotente); tipo XPTO 400 CREDITO_TIPO_INVALIDO; justificativa de 1 char 400 JUSTIFICATIVA_INSUFICIENTE (minimo 10 - LC 101/2000 art. 41); dotacao MDE agora: inicial 1.000.000 + creditos 250.000 = autorizado 1.250.000, empenhado 600.000, disponivel 650.000")
+
+# --- BR-13.3 trava de disponibilidade ---
+$empA2 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/empenhos?ano=2026' -Base $ApiBase -Body ('{"numero":"EMP-S13A-002","dataEmpenho":"2026-06-18","tipoEmpenho":"CP","historico":"Empenho acima da disponibilidade C2S13","chaveIdempotencia":"c2s13-e-a2","itens":[{"dotacaoId":' + $dotMdej.id + ',"valor":700000}]}')
+$empNoItens = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/empenhos?ano=2026' -Base $ApiBase -Body '{"numero":"EMP-S13A-003","dataEmpenho":"2026-06-18","tipoEmpenho":"CP","historico":"Empenho sem itens C2S13","chaveIdempotencia":"c2s13-e-ni","itens":[]}'
+$empTipoX = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/empenhos?ano=2026' -Base $ApiBase -Body ('{"numero":"EMP-S13A-004","dataEmpenho":"2026-06-18","tipoEmpenho":"XPTO","historico":"Empenho tipo invalido C2S13","chaveIdempotencia":"c2s13-e-tx","itens":[{"dotacaoId":' + $dotPesj.id + ',"valor":1000}]}')
+Add-Check 'S13' 'empenho.a2-700k-insuficiente-nomeado' (($empA2.code -eq 409) -and ((Get-S13Msg $empA2.body) -like '*EMPENHO_ORCAMENTO_INSUFICIENTE*') -and ($empNoItens.code -eq 400) -and ((Get-S13Msg $empNoItens.body) -like '*EMPENHO_SEM_ITENS*') -and ($empTipoX.code -eq 400) -and ((Get-S13Msg $empTipoX.body) -like '*EMPENHO_TIPO_INVALIDO*')) ("empenho de 700.000 contra disponibilidade 650.000 -> 409 EMPENHO_ORCAMENTO_INSUFICIENTE (disponibilidade = inicial + creditos - reducoes - empenhado, Lei 4.320/64); sem itens -> 400 EMPENHO_SEM_ITENS; tipo XPTO -> 400 EMPENHO_TIPO_INVALIDO")
+
+# --- BR-13.4 liquidacao: 400k ok / 300k super empenho por item ---
+$detA1 = Invoke-Api -Bearer $tk13A.token -Method GET -Path ('/api/orcamento/empenhos/' + $empA1j.id + '?ano=2026') -Base $ApiBase
+$detA1j = Get-S13Data $detA1.body
+$itemIdA1 = if ($null -ne $detA1j) { ($detA1j.itens | Select-Object -First 1).id } else { 0 }
+$liqA1 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/liquidacoes?ano=2026' -Base $ApiBase -Body ('{"numero":"LIQ-S13A-001","dataLiquidacao":"2026-07-10","empenhoId":' + $empA1j.id + ',"historico":"Liquidacao parcial homologacao C2S13","chaveIdempotencia":"c2s13-l-a1","itens":[{"empenhoItemId":' + $itemIdA1 + ',"valor":400000}]}')
+$liqA1j = Get-S13Data $liqA1.body
+$liqA2 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/liquidacoes?ano=2026' -Base $ApiBase -Body ('{"numero":"LIQ-S13A-002","dataLiquidacao":"2026-07-15","empenhoId":' + $empA1j.id + ',"historico":"Liquidacao acima do item C2S13","chaveIdempotencia":"c2s13-l-a2","itens":[{"empenhoItemId":' + $itemIdA1 + ',"valor":300000}]}')
+$liqNoItens = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/liquidacoes?ano=2026' -Base $ApiBase -Body ('{"numero":"LIQ-S13A-003","dataLiquidacao":"2026-07-15","empenhoId":' + $empA1j.id + ',"historico":"Liquidacao sem itens C2S13","chaveIdempotencia":"c2s13-l-ni","itens":[]}')
+Add-Check 'S13' 'liquidacao.a1-400k-ok-a2-300k-super-empenho' (($liqA1.code -eq 200) -and ($null -ne $liqA1j) -and (Get-S13Near $liqA1j.valorTotal 400000) -and ($liqA1j.situacao -eq 'ATIVA') -and ($liqA1j.empenhoNumero -eq 'EMP-S13A-001') -and ($liqA2.code -eq 409) -and ((Get-S13Msg $liqA2.body) -like '*LIQUIDACAO_SUPER_EMPENHO*') -and ($liqNoItens.code -eq 400) -and ((Get-S13Msg $liqNoItens.body) -like '*LIQUIDACAO_SEM_ITENS*')) ("liquidacao SL de 400.000 sobre o item do empenho (disponivel por item 600.000) -> ATIVA; segunda liquidacao de 300.000 sobre o mesmo item (restava 200.000) -> 409 LIQUIDACAO_SUPER_EMPENHO; sem itens -> 400 LIQUIDACAO_SEM_ITENS")
+
+# --- BR-13.3/13.5 pessoal executivo: 45% ok, +5% -> 50% BLOQUEADO por transicao ---
+$empPes1 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/empenhos?ano=2026' -Base $ApiBase -Body ('{"numero":"EMP-S13A-005","dataEmpenho":"2026-06-20","tipoEmpenho":"CP","historico":"Empenho pessoal homologacao C2S13","chaveIdempotencia":"c2s13-e-p1","itens":[{"dotacaoId":' + $dotPesj.id + ',"valor":450000}]}')
+$empPes1j = Get-S13Data $empPes1.body
+$empPes2 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/empenhos?ano=2026' -Base $ApiBase -Body ('{"numero":"EMP-S13A-006","dataEmpenho":"2026-06-25","tipoEmpenho":"CP","historico":"Empenho pessoal no teto C2S13","chaveIdempotencia":"c2s13-e-p2","itens":[{"dotacaoId":' + $dotPesj.id + ',"valor":50000}]}')
+Add-Check 'S13' 'lrf.pessoal-executivo-transicao-bloqueio-50pct' (($empPes1.code -eq 200) -and ($null -ne $empPes1j) -and (Get-S13Near $empPes1j.valorTotal 450000) -and ($empPes1j.situacao -eq 'ATIVO') -and ($empPes2.code -eq 409) -and ((Get-S13Msg $empPes2.body) -like '*LRF_LIMITE_BLOQUEADO*') -and ((Get-S13Msg $empPes2.body) -like '*PESSOAL_EXECUTIVO_MAX*')) ("pessoal executivo municipal: empenho de 450.000 (0 -> 45%, <= alerta 45) aprovado; empenho seguinte de 50.000 levaria a 50% (= bloqueio parametrizado institucional) -> 409 LRF_LIMITE_BLOQUEADO com a chave PESSOAL_EXECUTIVO_MAX (bloqueio na TRANSICAO para BLOQUEIO - LC 101/2000 art. 20 II)")
+
+$limA = Invoke-Api -Bearer $tk13A.token -Method GET -Path '/api/orcamento/lrf/limites' -Base $ApiBase
+$limAj = @()
+if ($null -ne (Get-S13Data $limA.body)) { $limAj = @(Get-S13Data $limA.body) }
+$limARestos = $limAj | Where-Object { $_.chave -eq 'RESTOS_A_PAGAR_MAX' } | Select-Object -First 1
+$limAMde = $limAj | Where-Object { $_.chave -eq 'MDE_MIN' } | Select-Object -First 1
+Add-Check 'S13' 'lrf.a-limites-efetivos-override-observaveis' (($limA.code -eq 200) -and ($limAj.Count -ge 6) -and ($null -ne $limARestos) -and ($limARestos.origem -eq 'OVERRIDE_TENANT') -and (Get-S13Near $limARestos.alertaPct 55) -and (Get-S13Near $limARestos.bloqueioPct 75) -and ($null -ne $limAMde) -and ($limAMde.origem -eq 'INSTITUCIONAL') -and (Get-S13Near $limAMde.valorAlvo 25) -and (Get-S13Near $limAMde.bloqueioPct 23)) ("GET lrf/limites do tenant municipal expoe os limites efetivos: RESTOS_A_PAGAR_MAX com origem OVERRIDE_TENANT (alerta 55 / bloqueio 75, organico do tenant) e MDE_MIN INSTITUCIONAL (alvo 25 / alerta 24 / bloqueio 23 - CF art. 212 parametrizado); nenhum percentual vem de hardcoded")
+
+# --- BR-13.6 previsao bimestral deterministica ---
+$prev1 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/previsoes-bimestrais?ano=2026' -Base $ApiBase -Body '{"bimestre":1,"observacao":"Previsao 1o bimestre homologacao C2S13"}'
+$prev1j = Get-S13Data $prev1.body
+$prev1b = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/previsoes-bimestrais?ano=2026' -Base $ApiBase -Body '{"bimestre":1,"observacao":"Previsao 1o bimestre regenerada C2S13"}'
+$prev1bj = Get-S13Data $prev1b.body
+$prevList = Invoke-Api -Bearer $tk13A.token -Method GET -Path '/api/orcamento/previsoes-bimestrais?ano=2026' -Base $ApiBase
+$prevListj = @()
+if ($null -ne (Get-S13Data $prevList.body)) { $prevListj = @(Get-S13Data $prevList.body) }
+$vigentes = @($prevListj | Where-Object { $_.vigente -eq $true })
+$prevBad = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/previsoes-bimestrais?ano=2026' -Base $ApiBase -Body '{"bimestre":7,"observacao":"Bimestre invalido C2S13"}'
+Add-Check 'S13' 'previsao.bimestre1-deterministica-vigente-unico' (($prev1.code -eq 200) -and ($null -ne $prev1j) -and (Get-S13Near $prev1j.receitaPrevistaTotal 1000000) -and (Get-S13Near $prev1j.receitaArrecadadaTotal 1000000) -and (Get-S13Near $prev1j.despesaAutorizadaTotal 2250000) -and (Get-S13Near $prev1j.despesaEmpenhadaTotal 1050000) -and (Get-S13Near $prev1j.despesaLiquidadaTotal 400000) -and (Get-S13Near $prev1j.saldoReceitas 0) -and ($prev1j.vigente -eq $true) -and ($prev1b.code -eq 200) -and ([long]$prev1bj.id -ne [long]$prev1j.id) -and (Get-S13Near $prev1bj.despesaAutorizadaTotal 2250000) -and (Get-S13Near $prev1bj.despesaEmpenhadaTotal 1050000) -and ($prev1bj.vigente -eq $true) -and ($prevListj.Count -eq 2) -and ($vigentes.Count -eq 1) -and ($prevBad.code -eq 400) -and ((Get-S13Msg $prevBad.body) -like '*BIMESTRE_INVALIDO*')) ("previsao bimestral (LC 101/2000 art. 51) gerada SOMENTE dos dados reais: receita prevista 1.000.000 / arrecadada 1.000.000 / autorizada 2.250.000 / empenhada 1.050.000 / liquidada 400.000 / saldo 0; regeracao -> nova linha deterministica (mesmos totais) e exatamente 1 vigente por bimestre; bimestre 7 -> 400 BIMESTRE_INVALIDO")
+
+# --- BR-13.7 RREO semestral/anual ---
+$rreo1 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/rreo?ano=2026' -Base $ApiBase -Body '{"tipo":"SEMESTRAL","semestre":2,"periodoFim":"2026-09-30"}'
+$rreo1j = Get-S13Data $rreo1.body
+$rreoDet = Invoke-Api -Bearer $tk13A.token -Method GET -Path ('/api/orcamento/rreo/' + $rreo1j.id + '?ano=2026') -Base $ApiBase
+$rreoDetj = Get-S13Data $rreoDet.body
+$rc1 = $null; $rc2 = $null; $rc3 = $null; $rc4 = $null; $rc5 = $null; $rc6 = $null; $rc7 = $null; $rc8 = $null; $rc9 = $null
+if ($null -ne $rreoDetj) {
+  $cjs = @($rreoDetj.conjuntos)
+  $rc1 = $cjs | Where-Object { $_.conjunto -eq 'RECEITA_PREVISTA_GERAL' } | Select-Object -First 1
+  $rc2 = $cjs | Where-Object { $_.conjunto -eq 'RECEITA_ARRECADADA' } | Select-Object -First 1
+  $rc3 = $cjs | Where-Object { $_.conjunto -eq 'SALDO_RECEITAS' } | Select-Object -First 1
+  $rc4 = $cjs | Where-Object { $_.conjunto -eq 'DESPESA_AUTORIZADA' } | Select-Object -First 1
+  $rc5 = $cjs | Where-Object { $_.conjunto -eq 'DESPESA_EMPENHADA' } | Select-Object -First 1
+  $rc6 = $cjs | Where-Object { $_.conjunto -eq 'DESPESA_LIQUIDADA' } | Select-Object -First 1
+  $rc7 = $cjs | Where-Object { $_.conjunto -eq 'RESTOS_PAGAR_EXERCICIO_ATUAL' } | Select-Object -First 1
+  $rc8 = $cjs | Where-Object { $_.conjunto -eq 'RESTOS_PAGAR_EXERCICIOS_ANTERIORES' } | Select-Object -First 1
+  $rc9 = $cjs | Where-Object { $_.conjunto -eq 'LIQUIDACAO_RESTOS_NO_EXERCICIO' } | Select-Object -First 1
+}
+$rreoAnual = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/rreo?ano=2026' -Base $ApiBase -Body '{"tipo":"ANUAL","periodoFim":"2026-12-31"}'
+$rreoAnualj = Get-S13Data $rreoAnual.body
+$rreoTipoX = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/rreo?ano=2026' -Base $ApiBase -Body '{"tipo":"XPTO","periodoFim":"2026-09-30"}'
+$rreoSemX = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/rreo?ano=2026' -Base $ApiBase -Body '{"tipo":"ANUAL","semestre":1,"periodoFim":"2026-12-31"}'
+$rreoPerX = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/rreo?ano=2026' -Base $ApiBase -Body '{"tipo":"SEMESTRAL","semestre":2,"periodoFim":"2027-01-15"}'
+Add-Check 'S13' 'rreo.semestral-anual-conjuntos-travados' (($rreo1.code -eq 200) -and ($null -ne $rreo1j) -and ($rreo1j.vigente -eq $true) -and ($rreoDet.code -eq 200) -and ($null -ne $rreoDetj) -and ($null -ne $rc1) -and (Get-S13Near $rc1.valor 1000000) -and ($null -ne $rc2) -and (Get-S13Near $rc2.valor 1000000) -and ($null -ne $rc3) -and (Get-S13Near $rc3.valor 0) -and ($null -ne $rc4) -and (Get-S13Near $rc4.valor 2250000) -and ($null -ne $rc5) -and (Get-S13Near $rc5.valor 1050000) -and ($null -ne $rc6) -and (Get-S13Near $rc6.valor 400000) -and ($null -ne $rc7) -and (Get-S13Near $rc7.valor 650000) -and ($null -ne $rc8) -and (Get-S13Near $rc8.valor 0) -and ($null -ne $rc9) -and (Get-S13Near $rc9.valor 0) -and ($rreoAnual.code -eq 200) -and ($null -ne $rreoAnualj) -and ($rreoAnualj.vigente -eq $true) -and ($rreoTipoX.code -eq 400) -and ((Get-S13Msg $rreoTipoX.body) -like '*RREO_TIPO_INVALIDO*') -and ($rreoSemX.code -eq 400) -and ((Get-S13Msg $rreoSemX.body) -like '*RREO_SEMESTRE_INCONSISTENTE*') -and ($rreoPerX.code -eq 400) -and ((Get-S13Msg $rreoPerX.body) -like '*RREO_PERIODO_FIM_INCONSISTENTE*')) ("RREO SEMESTRAL 2/2026 (LC 101/2000 art. 54) com os 9 conjuntos travados dos dados reais: prevista 1.000.000, arrecadada 1.000.000, saldo 0, autorizada 2.250.000, empenhada 1.050.000, liquidada 400.000, restos atual 650.000 (600k-400k+450k), restos anteriores 0 (2025 integralmente liquidado), restos liquidados no exercicio 0; ANUAL gerado vigente; tipo XPTO 400, ANUAL c/ semestre 400, periodo_fim fora do exercicio 400")
+
+# --- dashboard A (valores travados do estado final 2026) ---
+$dashA = Invoke-Api -Bearer $tk13A.token -Method GET -Path '/api/orcamento/dashboard?ano=2026' -Base $ApiBase
+$dashAj = Get-S13Data $dashA.body
+Add-Check 'S13' 'dashboard.a-municipal-indicadores-travados' (($dashA.code -eq 200) -and ($null -ne $dashAj) -and ($dashAj.esferaGoverno -eq 'municipal') -and ([int]$dashAj.acoesAtivas -eq 2) -and ([int]$dashAj.dotacoes -eq 2) -and ([int]$dashAj.empenhosAtivos -eq 2) -and ([int]$dashAj.liquidacoesAtivas -eq 1) -and (Get-S13Near $dashAj.totalAutorizado 2250000) -and (Get-S13Near $dashAj.totalEmpenhado 1050000) -and (Get-S13Near $dashAj.totalLiquidado 400000) -and (Get-S13Near $dashAj.disponivelTotal 1200000) -and (Get-S13Near $dashAj.receitaPrevistaTotal 1000000) -and (Get-S13Near $dashAj.receitaArrecadadaTotal 1000000) -and ([int]$dashAj.lrfEmAlerta -eq 1) -and ([int]$dashAj.lrfEmBloqueio -eq 0)) ("dashboard municipal 2026: 2 acoes / 2 dotacoes / 2 empenhos ativos / 1 liquidacao ativa; autorizado 2.250.000, empenhado 1.050.000, liquidado 400.000, disponivel 1.200.000; receitas 1.000.000/1.000.000; LRF: 1 limite em alerta (RESTOS 65% sob override 55/75) e 0 em bloqueio na ultima versao apurada")
+
+# --- parametros efetivos: padrao institucional + override comportamental do tenant A ---
+$parA = Invoke-Api -Bearer $tk13A.token -Method GET -Path '/api/orcamento/parametros' -Base $ApiBase
+$parAj = @()
+if ($null -ne (Get-S13Data $parA.body)) { $parAj = @(Get-S13Data $parA.body) }
+$parAuto = $parAj | Where-Object { $_.codigo -eq 'ORCAMENTO_APURO_LRF_AUTO' } | Select-Object -First 1
+$parAnul = $parAj | Where-Object { $_.codigo -eq 'ORCAMENTO_ANULACAO_JUSTIFICATIVA_MIN_CARACTERES' } | Select-Object -First 1
+Add-Check 'S13' 'parametros.efetivos-padrao-override-tenant-a' (($parA.code -eq 200) -and ($parAj.Count -eq 5) -and ($null -ne $parAuto) -and ($parAuto.valorEfetivo -eq 'true') -and ($parAuto.origem -eq 'PADRAO') -and ($null -ne $parAnul) -and ($parAnul.valorEfetivo -eq '30') -and ($parAnul.origem -eq 'OVERRIDE')) ("GET parametros expoe os 5 parametros ORCAMENTO com origem observavel: ORCAMENTO_APURO_LRF_AUTO true (PADRAO) e min de justificativa de anulacao 30 (OVERRIDE do tenant A - padrao institucional 5), provando que regras de negocio sao parametrizadas por esfera/tenant (regra 24)")
+
+# --- anulacao: teto parametrizado (override 30) + estados nomeados ---
+$empA3 = Invoke-Api -Bearer $tk13A.token -Method POST -Path '/api/orcamento/empenhos?ano=2026' -Base $ApiBase -Body ('{"numero":"EMP-S13A-007","dataEmpenho":"2026-06-28","tipoEmpenho":"CP","historico":"Empenho descartavel p/ anulacao C2S13","chaveIdempotencia":"c2s13-e-a3","itens":[{"dotacaoId":' + $dotPesj.id + ',"valor":10000}]}')
+$empA3j = Get-S13Data $empA3.body
+$anulCurta = Invoke-Api -Bearer $tk13A.token -Method POST -Path ('/api/orcamento/empenhos/' + $empA3j.id + '/anular?ano=2026') -Base $ApiBase -Body '{"justificativa":"curta"}'
+$anulOk = Invoke-Api -Bearer $tk13A.token -Method POST -Path ('/api/orcamento/empenhos/' + $empA3j.id + '/anular?ano=2026') -Base $ApiBase -Body '{"justificativa":"Anulacao teste homologacao C2S13"}'
+$anulOkj = Get-S13Data $anulOk.body
+$anulRep = Invoke-Api -Bearer $tk13A.token -Method POST -Path ('/api/orcamento/empenhos/' + $empA3j.id + '/anular?ano=2026') -Base $ApiBase -Body '{"justificativa":"Anulacao teste homologacao C2S13"}'
+$anulComLiq = Invoke-Api -Bearer $tk13A.token -Method POST -Path ('/api/orcamento/empenhos/' + $empA1j.id + '/anular?ano=2026') -Base $ApiBase -Body '{"justificativa":"Anulacao com liquidacao existente homologacao C2S13"}'
+Add-Check 'S13' 'anulacao.teto-30-parametrizado-estados-a' (($empA3.code -eq 200) -and ($null -ne $empA3j) -and ($anulCurta.code -eq 400) -and ((Get-S13Msg $anulCurta.body) -like '*JUSTIFICATIVA_INSUFICIENTE*') -and ($anulCurta.body -like '*minimo de 30*') -and ($anulOk.code -eq 200) -and ($null -ne $anulOkj) -and ($anulOkj.situacao -eq 'ANULADO') -and (Get-S13Near $anulOkj.valorAnulado 10000) -and ($anulRep.code -eq 409) -and ((Get-S13Msg $anulRep.body) -like '*EMPENHO_JA_ANULADO*') -and ($anulComLiq.code -eq 409) -and ((Get-S13Msg $anulComLiq.body) -like '*EMPENHO_COM_LIQUIDACAO*')) ("com override 30 no tenant A (padrao 5), justificativa de 5 chars -> 400 JUSTIFICATIVA_INSUFICIENTE 'minimo de 30' (o override muda o comportamento, regra 24); anulacao ok -> ANULADO devolvendo 10.000 a dotacao; replay -> 409 EMPENHO_JA_ANULADO; anular empenho com 400.000 liquidados -> 409 EMPENHO_COM_LIQUIDACAO")
+
+# --- fail-closed, isolamento cruz-tenant e exercicio inexistente ---
+$fa1 = Invoke-Api -Bearer $tk13SemA.token -Method GET -Path '/api/orcamento/dashboard?ano=2026' -Base $ApiBase
+$fa2 = Invoke-Api -Bearer $tk13SemA.token -Method POST -Path '/api/orcamento/programas?ano=2026' -Base $ApiBase -Body '{"codigo":"PG-SEM","nome":"Programa sem permissao","objetivo":"Sem permissao C2S13"}'
+$cx1 = Invoke-Api -Bearer $tk13B.token -Method GET -Path ('/api/orcamento/empenhos/' + $empA1j.id + '?ano=2026') -Base $ApiBase
+$exIn = Invoke-Api -Bearer $tk13A.token -Method GET -Path '/api/orcamento/dotacoes?ano=2024' -Base $ApiBase
+Add-Check 'S13' 'auth.failclosed-semperm-cruz-tenant-exercicio-inexistente' (($fa1.code -eq 403) -and ($fa2.code -eq 403) -and ($cx1.code -eq 404) -and ((Get-S13Msg $cx1.body) -like '*ORCAMENTO_EMPENHO_INEXISTENTE*') -and ($exIn.code -eq 404) -and ((Get-S13Msg $exIn.body) -like '*ORCAMENTO_EXERCICIO_INEXISTENTE*')) ("usuario sem nenhuma chave orcamento.* -> 403 em GET e POST (fail-closed com 1 chave inofensiva fora da frente); admin B nao ve o empenho do tenant A (404 ORCAMENTO_EMPENHO_INEXISTENTE - isolamento por tenant); ano 2024 sem competencia -> 404 ORCAMENTO_EXERCICIO_INEXISTENTE (falha explicita, regra 13)")
+
+# --- schema ausente -> 404 nomeado (guard de fronteira) ---
+$sc1 = Get-Psql 'alter table sigov.orcamento_dotacao rename to orcamento_dotacao_s13probe'
+$sc2 = Invoke-Api -Bearer $tk13A.token -Method GET -Path '/api/orcamento/dotacoes?ano=2026' -Base $ApiBase
+$sc3 = Get-Psql 'alter table sigov.orcamento_dotacao_s13probe rename to orcamento_dotacao'
+$sc4 = Invoke-Api -Bearer $tk13A.token -Method GET -Path '/api/orcamento/dotacoes?ano=2026' -Base $ApiBase
+Add-Check 'S13' 'schema.ausente-404-nomeado-restaurado' (($sc1.code -eq 0) -and ($sc2.code -eq 404) -and ((Get-S13Msg $sc2.body) -like '*ORCAMENTO_NAO_DISPONIVEL*') -and ($sc3.code -eq 0) -and ($sc4.code -eq 200)) ("rename temporario de sigov.orcamento_dotacao -> API responde 404 ORCAMENTO_NAO_DISPONIVEL (ausencia de schema/configuracao explicita, regra 13); restaurado -> 200")
+
+# --- Tenant B (estadual): pessoal 48% ALERTA institucional -> override tenant 45,5% -> BLOQUEIO apurado ---
+$pgB = Invoke-Api -Bearer $tk13B.token -Method POST -Path '/api/orcamento/programas?ano=2026' -Base $ApiBase -Body '{"codigo":"PG-S13B","nome":"Programa Pessoal Estadual C2S13","objetivo":"Programa estadual de homologacao C2S13"}'
+$pgBj = Get-S13Data $pgB.body
+$acPesB = Invoke-Api -Bearer $tk13B.token -Method POST -Path '/api/orcamento/acoes?ano=2026' -Base $ApiBase -Body ('{"codigo":"ACAO-PESB","nome":"Atividade Pessoal Estadual C2S13","tipo":"ATIVIDADE","programaId":' + $pgBj.id + ',"subfuncaoCodigo":"271","funcaoCodigo":"17","poder":"EXECUTIVO","categoriaEconomica":"CORRENTE","grupoDespesa":"PESSOAL_E_ENCARGOS"}')
+$acPesBj = Get-S13Data $acPesB.body
+$dotPesB = Invoke-Api -Bearer $tk13B.token -Method POST -Path '/api/orcamento/dotacoes?ano=2026' -Base $ApiBase -Body ('{"acaoId":' + $acPesBj.id + ',"fonteRecursoCodigo":"FNT-1","dotacaoInicial":1000000}')
+$dotPesBj = Get-S13Data $dotPesB.body
+$recB = Invoke-Api -Bearer $tk13B.token -Method POST -Path '/api/orcamento/receitas?ano=2026' -Base $ApiBase -Body '{"codigo":"R-S13B-ICMS","nome":"ICMS Homologacao C2S13","natureza":"TRIBUTARIA","valorPrevisto":1000000}'
+$recBj = Get-S13Data $recB.body
+$arqB = Invoke-Api -Bearer $tk13B.token -Method POST -Path '/api/orcamento/receitas/arrecadar?ano=2026' -Base $ApiBase -Body ('{"receitaId":' + $recBj.id + ',"valor":1000000,"dataArrecadacao":"2026-06-30","historico":"Arrecadacao estadual homologacao C2S13","chaveIdempotencia":"c2s13-b-arq"}')
+$empB1 = Invoke-Api -Bearer $tk13B.token -Method POST -Path '/api/orcamento/empenhos?ano=2026' -Base $ApiBase -Body ('{"numero":"EMP-S13B-001","dataEmpenho":"2026-06-18","tipoEmpenho":"CP","historico":"Empenho pessoal estadual C2S13","chaveIdempotencia":"c2s13-b-e1","itens":[{"dotacaoId":' + $dotPesBj.id + ',"valor":480000}]}')
+$empB1j = Get-S13Data $empB1.body
+Add-Check 'S13' 'b.estadual-estrutura-receita-pessoal-48-alerta' (($pgB.code -eq 200) -and ($null -ne $pgBj) -and ($acPesB.code -eq 200) -and ($null -ne $acPesBj) -and ($dotPesB.code -eq 200) -and (Get-S13Near $dotPesBj.disponivel 1000000) -and ($recB.code -eq 200) -and (Get-S13Near $recBj.valorPrevista 1000000) -and ($arqB.code -eq 200) -and ($empB1.code -eq 200) -and ($null -ne $empB1j) -and (Get-S13Near $empB1j.valorTotal 480000) -and ($empB1j.situacao -eq 'ATIVO')) ("tenant estadual B montado (estrutura, dotacao 1.000.000, base receita 1.000.000); empenho pessoal EXECUTIVO de 480.000 (0 -> 48%) aprovado com os limites INSTITUCIONAIS estaduais (alerta 45 < 48 < bloqueio 50 = ALERTA, nao bloqueia)")
+
+$s13ovrB = Get-Psql "delete from sigov.orcamento_limite_lrf where tenant_id=910002 and esfera_governo='estadual' and chave='PESSOAL_EXECUTIVO_MAX';
+insert into sigov.orcamento_limite_lrf(tenant_id,esfera_governo,chave,nome,tipo_comparacao,valor_alvo,alerta_pct,bloqueio_pct,base_receita,ativo,created_by)
+select 910002,'estadual','PESSOAL_EXECUTIVO_MAX',l.nome,'MAX',50.0000,45.0000,45.5000,'PREVISTA',true,910301
+from sigov.orcamento_limite_lrf l where l.tenant_id is null and l.esfera_governo='estadual' and l.chave='PESSOAL_EXECUTIVO_MAX' and not l.is_deleted limit 1;"
+$apB = Invoke-Api -Bearer $tk13B.token -Method POST -Path '/api/orcamento/lrf/apurar?ano=2026' -Base $ApiBase -Body '{"periodo":"2026-09-30"}'
+$apBj = @()
+if ($null -ne (Get-S13Data $apB.body)) { $apBj = @(Get-S13Data $apB.body) }
+$pesBrow = $apBj | Where-Object { $_.limiteChave -eq 'PESSOAL_EXECUTIVO_MAX' } | Select-Object -First 1
+$mdeBrow = $apBj | Where-Object { $_.limiteChave -eq 'MDE_MIN' } | Select-Object -First 1
+$limB = Invoke-Api -Bearer $tk13B.token -Method GET -Path '/api/orcamento/lrf/limites' -Base $ApiBase
+$limBj = @()
+if ($null -ne (Get-S13Data $limB.body)) { $limBj = @(Get-S13Data $limB.body) }
+$limBPes = $limBj | Where-Object { $_.chave -eq 'PESSOAL_EXECUTIVO_MAX' } | Select-Object -First 1
+$limBRestos = $limBj | Where-Object { $_.chave -eq 'RESTOS_A_PAGAR_MAX' } | Select-Object -First 1
+$empB2 = Invoke-Api -Bearer $tk13B.token -Method POST -Path '/api/orcamento/empenhos?ano=2026' -Base $ApiBase -Body ('{"numero":"EMP-S13B-002","dataEmpenho":"2026-07-05","tipoEmpenho":"CP","historico":"Empenho ja-em-bloqueio C2S13","chaveIdempotencia":"c2s13-b-e2","itens":[{"dotacaoId":' + $dotPesBj.id + ',"valor":5000}]}')
+$empB2j = Get-S13Data $empB2.body
+Add-Check 'S13' 'lrf.b-override-tenant-bloqueio-apurado' (($s13ovrB.code -eq 0) -and ($apB.code -eq 200) -and ($null -ne $pesBrow) -and ($pesBrow.situacao -eq 'BLOQUEIO') -and (Get-S13Near $pesBrow.percentual 48) -and (Get-S13Near $pesBrow.baseValor 1000000) -and (Get-S13Near $pesBrow.valorAtual 480000) -and ($null -ne $mdeBrow) -and ($mdeBrow.situacao -eq 'BLOQUEIO') -and (Get-S13Near $mdeBrow.percentual 0) -and ($null -ne $limBPes) -and ($limBPes.origem -eq 'OVERRIDE_TENANT') -and (Get-S13Near $limBPes.bloqueioPct 45.5) -and ($null -ne $limBRestos) -and ($limBRestos.origem -eq 'OVERRIDE_TENANT') -and ($empB2.code -eq 200) -and ($null -ne $empB2j) -and (Get-S13Near $empB2j.valorTotal 5000)) ("override PESSOAL_EXECUTIVO_MAX do tenant estadual com bloqueio 45,5% (institucional 50%) muda a apuracao: BLOQUEIO persistido a 48,0000% (base 1.000.000, atual 480.000); MDE federal-free: estado sem empenhos em saude/educacao fica BLOQUEIO a 0% (piso CF art. 212 parametrizado); GET lrf/limites mostra origem OVERRIDE_TENANT (45,5) e RESTOS tambem do tenant (organico estadual); empenho de 5.000 quando JA em bloqueio -> permitido (negacao so na TRANSICAO para bloqueio)")
+
+$dashB = Invoke-Api -Bearer $tk13B.token -Method GET -Path '/api/orcamento/dashboard?ano=2026' -Base $ApiBase
+$dashBj = Get-S13Data $dashB.body
+Add-Check 'S13' 'dashboard.b-estadual-bloqueios-persistidos' (($dashB.code -eq 200) -and ($null -ne $dashBj) -and ($dashBj.esferaGoverno -eq 'estadual') -and ([int]$dashBj.acoesAtivas -eq 1) -and ([int]$dashBj.dotacoes -eq 1) -and ([int]$dashBj.empenhosAtivos -eq 2) -and ([int]$dashBj.liquidacoesAtivas -eq 0) -and (Get-S13Near $dashBj.totalAutorizado 1000000) -and (Get-S13Near $dashBj.totalEmpenhado 485000) -and (Get-S13Near $dashBj.totalLiquidado 0) -and (Get-S13Near $dashBj.disponivelTotal 515000) -and (Get-S13Near $dashBj.receitaPrevistaTotal 1000000) -and (Get-S13Near $dashBj.receitaArrecadadaTotal 1000000) -and ([int]$dashBj.lrfEmAlerta -eq 0) -and ([int]$dashBj.lrfEmBloqueio -eq 2)) ("dashboard estadual 2026: esfera herdada do contexto (nada municipal hardcoded); 1 acao / 1 dotacao / 2 empenhos ativos / 0 liquidacoes; autorizado 1.000.000, empenhado 485.000, disponivel 515.000; LRF: 0 alertas e 2 bloqueios na ultima versao (PESSOAL_EXECUTIVO por override do tenant + MDE piso 0%)")
+
+# --- limpeza cirurgica do fixture S13 (mesmo escopo do pre-clean) ---
+$s13cl = Get-Psql @"
+delete from sigov.orcamento_liquidacao_item where liquidacao_id in (select id from sigov.orcamento_liquidacao where tenant_id in (910001,910002));
+delete from sigov.orcamento_liquidacao where tenant_id in (910001,910002);
+delete from sigov.orcamento_empenho_item where empenho_id in (select id from sigov.orcamento_empenho where tenant_id in (910001,910002));
+delete from sigov.orcamento_empenho where tenant_id in (910001,910002);
+delete from sigov.orcamento_credito_adicional where tenant_id in (910001,910002);
+delete from sigov.orcamento_dotacao where tenant_id in (910001,910002);
+delete from sigov.orcamento_receita_arrecadacao where tenant_id in (910001,910002);
+delete from sigov.orcamento_receita_prevista where tenant_id in (910001,910002);
+delete from sigov.orcamento_lrf_apuracao where tenant_id in (910001,910002);
+delete from sigov.orcamento_previsao_bimestral where tenant_id in (910001,910002);
+delete from sigov.orcamento_rreo_item where lote_id in (select id from sigov.orcamento_rreo_lote where tenant_id in (910001,910002));
+delete from sigov.orcamento_rreo_lote where tenant_id in (910001,910002);
+delete from sigov.orcamento_estado_exercicio where tenant_id in (910001,910002);
+delete from sigov.orcamento_acao where tenant_id in (910001,910002);
+delete from sigov.orcamento_programa where tenant_id in (910001,910002);
+delete from sigov.orcamento_limite_lrf where tenant_id in (910001,910002);
+delete from sigov.parametro_modulo_valor where correlation_id='c2s13-anul-override-e2e';
+delete from sigov.autorizacao_decisao_auditoria where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.auditoria_evento where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.identidade_sessao where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.sessao_usuario where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.sessao_contexto_usuario where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.contexto_operacional_auditoria where usuario_executor_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.usuario_contexto_global_log where usuario_global_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.historico_login where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.trilha_auditoria where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.token_mfa where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.senha_redefinicao_token where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.fila_assinatura where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.usuario_preferencia where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.usuario_filtro_salvo where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.perfil_permissao where correlation_id in ('cf58c2ab-1c20-4a90-88f8-0c2000000031','cf58c2ab-1c20-4a90-88f8-0c2000000032','cf58c2ab-1c20-4a90-88f8-0c2000000033');
+delete from sigov.usuario_grupo where usuario_id in (select id from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'));
+delete from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%');
+delete from sigov.grupo_perfil where grupo_acesso_id in (select id from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo='C2S13A-SEMP') or (tenant_id=910002 and codigo_externo='C2S13B-ADM'));
+delete from sigov.perfil_acesso where (tenant_id=910001 and nome='C2S13A Perfil SemFrente') or (tenant_id=910002 and nome='C2S13B Perfil Orcamento');
+delete from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo='C2S13A-SEMP') or (tenant_id=910002 and codigo_externo='C2S13B-ADM');
+delete from sigov.exercicio where entidade_id in (select id from sigov.entidade where (tenant_id=910001 and codigo_externo='C2S13A-ENT') or (tenant_id=910002 and codigo_externo='C2S13B-ENT'));
+delete from sigov.entidade where (tenant_id=910001 and codigo_externo='C2S13A-ENT') or (tenant_id=910002 and codigo_externo='C2S13B-ENT');
+select (select count(*) from sigov.orcamento_liquidacao_item where liquidacao_id in (select id from sigov.orcamento_liquidacao where tenant_id in (910001,910002)))
+  + (select count(*) from sigov.orcamento_liquidacao where tenant_id in (910001,910002))
+  + (select count(*) from sigov.orcamento_empenho_item where empenho_id in (select id from sigov.orcamento_empenho where tenant_id in (910001,910002)))
+  + (select count(*) from sigov.orcamento_empenho where tenant_id in (910001,910002))
+  + (select count(*) from sigov.orcamento_credito_adicional where tenant_id in (910001,910002))
+  + (select count(*) from sigov.orcamento_dotacao where tenant_id in (910001,910002))
+  + (select count(*) from sigov.orcamento_receita_arrecadacao where tenant_id in (910001,910002))
+  + (select count(*) from sigov.orcamento_receita_prevista where tenant_id in (910001,910002))
+  + (select count(*) from sigov.orcamento_lrf_apuracao where tenant_id in (910001,910002))
+  + (select count(*) from sigov.orcamento_previsao_bimestral where tenant_id in (910001,910002))
+  + (select count(*) from sigov.orcamento_rreo_item where lote_id in (select id from sigov.orcamento_rreo_lote where tenant_id in (910001,910002)))
+  + (select count(*) from sigov.orcamento_rreo_lote where tenant_id in (910001,910002))
+  + (select count(*) from sigov.orcamento_estado_exercicio where tenant_id in (910001,910002))
+  + (select count(*) from sigov.orcamento_acao where tenant_id in (910001,910002))
+  + (select count(*) from sigov.orcamento_programa where tenant_id in (910001,910002))
+  + (select count(*) from sigov.orcamento_limite_lrf where tenant_id in (910001,910002))
+  + (select count(*) from sigov.parametro_modulo_valor where correlation_id='c2s13-anul-override-e2e')
+  + (select count(*) from sigov.perfil_permissao where correlation_id in ('cf58c2ab-1c20-4a90-88f8-0c2000000031','cf58c2ab-1c20-4a90-88f8-0c2000000032','cf58c2ab-1c20-4a90-88f8-0c2000000033'))
+  + (select count(*) from sigov.usuario where (tenant_id=910001 and login like 'c2s13a.%') or (tenant_id=910002 and login like 'c2s13b.%'))
+  + (select count(*) from sigov.grupo_perfil where grupo_acesso_id in (select id from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo='C2S13A-SEMP') or (tenant_id=910002 and codigo_externo='C2S13B-ADM')))
+  + (select count(*) from sigov.perfil_acesso where (tenant_id=910001 and nome='C2S13A Perfil SemFrente') or (tenant_id=910002 and nome='C2S13B Perfil Orcamento'))
+  + (select count(*) from sigov.grupo_acesso where (tenant_id=910001 and codigo_externo='C2S13A-SEMP') or (tenant_id=910002 and codigo_externo='C2S13B-ADM'))
+  + (select count(*) from sigov.entidade where (tenant_id=910001 and codigo_externo='C2S13A-ENT') or (tenant_id=910002 and codigo_externo='C2S13B-ENT'));
+"@
+Add-Check 'S13' 'fixture.removido-auto-limpeza-restantes-zero' (($s13cl.code -eq 0) -and ($s13cl.text -eq '0')) ("cleanup cirurgico S13 nos DOIS tenants (18 tabelas orcamento_* por tenant, overrides LRF A/B + override de bloqueio B, override parametro c2s13-anul-override-e2e, sessoes/auditorias dos 3 usuarios, grants sentinel cf58c2ab-...031-033, usuarios c2s13a.*/c2s13b.*, grupos+perfis dedicados C2S13, competencias, entidades C2S13A-ENT/C2S13B-ENT) -> restantes=" + $s13cl.text)
 
 # --- limpeza do fixture --------------------------------------------------------
 $cl = Get-Psql @"

@@ -1,0 +1,85 @@
+@{ ViewData["Title"] = "Limites LRF e Apurações"; }
+<section class="orcamento-station" aria-labelledby="titulo-lrf">
+  <header class="mb-3">
+    <h1 id="titulo-lrf">Limites LRF e Apurações</h1>
+    <p class="text-muted mb-0">Tetos de responsabilidade fiscal por esfera de governo (LC 101/2000 arts. 20, 26 e 32; CF/88 art. 212) com override por tenant, apuração versionada e bloqueio automático em transição para estouro.</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <div class="card mb-4"><div class="card-body py-2">
+    <form id="form-apurar" class="row g-2 align-items-end" novalidate>
+      <label class="col-auto">Exercício<select class="form-select" name="ano" id="sel-ano" required></select></label>
+      <label class="col-auto">Período da apuração<input class="form-control" type="date" name="periodo" id="inp-periodo" required /></label>
+      <div class="col-auto"><button type="submit" class="btn btn-primary btn-sm">Apurar tetos LRF</button></div>
+    </form>
+  </div></div>
+
+  <div data-mensagem class="alert alert-danger d-none" role="alert"></div>
+  <div class="loading-skeleton" data-loading hidden aria-live="polite">Carregando limites…</div>
+  <div data-resultado hidden>
+    <div class="card mb-4"><div class="card-header fw-semibold">Limites efetivos (institucional + override do tenant)</div><div class="card-body table-responsive">
+      <table class="table table-sm table-striped"><caption class="visually-hidden">Limites LRF</caption>
+        <thead><tr><th>Chave</th><th>Nome</th><th>Comparação</th><th class="text-end">Alerta (%)</th><th class="text-end">Bloqueio (%)</th><th>Base de receita</th><th>Origem</th><th>Ativo</th></tr></thead>
+        <tbody data-limite-lista></tbody>
+      </table>
+    </div></div>
+    <div class="card"><div class="card-header fw-semibold">Apurações do exercício (append-only, versionadas)</div><div class="card-body table-responsive">
+      <table class="table table-sm table-striped"><caption class="visually-hidden">Apurações LRF</caption>
+        <thead><tr><th>Período</th><th>Teto</th><th class="text-end">Base (R$)</th><th class="text-end">Atual (R$)</th><th class="text-end">%</th><th>Situação</th><th>Detalhe</th><th class="text-end">Versão</th></tr></thead>
+        <tbody data-apuracao-lista></tbody>
+      </table>
+    </div></div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const formApurar = root.querySelector('#form-apurar'), selAno = root.querySelector('#sel-ano'), inpPeriodo = root.querySelector('#inp-periodo'), loading = root.querySelector('[data-loading]'), result = root.querySelector('[data-resultado]'), message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; message.classList.remove('d-none'); };
+  const brl = v => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const anoAtual = new Date().getFullYear();
+  [anoAtual - 1, anoAtual, anoAtual + 1].forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = String(a); selAno.append(o); });
+  selAno.value = String(anoAtual);
+  inpPeriodo.value = new Date().toISOString().slice(0, 10);
+  const statusBadge = s => s === 'BLOQUEIO' ? 'badge text-bg-danger' : (s === 'ALERTA' ? 'badge text-bg-warning' : 'badge text-bg-success');
+  async function carregar() {
+    loading.hidden = false;
+    try {
+      const lims = await envelope(await fetch('/api/orcamento/lrf/limites', { credentials: 'same-origin' }));
+      const aps = await envelope(await fetch(`/api/orcamento/lrf/apuracoes?ano=${selAno.value}`, { credentials: 'same-origin' }));
+      const bl = result.querySelector('[data-limite-lista]');
+      bl.replaceChildren(...lims.map(l => {
+        const trEl = document.createElement('tr');
+        [l.chave, l.nome, l.tipoComparacao].forEach(v => { const td = document.createElement('td'); td.textContent = v; trEl.append(td); });
+        [l.alertaPct, l.bloqueioPct == null ? '—' : l.bloqueioPct + '%'].forEach(v => { const td = document.createElement('td'); td.className = 'text-end'; td.textContent = typeof v === 'number' ? v + '%' : v; trEl.append(td); });
+        [l.baseReceita, l.origem, l.ativo ? 'Sim' : 'Não'].forEach(v => { const td = document.createElement('td'); td.textContent = v; trEl.append(td); });
+        return trEl;
+      }));
+      if (!lims.length) bl.innerHTML = '<tr><td colspan="8">Nenhum limite LRF configurado.</td></tr>';
+      const ba = result.querySelector('[data-apuracao-lista]');
+      ba.replaceChildren(...aps.map(a => {
+        const trEl = document.createElement('tr');
+        const tdP = document.createElement('td'); tdP.textContent = a.periodo; trEl.append(tdP);
+        const tdN = document.createElement('td'); tdN.textContent = a.nome; trEl.append(tdN);
+        [a.baseValor, a.valorAtual].forEach(v => { const td = document.createElement('td'); td.className = 'text-end'; td.textContent = brl(v); trEl.append(td); });
+        const tdPct = document.createElement('td'); tdPct.className = 'text-end'; tdPct.textContent = Number(a.percentual).toFixed(2) + '%'; trEl.append(tdPct);
+        const tdS = document.createElement('td'); const bg = document.createElement('span'); bg.className = statusBadge(a.situacao); bg.textContent = a.situacao; tdS.append(bg); trEl.append(tdS);
+        [a.detalhe || '—', String(a.versao)].forEach(v => { const td = document.createElement('td'); if (v === String(a.versao)) td.className = 'text-end'; td.textContent = v; trEl.append(td); });
+        return trEl;
+      }));
+      if (!aps.length) ba.innerHTML = '<tr><td colspan="8">Nenhuma apuração registrada para o exercício.</td></tr>';
+      result.hidden = false;
+    } catch (e) { notice(e.message); }
+    finally { loading.hidden = true; }
+  }
+  formApurar.addEventListener('submit', async e => {
+    e.preventDefault();
+    try { await envelope(await fetch(`/api/orcamento/lrf/apurar?ano=${selAno.value}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ periodo: inpPeriodo.value }) })); notice('Apuração registrada.', 'success'); await carregar(); }
+    catch (err) { notice(err.message); }
+  });
+  carregar();
+})();
+</script>

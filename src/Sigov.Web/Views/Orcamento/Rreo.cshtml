@@ -1,0 +1,84 @@
+@{ ViewData["Title"] = "RREO Semestral/Anual"; }
+<section class="orcamento-station" aria-labelledby="titulo-rreo">
+  <header class="mb-3">
+    <h1 id="titulo-rreo">RREO Semestral e Anual</h1>
+    <p class="text-muted mb-0">Demonstrativo da execução orçamentária e financeiro contábil com receitas, restos a pagar e despesas autorizadas/empenhadas/liquidadas — geração determinística a partir dos movimentos do exercício (LC 101/2000 art. 54).</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <div class="card mb-4"><div class="card-body py-2">
+    <form id="form-gerar" class="row g-2 align-items-end" novalidate>
+      <label class="col-auto">Exercício<select class="form-select" name="ano" id="sel-ano" required></select></label>
+      <label class="col-auto">Tipo<select class="form-select" name="tipo" id="sel-tipo" required><option value="SEMESTRAL">Semestral</option><option value="ANUAL">Anual</option></select></label>
+      <label class="col-auto">Semestre<select class="form-select" name="semestre" id="sel-semestre"><option value="1">1º</option><option value="2">2º</option></select></label>
+      <label class="col-auto">Período fim<input class="form-control" type="date" name="periodoFim" required /></label>
+      <div class="col-auto"><button type="submit" class="btn btn-primary btn-sm">Gerar RREO</button></div>
+    </form>
+  </div></div>
+
+  <div data-mensagem class="alert alert-danger d-none" role="alert"></div>
+  <div class="loading-skeleton" data-loading hidden aria-live="polite">Carregando RREOs…</div>
+  <div data-resultado hidden>
+    <div class="card mb-4"><div class="card-header fw-semibold">Lotes do exercício</div><div class="card-body table-responsive">
+      <table class="table table-sm table-striped"><caption class="visually-hidden">Lotes RREO</caption>
+        <thead><tr><th>Id</th><th>Tipo</th><th>Semestre</th><th>Período fim</th><th>Vigente</th><th>Gerado em</th><th>Ações</th></tr></thead>
+        <tbody data-lotes></tbody>
+      </table>
+    </div></div>
+    <div class="card" id="card-det" hidden><div class="card-header fw-semibold">Conjuntos do lote <span data-det-id></span></div><div class="card-body table-responsive">
+      <table class="table table-sm table-striped mb-0"><thead><tr><th>Conjunto</th><th class="text-end">Valor (R$)</th></tr></thead>
+      <tbody data-conjuntos></tbody></table>
+    </div></div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const formGerar = root.querySelector('#form-gerar'), selAno = root.querySelector('#sel-ano'), selTipo = root.querySelector('#sel-tipo'), selSemestre = root.querySelector('#sel-semestre'), loading = root.querySelector('[data-loading]'), result = root.querySelector('[data-resultado]'), message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; message.classList.remove('d-none'); };
+  const brl = v => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const anoAtual = new Date().getFullYear();
+  [anoAtual - 1, anoAtual, anoAtual + 1].forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = String(a); selAno.append(o); });
+  selAno.value = String(anoAtual);
+  const hoje = new Date();
+  root.querySelector('[name=periodoFim]').value = `${hoje.getFullYear()}-${hoje >= new Date(hoje.getFullYear(), 6, 1) ? '12-31' : '06-30'}`;
+  selTipo.addEventListener('change', () => { selSemestre.disabled = selTipo.value === 'ANUAL'; });
+  async function carregar() {
+    loading.hidden = false;
+    try {
+      const rows = await envelope(await fetch(`/api/orcamento/rreo?ano=${selAno.value}`, { credentials: 'same-origin' }));
+      const body = result.querySelector('[data-lotes]');
+      body.replaceChildren(...rows.map(l => {
+        const trEl = document.createElement('tr');
+        [String(l.id), l.tipo, l.semestre ? l.semestre + 'º' : '—', l.periodoFim, l.vigente ? 'Sim' : 'Não', l.geradoEm.slice(0, 16).replace('T', ' ')].forEach(v => { const td = document.createElement('td'); td.textContent = v; trEl.append(td); });
+        const tdA = document.createElement('td');
+        const bD = document.createElement('button'); bD.className = 'btn btn-outline-secondary btn-sm'; bD.textContent = 'Conjuntos';
+        bD.addEventListener('click', async () => {
+          try {
+            const d = await envelope(await fetch(`/api/orcamento/rreo/${l.id}?ano=${selAno.value}`, { credentials: 'same-origin' }));
+            root.querySelector('#card-det').hidden = false;
+            root.querySelector('[data-det-id]').textContent = '#' + d.lote.id;
+            const bc = root.querySelector('[data-conjuntos]');
+            bc.replaceChildren(...d.conjuntos.map(cj => { const trEl = document.createElement('tr'); const td1 = document.createElement('td'); td1.textContent = cj.rotulo; const td2 = document.createElement('td'); td2.className = 'text-end'; td2.textContent = brl(cj.valor); trEl.append(td1, td2); return trEl; }));
+            root.querySelector('#card-det').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          } catch (err) { notice(err.message); }
+        });
+        tdA.append(bD); trEl.append(tdA);
+        return trEl;
+      }));
+      if (!rows.length) body.innerHTML = '<tr><td colspan="7">Nenhum lote RREO gerado para o exercício.</td></tr>';
+      result.hidden = false;
+    } catch (e) { notice(e.message); }
+    finally { loading.hidden = true; }
+  }
+  formGerar.addEventListener('submit', async e => {
+    e.preventDefault(); const f = new FormData(formGerar);
+    try { await envelope(await fetch(`/api/orcamento/rreo?ano=${selAno.value}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo: f.get('tipo'), semestre: f.get('tipo') === 'SEMESTRAL' ? Number(f.get('semestre')) : null, periodoFim: f.get('periodoFim') }) })); notice('Lote RREO gerado.', 'success'); await carregar(); }
+    catch (err) { notice(err.message); }
+  });
+  carregar();
+})();
+</script>

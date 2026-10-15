@@ -1,0 +1,98 @@
+@{ ViewData["Title"] = "Receitas Previstas e Arrecadação"; }
+<section class="orcamento-station" aria-labelledby="titulo-receitas">
+  <header class="mb-3">
+    <h1 id="titulo-receitas">Receitas Previstas e Arrecadação</h1>
+    <p class="text-muted mb-0">Linha de receita prevista por natureza (Lei 4.320/64 arts. 11, 18) e eventos de arrecadação — base real das apurações LRF de receitas correntes líquidas.</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <div class="card mb-4"><div class="card-body py-2">
+    <form id="form-filtro" class="row g-2 align-items-end" novalidate>
+      <label class="col-auto">Exercício<select class="form-select" name="ano" id="sel-ano" required></select></label>
+      <div class="col-auto"><button type="submit" class="btn btn-primary btn-sm">Carregar</button></div>
+    </form>
+  </div></div>
+
+  <div data-mensagem class="alert alert-danger d-none" role="alert"></div>
+  <div class="loading-skeleton" data-loading hidden aria-live="polite">Carregando receitas…</div>
+  <div data-resultado hidden>
+    <div class="row g-4">
+      <div class="col-lg-5">
+        <div class="card mb-4 h-100"><div class="card-header fw-semibold">Nova receita prevista</div><div class="card-body">
+          <form id="form-receita" novalidate class="row g-2">
+            <label class="col-4">Código<input class="form-control" name="codigo" required maxlength="40" /></label>
+            <label class="col-8">Nome<input class="form-control" name="nome" required maxlength="160" /></label>
+            <label class="col-6">Natureza<select class="form-select" name="natureza" required><option value="TRIBUTARIA">Tributária</option><option value="TRANSFERENCIAS">Transferências</option><option value="PATRIMONIAL">Patrimonial</option><option value="SERVICOS">Serviços</option><option value="DIVERSAS_RECEITAS">Diversas receitas</option></select></label>
+            <label class="col-6">Valor previsto (R$)<input class="form-control" type="number" step="0.01" min="0.01" name="valorPrevisto" required /></label>
+            <div class="col-12"><button type="submit" class="btn btn-primary btn-sm">Criar receita</button></div>
+          </form>
+        </div></div>
+        <div class="card h-100"><div class="card-header fw-semibold">Arrecadar</div><div class="card-body">
+          <form id="form-arrecadar" novalidate class="row g-2">
+            <label class="col-12">Receita<select class="form-select" name="receitaId" required></select></label>
+            <label class="col-4">Valor (R$)<input class="form-control" type="number" step="0.01" min="0.01" name="valor" required /></label>
+            <label class="col-4">Data<input class="form-control" type="date" name="dataArrecadacao" required /></label>
+            <label class="col-4">Histórico<input class="form-control" name="historico" maxlength="200" /></label>
+            <div class="col-12"><button type="submit" class="btn btn-outline-primary btn-sm">Registrar arrecadação</button></div>
+          </form>
+        </div></div>
+      </div>
+      <div class="col-lg-7">
+        <div class="card h-100"><div class="card-header fw-semibold">Receitas do exercício</div><div class="card-body table-responsive">
+          <table class="table table-sm table-striped"><caption class="visually-hidden">Receitas previstas</caption>
+            <thead><tr><th>Código</th><th>Nome</th><th>Natureza</th><th class="text-end">Prevista</th><th class="text-end">Arrecadada</th><th class="text-end">Saldo</th></tr></thead>
+            <tbody data-lista></tbody>
+          </table>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const formFiltro = root.querySelector('#form-filtro'), selAno = root.querySelector('#sel-ano'), loading = root.querySelector('[data-loading]'), result = root.querySelector('[data-resultado]'), message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; message.classList.remove('d-none'); };
+  const brl = v => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const anoAtual = new Date().getFullYear();
+  [anoAtual - 1, anoAtual, anoAtual + 1].forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = String(a); selAno.append(o); });
+  selAno.value = String(anoAtual);
+  let receitas = [];
+  async function carregar() {
+    loading.hidden = false;
+    try {
+      const ano = Number(selAno.value);
+      const rows = await envelope(await fetch(`/api/orcamento/receitas?ano=${ano}`, { credentials: 'same-origin' }));
+      receitas = rows;
+      const sel = root.querySelector('#form-arrecadar select[name=receitaId]');
+      sel.innerHTML = '<option value="">— selecione —</option>';
+      receitas.forEach(r => { const o = document.createElement('option'); o.value = r.id; o.textContent = `${r.codigo} ${r.nome} — saldo ${brl(r.saldoAArrecadar)}`; sel.append(o); });
+      const body = result.querySelector('[data-lista]');
+      body.replaceChildren(...rows.map(r => {
+        const trEl = document.createElement('tr');
+        [r.codigo, r.nome, r.natureza].forEach(v => { const td = document.createElement('td'); td.textContent = v; trEl.append(td); });
+        [r.valorPrevista, r.valorArrecadado, r.saldoAArrecadar].forEach(v => { const td = document.createElement('td'); td.className = 'text-end'; td.textContent = brl(v); trEl.append(td); });
+        return trEl;
+      }));
+      if (!rows.length) body.innerHTML = '<tr><td colspan="6">Nenhuma receita prevista neste exercício.</td></tr>';
+      result.hidden = false;
+    } catch (e) { notice(e.message); }
+    finally { loading.hidden = true; }
+  }
+  root.querySelector('#form-receita').addEventListener('submit', async e => {
+    e.preventDefault(); const f = new FormData(e.target);
+    try { await envelope(await fetch(`/api/orcamento/receitas?ano=${selAno.value}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ codigo: f.get('codigo'), nome: f.get('nome'), natureza: f.get('natureza'), valorPrevisto: Number(f.get('valorPrevisto')) }) })); notice('Receita criada.', 'success'); e.target.reset(); await carregar(); }
+    catch (err) { notice(err.message); }
+  });
+  root.querySelector('#form-arrecadar').addEventListener('submit', async e => {
+    e.preventDefault(); const f = new FormData(e.target);
+    try { await envelope(await fetch(`/api/orcamento/receitas/arrecadar?ano=${selAno.value}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ receitaId: Number(f.get('receitaId')), valor: Number(f.get('valor')), dataArrecadacao: f.get('dataArrecadacao'), historico: f.get('historico') || '', chaveIdempotencia: 'web-' + crypto.randomUUID() }) })); notice('Arrecadação registrada.', 'success'); e.target.reset(); await carregar(); }
+    catch (err) { notice(err.message); }
+  });
+  formFiltro.addEventListener('submit', e => { e.preventDefault(); if (formFiltro.reportValidity()) carregar(); });
+  carregar();
+})();
+</script>

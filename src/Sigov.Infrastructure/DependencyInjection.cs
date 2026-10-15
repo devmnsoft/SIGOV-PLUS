@@ -167,6 +167,9 @@ public static class DependencyInjection
         // RC-EVO Ciclo 2 Sprint 12: estacao de folha e previdencia publica (BR-12.1 a BR-12.8)
         services.AddScoped<Sigov.Infrastructure.Previdencia.PrevidenciaFolhaRepository>();
         services.AddScoped<Sigov.Application.Rh.Previdencia.IPrevidenciaFolhaService>(p => p.GetRequiredService<Sigov.Infrastructure.Previdencia.PrevidenciaFolhaRepository>());
+        // RC-EVO Ciclo 2 Sprint 13: estacao de orcamento e responsabilidade fiscal (BR-13.1 a BR-13.8)
+        services.AddScoped<Sigov.Infrastructure.Orcamento.OrcamentoLrfRepository>();
+        services.AddScoped<Sigov.Application.Orcamento.IOrcamentoService>(p => p.GetRequiredService<Sigov.Infrastructure.Orcamento.OrcamentoLrfRepository>());
         services.AddScoped<Sigov.Application.Compras.ILicitaProService, LicitaProService>();
         services.AddScoped<TributarioAvancadoRepository>();
         services.AddScoped<ITributarioCarnesBoletosRepository>(p => p.GetRequiredService<TributarioAvancadoRepository>());

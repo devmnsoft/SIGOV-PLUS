@@ -1,0 +1,97 @@
+@{ ViewData["Title"] = "Dotações e Créditos Adicionais"; }
+<section class="orcamento-station" aria-labelledby="titulo-dotacoes">
+  <header class="mb-3">
+    <h1 id="titulo-dotacoes">Dotações e Créditos Adicionais</h1>
+    <p class="text-muted mb-0">Linhas de dotação por ação e fonte de recurso, com créditos adicionais (suplementares, especiais e extraordinários) — sem rollover entre exercícios (Lei 4.320/64 arts. 40–45). Disponibilidade = autorizado − empenhado.</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <div class="card mb-4"><div class="card-body py-2">
+    <form id="form-filtro" class="row g-2 align-items-end" novalidate>
+      <label class="col-auto">Exercício<select class="form-select" name="ano" id="sel-ano" required></select></label>
+      <div class="col-auto"><button type="submit" class="btn btn-primary btn-sm">Carregar</button></div>
+    </form>
+  </div></div>
+
+  <div data-mensagem class="alert alert-danger d-none" role="alert"></div>
+  <div class="loading-skeleton" data-loading hidden aria-live="polite">Carregando dotações…</div>
+  <div data-resultado hidden>
+    <div class="card mb-4"><div class="card-header fw-semibold">Nova linha de dotação</div><div class="card-body">
+      <form id="form-dotacao" novalidate class="row g-2 align-items-end">
+        <label class="col-md-3 col-lg-2">Ação<select class="form-select" name="acaoId" required></select></label>
+        <label class="col-md-3 col-lg-2">Fonte de recurso<input class="form-control" name="fonteRecursoCodigo" required maxlength="20" /></label>
+        <label class="col-md-3 col-lg-2">Dotação inicial (R$)<input class="form-control" type="number" step="0.01" min="0.01" name="dotacaoInicial" required /></label>
+        <div class="col-auto"><button type="submit" class="btn btn-primary btn-sm">Criar dotação</button></div>
+      </form>
+    </div></div>
+    <div class="card mb-4"><div class="card-header fw-semibold">Crédito adicional</div><div class="card-body">
+      <form id="form-credito" novalidate class="row g-2 align-items-end">
+        <label class="col-md-3 col-lg-2">Dotação alvo<select class="form-select" name="dotacaoId" required></select></label>
+        <label class="col-md-2 col-lg-1">Tipo<select class="form-select" name="tipo" required><option value="SUPLEMENTAR">Suplementar</option><option value="ESPECIAL">Especial</option><option value="EXTRAORDINARIO">Extraordinário</option></select></label>
+        <label class="col-md-2 col-lg-2">Valor (R$)<input class="form-control" type="number" step="0.01" min="0.01" name="valor" required /></label>
+        <label class="col-md-3 col-lg-3">Ato legal<input class="form-control" name="atoLegal" required maxlength="160" /></label>
+        <label class="col-md-2 col-lg-2">Justificativa<input class="form-control" name="justificativa" maxlength="300" /></label>
+        <div class="col-auto"><button type="submit" class="btn btn-outline-primary btn-sm">Registrar crédito</button></div>
+      </form>
+    </div></div>
+    <div class="card"><div class="card-header fw-semibold">Linhas de dotação do exercício</div><div class="card-body table-responsive">
+      <table class="table table-sm table-striped"><caption class="visually-hidden">Dotações</caption>
+        <thead><tr><th>Ação</th><th>Fonte</th><th class="text-end">Inicial</th><th class="text-end">Supl.</th><th class="text-end">Esp.</th><th class="text-end">Extra</th><th class="text-end">Red.</th><th class="text-end">Autorizado</th><th class="text-end">Empenhado</th><th class="text-end">Disponível</th></tr></thead>
+        <tbody data-lista></tbody>
+      </table>
+    </div></div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const formFiltro = root.querySelector('#form-filtro'), selAno = root.querySelector('#sel-ano'), loading = root.querySelector('[data-loading]'), result = root.querySelector('[data-resultado]'), message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; };
+  const brl = v => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const anoAtual = new Date().getFullYear();
+  [anoAtual - 1, anoAtual, anoAtual + 1].forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = String(a); selAno.append(o); });
+  selAno.value = String(anoAtual);
+  let dotacoes = [];
+  async function carregar() {
+    loading.hidden = false; message.classList.add('d-none');
+    try {
+      const ano = Number(selAno.value);
+      const [acs, dots] = await Promise.all([
+        envelope(await fetch(`/api/orcamento/acoes?ano=${ano}`, { credentials: 'same-origin' })),
+        envelope(await fetch(`/api/orcamento/dotacoes?ano=${ano}`, { credentials: 'same-origin' }))]);
+      dotacoes = dots;
+      const selA = root.querySelector('#form-dotacao select[name=acaoId]');
+      selA.innerHTML = '';
+      acs.forEach(a => { const o = document.createElement('option'); o.value = a.id; o.textContent = `${a.codigo} ${a.nome}`; selA.append(o); });
+      const selD = root.querySelector('#form-credito select[name=dotacaoId]');
+      selD.innerHTML = '';
+      dotacoes.forEach(d => { const o = document.createElement('option'); o.value = d.id; o.textContent = `#${d.id} ${d.acaoCodigo}/${d.fonteRecursoCodigo} (disp. ${brl(d.disponivel)})`; selD.append(o); });
+      const body = result.querySelector('[data-lista]');
+      body.replaceChildren(...dots.map(d => {
+        const trEl = document.createElement('tr');
+        ['AÇÃO ' + d.acaoCodigo + ' — ' + d.acaoNome, d.fonteRecursoCodigo].forEach(v => { const td = document.createElement('td'); td.textContent = v; trEl.append(td); });
+        [d.dotacaoInicial, d.creditosSuplementares, d.creditosEspeciais, d.creditosExtraordinarios, d.reducoes, d.autorizado, d.empenhado, d.disponivel].forEach(v => { const td = document.createElement('td'); td.className = 'text-end'; td.textContent = brl(v); trEl.append(td); });
+        return trEl;
+      }));
+      if (!dots.length) body.innerHTML = '<tr><td colspan="10">Nenhuma dotação criada para o exercício.</td></tr>';
+      result.hidden = false;
+    } catch (e) { notice(e.message); }
+    finally { loading.hidden = true; }
+  }
+  root.querySelector('#form-dotacao').addEventListener('submit', async e => {
+    e.preventDefault(); const f = new FormData(e.target);
+    try { await envelope(await fetch(`/api/orcamento/dotacoes?ano=${selAno.value}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acaoId: Number(f.get('acaoId')), fonteRecursoCodigo: f.get('fonteRecursoCodigo'), dotacaoInicial: Number(f.get('dotacaoInicial')) }) })); notice('Dotação criada.', 'success'); e.target.reset(); await carregar(); }
+    catch (err) { notice(err.message); }
+  });
+  root.querySelector('#form-credito').addEventListener('submit', async e => {
+    e.preventDefault(); const f = new FormData(e.target);
+    try { await envelope(await fetch(`/api/orcamento/creditos?ano=${selAno.value}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dotacaoId: Number(f.get('dotacaoId')), tipo: f.get('tipo'), valor: Number(f.get('valor')), atoLegal: f.get('atoLegal'), justificativa: f.get('justificativa') || '', chaveIdempotencia: 'web-' + crypto.randomUUID() }) })); notice('Crédito adicional registrado.', 'success'); e.target.reset(); await carregar(); }
+    catch (err) { notice(err.message); }
+  });
+  formFiltro.addEventListener('submit', e => { e.preventDefault(); if (formFiltro.reportValidity()) carregar(); });
+  carregar();
+})();
+</script>

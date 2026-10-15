@@ -1,0 +1,65 @@
+@{ ViewData["Title"] = "Previsão Bimestral"; }
+<section class="orcamento-station" aria-labelledby="titulo-previsao">
+  <header class="mb-3">
+    <h1 id="titulo-previsao">Previsão Bimestral (LOA)</h1>
+    <p class="text-muted mb-0">Revisão da programação financeira e da execução orçamentária com envio da previsão de receitas e despesas do bimestre subsequente (LC 101/2000 art. 51).</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <div class="card mb-4"><div class="card-body py-2">
+    <form id="form-gerar" class="row g-2 align-items-end" novalidate>
+      <label class="col-auto">Exercício<select class="form-select" name="ano" id="sel-ano" required></select></label>
+      <label class="col-auto">Bimestre<select class="form-select" name="bimestre" required><option value="1">1º (jan–fev)</option><option value="2">2º (mar–abr)</option><option value="3">3º (mai–jun)</option><option value="4">4º (jul–ago)</option><option value="5">5º (set–out)</option><option value="6">6º (nov–dez)</option></select></label>
+      <label class="col-md-5 col-lg-4">Observação<input class="form-control" name="observacao" maxlength="300" /></label>
+      <div class="col-auto"><button type="submit" class="btn btn-primary btn-sm">Gerar previsão</button></div>
+    </form>
+  </div></div>
+
+  <div data-mensagem class="alert alert-danger d-none" role="alert"></div>
+  <div class="loading-skeleton" data-loading hidden aria-live="polite">Carregando previsões…</div>
+  <div data-resultado hidden>
+    <div class="card"><div class="card-header fw-semibold">Previsões do exercício</div><div class="card-body table-responsive">
+      <table class="table table-sm table-striped"><caption class="visually-hidden">Previsões bimestrais</caption>
+        <thead><tr><th>Bimestre</th><th class="text-end">Receita prevista</th><th class="text-end">Receita arrecadada</th><th class="text-end">Despesa autorizada</th><th class="text-end">Despesa empenhada</th><th class="text-end">Despesa liquidada</th><th class="text-end">Saldo receitas</th><th>Vigente</th><th>Gerado em</th><th>Observação</th></tr></thead>
+        <tbody data-lista></tbody>
+      </table>
+    </div></div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const formGerar = root.querySelector('#form-gerar'), selAno = root.querySelector('#sel-ano'), loading = root.querySelector('[data-loading]'), result = root.querySelector('[data-resultado]'), message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; message.classList.remove('d-none'); };
+  const brl = v => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const anoAtual = new Date().getFullYear();
+  [anoAtual - 1, anoAtual, anoAtual + 1].forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = String(a); selAno.append(o); });
+  selAno.value = String(anoAtual);
+  async function carregar() {
+    loading.hidden = false;
+    try {
+      const rows = await envelope(await fetch(`/api/orcamento/previsoes-bimestrais?ano=${selAno.value}`, { credentials: 'same-origin' }));
+      const body = result.querySelector('[data-lista]');
+      body.replaceChildren(...rows.map(p => {
+        const trEl = document.createElement('tr');
+        const tdB = document.createElement('td'); tdB.textContent = p.bimestre + 'º'; trEl.append(tdB);
+        [p.receitaPrevistaTotal, p.receitaArrecadadaTotal, p.despesaAutorizadaTotal, p.despesaEmpenhadaTotal, p.despesaLiquidadaTotal, p.saldoReceitas].forEach(v => { const td = document.createElement('td'); td.className = 'text-end'; td.textContent = brl(v); trEl.append(td); });
+        [p.vigente ? 'Sim' : 'Não', p.geradoEm.slice(0, 16).replace('T', ' '), p.observacao || '—'].forEach(v => { const td = document.createElement('td'); td.textContent = v; trEl.append(td); });
+        return trEl;
+      }));
+      if (!rows.length) body.innerHTML = '<tr><td colspan="10">Nenhuma previsão gerada para o exercício.</td></tr>';
+      result.hidden = false;
+    } catch (e) { notice(e.message); }
+    finally { loading.hidden = true; }
+  }
+  formGerar.addEventListener('submit', async e => {
+    e.preventDefault(); const f = new FormData(formGerar);
+    try { await envelope(await fetch(`/api/orcamento/previsoes-bimestrais?ano=${selAno.value}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bimestre: Number(f.get('bimestre')), observacao: f.get('observacao') || null }) })); notice('Previsão bimestral gerada.', 'success'); await carregar(); }
+    catch (err) { notice(err.message); }
+  });
+  carregar();
+})();
+</script>

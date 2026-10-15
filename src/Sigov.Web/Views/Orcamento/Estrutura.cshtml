@@ -1,0 +1,118 @@
+@{ ViewData["Title"] = "Estrutura: Programas e Ações"; }
+<section class="orcamento-station" aria-labelledby="titulo-estrutura">
+  <header class="mb-3">
+    <h1 id="titulo-estrutura">Estrutura Programática</h1>
+    <p class="text-muted mb-0">Programas e ações (projeto/atividade/subprojeto) do exercício, com vínculo à função/subfunção nacional, poder e classificação econômica (Lei 4.320/64 arts. 12–16).</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <div class="card mb-4"><div class="card-body py-2">
+    <form id="form-filtro" class="row g-2 align-items-end" novalidate>
+      <label class="col-auto">Exercício<select class="form-select" name="ano" id="sel-ano" required></select></label>
+      <div class="col-auto"><button type="submit" class="btn btn-primary btn-sm">Carregar</button></div>
+    </form>
+  </div></div>
+
+  <div data-mensagem class="alert alert-danger d-none" role="alert"></div>
+  <div class="loading-skeleton" data-loading hidden aria-live="polite">Carregando estrutura…</div>
+
+  <div data-resultado hidden>
+    <div class="accordion mb-4" id="acc-catalogo">
+      <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#cat-funcoes">Funções nacionais (catálogo global)</button></h2>
+        <div id="cat-funcoes" class="accordion-collapse collapse" data-bs-parent="#acc-catalogo"><div class="accordion-body table-responsive">
+          <table class="table table-striped small mb-0"><thead><tr><th>Código</th><th>Nome</th><th>Social</th><th>Saúde/Educação</th><th>Ativa</th></tr></thead><tbody data-cat-funcoes></tbody></table>
+        </div></div>
+      </div>
+      <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#cat-subfuncoes">Subfunções nacionais (catálogo global)</button></h2>
+        <div id="cat-subfuncoes" class="accordion-collapse collapse" data-bs-parent="#acc-catalogo"><div class="accordion-body table-responsive">
+          <table class="table table-striped small mb-0"><thead><tr><th>Código</th><th>Nome</th><th>Função</th><th>Ativa</th></tr></thead><tbody data-cat-subfuncoes></tbody></table>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card h-100"><div class="card-header fw-semibold">Novo programa</div><div class="card-body">
+          <form id="form-programa" novalidate class="row g-2">
+            <label class="col-4">Código<input class="form-control" name="codigo" required maxlength="40" /></label>
+            <label class="col-8">Nome<input class="form-control" name="nome" required maxlength="160" /></label>
+            <label class="col-12">Objetivo<textarea class="form-control" name="objetivo" required maxlength="500"></textarea></label>
+            <div class="col-12"><button type="submit" class="btn btn-primary btn-sm">Cadastrar programa</button></div>
+          </form>
+        </div><div class="card-body"><div class="table-responsive"><table class="table table-sm table-striped"><caption class="visually-hidden">Programas</caption>
+          <thead><tr><th>Código</th><th>Nome</th><th>Situação</th></tr></thead><tbody data-lista-programas></tbody></table></div></div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card h-100"><div class="card-header fw-semibold">Nova ação</div><div class="card-body">
+          <form id="form-acao" novalidate class="row g-2">
+            <label class="col-4">Código<input class="form-control" name="codigo" required maxlength="40" /></label>
+            <label class="col-8">Nome<input class="form-control" name="nome" required maxlength="160" /></label>
+            <label class="col-4">Tipo<select class="form-select" name="tipo" required><option value="PROJETO">Projeto</option><option value="ATIVIDADE">Atividade</option><option value="SUBPROJETO">Subprojeto</option></select></label>
+            <label class="col-8">Programa (opcional)<select class="form-select" name="programaId"></select></label>
+            <label class="col-6">Função<input class="form-control" name="funcaoCodigo" required maxlength="20" list="dl-funcoes" /><datalist id="dl-funcoes"></datalist></label>
+            <label class="col-6">Subfunção<input class="form-control" name="subfuncaoCodigo" required maxlength="20" list="dl-subfuncoes" /><datalist id="dl-subfuncoes"></datalist></label>
+            <label class="col-4">Poder<select class="form-select" name="poder" required><option value="EXECUTIVO">Executivo</option><option value="LEGISLATIVO">Legislativo</option><option value="JUDICIARIO">Judiciário</option></select></label>
+            <label class="col-4">Categoria<select class="form-select" name="categoriaEconomica" required><option value="CORRENTE">Corrente</option><option value="INVESTIMENTO">Investimento</option><option value="AMORTIZACAO_DIVIDA">Amortização dívida</option><option value="OUTRA_DESPESA">Outra despesa</option></select></label>
+            <label class="col-4">Grupo despesa<select class="form-select" name="grupoDespesa" required><option value="PESSOAL_E_ENCARGOS">Pessoal</option><option value="JUROS_E_ENCARGOS_DIVIDA">Juros da dívida</option><option value="OUTRAS_DESPESAS_CORRENTES">Outras correntes</option><option value="INVESTIMENTOS">Investimentos</option><option value="AMORTIZACAO_DA_DIVIDA">Amortização da dívida</option><option value="OUTRAS_DESPESAS_CAPITAIS">Outras capitis</option></select></label>
+            <div class="col-12"><button type="submit" class="btn btn-primary btn-sm">Cadastrar ação</button></div>
+          </form>
+        </div><div class="card-body"><div class="table-responsive"><table class="table table-sm table-striped"><caption class="visually-hidden">Ações</caption>
+          <thead><tr><th>Código</th><th>Nome</th><th>Tipo</th><th>Função/Subfunção</th><th>Poder</th><th>Ativa</th></tr></thead><tbody data-lista-acoes></tbody></table></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const formFiltro = root.querySelector('#form-filtro'), selAno = root.querySelector('#sel-ano'), loading = root.querySelector('[data-loading]'), result = root.querySelector('[data-resultado]'), message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; };
+  const anoAtual = new Date().getFullYear();
+  [anoAtual - 1, anoAtual, anoAtual + 1].forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = String(a); selAno.append(o); });
+  selAno.value = String(anoAtual);
+  const tr = cols => { const el = document.createElement('tr'); cols.forEach(v => { const td = document.createElement('td'); td.textContent = v == null ? '—' : String(v); el.append(td); }); return el; };
+  let programas = [], funcoes = [], subfuncoes = [];
+  async function carregarCatalogo() {
+    try {
+      const c = await envelope(await fetch('/api/orcamento/catalogo-funcional', { credentials: 'same-origin' }));
+      funcoes = c.funcoes || []; subfuncoes = c.subfuncoes || [];
+      const df = root.querySelector('[data-cat-funcoes]'); df.replaceChildren(...funcoes.map(f => tr([f.codigo, f.nome, f.funcaoSocial ? 'Sim' : 'Não', f.areaSaudeEducacao ? 'Sim' : 'Não', f.ativo ? 'Sim' : 'Não'])));
+      const ds = root.querySelector('[data-cat-subfuncoes]'); ds.replaceChildren(...subfuncoes.map(s => tr([s.codigo, s.nome, s.funcaoCodigo, s.ativo ? 'Sim' : 'Não'])));
+      const dlF = root.querySelector('#dl-funcoes'); dlF.replaceChildren(...funcoes.map(f => { const o = document.createElement('option'); o.value = f.codigo; return o; }));
+      const dlS = root.querySelector('#dl-subfuncoes'); dlS.replaceChildren(...subfuncoes.map(s => { const o = document.createElement('option'); o.value = s.codigo; return o; }));
+    } catch (e) { /* catálogo é global; falha não impede o exercício */ }
+  }
+  async function carregar() {
+    loading.hidden = false; message.classList.add('d-none');
+    try {
+      const ano = Number(selAno.value);
+      const [pgs, acs] = await Promise.all([
+        envelope(await fetch(`/api/orcamento/programas?ano=${ano}`, { credentials: 'same-origin' })),
+        envelope(await fetch(`/api/orcamento/acoes?ano=${ano}`, { credentials: 'same-origin' }))]);
+      programas = pgs;
+      const selP = root.querySelector('#form-acao select[name=programaId]');
+      selP.innerHTML = '<option value="">— nenhum —</option>';
+      programas.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = `${p.codigo} ${p.nome}`; selP.append(o); });
+      const bp = root.querySelector('[data-lista-programas]'); bp.replaceChildren(...programas.map(p => tr([p.codigo, p.nome, p.situacao]))); if (!programas.length) bp.innerHTML = '<tr><td colspan="3">Nenhum programa neste exercício.</td></tr>';
+      const ba = root.querySelector('[data-lista-acoes]'); ba.replaceChildren(...acs.map(a => tr([a.codigo, a.nome, a.tipo, `${a.funcaoCodigo}/${a.subfuncaoCodigo}`, a.poder, a.ativo ? 'Sim' : 'Não']))); if (!acs.length) ba.innerHTML = '<tr><td colspan="6">Nenhuma ação neste exercício.</td></tr>';
+      result.hidden = false;
+    } catch (e) { notice(e.message); }
+    finally { loading.hidden = true; }
+  }
+  root.querySelector('#form-programa').addEventListener('submit', async e => {
+    e.preventDefault(); const f = new FormData(e.target); if (!f) return;
+    try { await envelope(await fetch(`/api/orcamento/programas?ano=${selAno.value}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ codigo: f.get('codigo'), nome: f.get('nome'), objetivo: f.get('objetivo') }) })); notice('Programa cadastrado.', 'success'); e.target.reset(); await carregar(); }
+    catch (err) { notice(err.message); }
+  });
+  root.querySelector('#form-acao').addEventListener('submit', async e => {
+    e.preventDefault(); const f = new FormData(e.target);
+    try { await envelope(await fetch(`/api/orcamento/acoes?ano=${selAno.value}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ codigo: f.get('codigo'), nome: f.get('nome'), tipo: f.get('tipo'), programaId: f.get('programaId') ? Number(f.get('programaId')) : null, subfuncaoCodigo: f.get('subfuncaoCodigo'), funcaoCodigo: f.get('funcaoCodigo'), poder: f.get('poder'), categoriaEconomica: f.get('categoriaEconomica'), grupoDespesa: f.get('grupoDespesa') }) })); notice('Ação cadastrada.', 'success'); e.target.reset(); await carregar(); }
+    catch (err) { notice(err.message); }
+  });
+  formFiltro.addEventListener('submit', e => { e.preventDefault(); if (formFiltro.reportValidity()) carregar(); });
+  carregarCatalogo(); carregar();
+})();
+</script>

@@ -1,0 +1,70 @@
+@{ ViewData["Title"] = "Painel Orçamentário"; }
+<section class="orcamento-station" aria-labelledby="titulo-orcamento">
+  <header class="mb-3">
+    <h1 id="titulo-orcamento">Painel Orçamentário</h1>
+    <p class="text-muted mb-0">Visão consolidada do exercício orçamentário por esfera de governo (municipal, estadual e federal): estrutura programática, dotações, execução CP/SL, receitas e situação dos tetos LRF.</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <div class="card mb-4"><div class="card-body py-2">
+    <form id="form-filtro" class="row g-2 align-items-end" novalidate>
+      <label class="col-auto">Exercício<select class="form-select" name="ano" id="sel-ano" required></select></label>
+      <div class="col-auto"><button type="submit" class="btn btn-primary btn-sm">Carregar painel</button></div>
+    </form>
+  </div></div>
+
+  <div data-mensagem class="alert alert-danger d-none" role="alert"></div>
+  <div class="loading-skeleton" data-loading hidden aria-live="polite">Carregando painel orçamentário…</div>
+  <div data-resultado hidden>
+    <div class="row g-3 mb-4" id="cards-dash"></div>
+    <div class="card mb-2"><div class="card-header fw-semibold">Execução orçamentária e receitas</div><div class="card-body table-responsive">
+      <table class="table table-striped mb-0"><caption class="visually-hidden">Totais de execução</caption>
+        <thead><tr><th>Indicador</th><th class="text-end">Valor (R$)</th></tr></thead>
+        <tbody data-lista-totais></tbody>
+      </table>
+    </div></div>
+    <div class="card"><div class="card-header fw-semibold">Situação dos tetos LRF</div><div class="card-body">
+      <p data-lrf class="text-muted mb-0">—</p>
+    </div></div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const form = root.querySelector('#form-filtro'), selAno = root.querySelector('#sel-ano'), loading = root.querySelector('[data-loading]'), result = root.querySelector('[data-resultado]'), message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; };
+  const brl = v => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const anoAtual = new Date().getFullYear();
+  [anoAtual - 1, anoAtual, anoAtual + 1].forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = String(a); selAno.append(o); });
+  selAno.value = String(anoAtual);
+  const card = (t, v, k = 'primary') => { const d = document.createElement('div'); d.className = 'col-6 col-md-4 col-xl-3'; const c = document.createElement('div'); c.className = 'card text-bg-' + k; c.innerHTML = '<div class="card-body p-3"><div class="small text-uppercase opacity-75">' + t + '</div><div class="fs-5 fw-semibold"></div></div>'; c.querySelector('.fs-5').textContent = v; d.append(c); return d; };
+  async function carregar() {
+    const ano = Number(selAno.value);
+    loading.hidden = false; message.classList.add('d-none');
+    try {
+      const d = await envelope(await fetch(`/api/orcamento/dashboard?ano=${ano}`, { credentials: 'same-origin' }));
+      const cards = root.querySelector('#cards-dash');
+      cards.replaceChildren(
+        card('Esfera', d.esferaGoverno ? d.esferaGoverno.toUpperCase() : '—', 'secondary'),
+        card('Ações ativas', String(d.acoesAtivas), 'secondary'),
+        card('Dotações', String(d.dotacoes), 'secondary'),
+        card('Empenhos ativos', String(d.empenhosAtivos), 'secondary'),
+        card('Liquidações ativas', String(d.liquidacoesAtivas), 'secondary'),
+        card('LRF em alerta', String(d.lrfEmAlerta), d.lrfEmAlerta > 0 ? 'warning' : 'success'),
+        card('LRF em bloqueio', String(d.lrfEmBloqueio), d.lrfEmBloqueio > 0 ? 'danger' : 'success'),
+        card('Autorizado', brl(d.totalAutorizado), 'primary'));
+      const totais = [[ 'Total autorizado', d.totalAutorizado ], [ 'Total empenhado', d.totalEmpenhado ], [ 'Total liquidado', d.totalLiquidado ], [ 'Disponível para empenhar', d.disponivelTotal ], [ 'Receita prevista', d.receitaPrevistaTotal ], [ 'Receita arrecadada', d.receitaArrecadadaTotal ]];
+      const body = result.querySelector('[data-lista-totais]');
+      body.replaceChildren(...totais.map(([t, v]) => { const tr = document.createElement('tr'); const td1 = document.createElement('td'); td1.textContent = t; const td2 = document.createElement('td'); td2.className = 'text-end'; td2.textContent = brl(v); tr.append(td1, td2); return tr; }));
+      root.querySelector('[data-lrf]').textContent = (d.lrfEmBloqueio > 0) ? 'Há tetos LRF em BLOQUEIO: novos movimentos que transitarem para bloqueio serão recusados pelo motor (LC 101/2000).' : (d.lrfEmAlerta > 0 ? 'Há tetos LRF em ALERTA: acompanhe a execução antes do fechamento bimestral.' : 'Nenhum teto LRF em alerta ou bloqueio no último apuração do exercício.');
+      result.hidden = false;
+    } catch (e) { notice(e.message); result.hidden = true; }
+    finally { loading.hidden = true; }
+  }
+  form.addEventListener('submit', e => { e.preventDefault(); if (form.reportValidity()) carregar(); });
+  carregar();
+})();
+</script>

@@ -1,0 +1,121 @@
+@{ ViewData["Title"] = "Liquidações (SL)"; }
+<section class="orcamento-station" aria-labelledby="titulo-liquidacoes">
+  <header class="mb-3">
+    <h1 id="titulo-liquidacoes">Liquidações (Saídas Liquidadas)</h1>
+    <p class="text-muted mb-0">Registro de SL com teto de empenho disponível por item, anulação total com justificativa parametrizada e reapuração automática dos tetos LRF (Lei 4.320/64 arts. 64–73).</p>
+  </header>
+
+  @await Html.PartialAsync("_BaseLegislativa")
+
+  <div class="card mb-4"><div class="card-body py-2">
+    <form id="form-filtro" class="row g-2 align-items-end" novalidate>
+      <label class="col-auto">Exercício<select class="form-select" name="ano" id="sel-ano" required></select></label>
+      <div class="col-auto"><button type="submit" class="btn btn-primary btn-sm">Carregar</button></div>
+    </form>
+  </div></div>
+
+  <div data-mensagem class="alert alert-danger d-none" role="alert"></div>
+  <div class="loading-skeleton" data-loading hidden aria-live="polite">Carregando liquidações…</div>
+  <div data-resultado hidden>
+    <div class="card mb-4"><div class="card-header fw-semibold">Nova liquidação</div><div class="card-body">
+      <form id="form-liquidacao" novalidate class="row g-2">
+        <label class="col-md-2 col-lg-2">Número<input class="form-control" name="numero" required maxlength="40" placeholder="SL/ano/seq" /></label>
+        <label class="col-md-2 col-lg-2">Data<input class="form-control" type="date" name="dataLiquidacao" required /></label>
+        <label class="col-md-4 col-lg-3">Empenho<select class="form-select" name="empenhoId" required></select></label>
+        <label class="col-md-4 col-lg-3">Histórico<input class="form-control" name="historico" required maxlength="300" /></label>
+        <div class="col-12 border-top pt-2"><div class="fw-semibold small mb-1">Itens (item do empenho + valor)</div>
+          <table class="table table-sm mb-1"><thead><tr><th style="width:55%">Item do empenho</th><th style="width:25%">Valor (R$)</th><th></th></tr></thead><tbody data-itens></tbody></table>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-add-item">+ Adicionar item</button>
+        </div>
+        <div class="col-12"><button type="submit" class="btn btn-primary btn-sm">Registrar liquidação</button></div>
+      </form>
+    </div></div>
+    <div class="card"><div class="card-header fw-semibold">Liquidações do exercício</div><div class="card-body table-responsive">
+      <table class="table table-sm table-striped"><caption class="visually-hidden">Liquidações</caption>
+        <thead><tr><th>Número</th><th>Data</th><th>Empenho</th><th>Histórico</th><th class="text-end">Total</th><th class="text-end">Anulado</th><th>Situação</th><th>Ações</th></tr></thead>
+        <tbody data-lista></tbody>
+      </table>
+    </div></div>
+  </div>
+</section>
+
+<script nonce="@Context.Items["CspNonce"]">
+(() => {
+  const root = document.currentScript.previousElementSibling;
+  const formFiltro = root.querySelector('#form-filtro'), selAno = root.querySelector('#sel-ano'), loading = root.querySelector('[data-loading]'), result = root.querySelector('[data-resultado]'), message = root.querySelector('[data-mensagem]');
+  const envelope = async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.message || b.error || 'Operação não concluída.'); return b.data ?? b; };
+  const notice = (t, k = 'danger') => { message.className = `alert alert-${k}`; message.textContent = t; message.classList.remove('d-none'); };
+  const brl = v => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const anoAtual = new Date().getFullYear();
+  [anoAtual - 1, anoAtual, anoAtual + 1].forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = String(a); selAno.append(o); });
+  selAno.value = String(anoAtual);
+  let empenhos = [];
+  const tbodyItens = root.querySelector('#form-liquidacao [data-itens]');
+  const selEmpenho = root.querySelector('#form-liquidacao select[name=empenhoId]');
+  let itensEmpenhoAtual = [];
+  function addItensRow() {
+    const trEl = document.createElement('tr');
+    const tdD = document.createElement('td'); const sel = document.createElement('select'); sel.className = 'form-select form-select-sm';
+    itensEmpenhoAtual.forEach(i => { const o = document.createElement('option'); o.value = i.id; o.textContent = `#${i.id} ${i.acaoCodigo}/${i.fonteRecursoCodigo} — disp. ${brl(i.disponivel)}`; sel.append(o); });
+    tdD.append(sel);
+    const tdV = document.createElement('td'); const inp = document.createElement('input'); inp.className = 'form-control form-control-sm'; inp.type = 'number'; inp.step = '0.01'; inp.min = '0.01'; inp.required = true; tdV.append(inp);
+    const tdX = document.createElement('td'); const bx = document.createElement('button'); bx.type = 'button'; bx.className = 'btn btn-outline-danger btn-sm'; bx.textContent = '✕'; bx.addEventListener('click', () => trEl.remove()); tdX.append(bx);
+    trEl.append(tdD, tdV, tdX); tbodyItens.append(trEl);
+  }
+  selEmpenho.addEventListener('change', async () => {
+    tbodyItens.innerHTML = ''; itensEmpenhoAtual = [];
+    const id = Number(selEmpenho.value); if (!id) return;
+    try {
+      const d = await envelope(await fetch(`/api/orcamento/empenhos/${id}?ano=${selAno.value}`, { credentials: 'same-origin' }));
+      itensEmpenhoAtual = d.itens.filter(i => i.disponivel > 0);
+      addItensRow();
+    } catch (e) { notice(e.message); }
+  });
+  root.querySelector('#btn-add-item').addEventListener('click', () => { if (itensEmpenhoAtual.length) addItensRow(); else notice('Selecione primeiro o empenho.'); });
+  async function carregar() {
+    loading.hidden = false;
+    try {
+      const ano = Number(selAno.value);
+      const [emps, liqs] = await Promise.all([
+        envelope(await fetch(`/api/orcamento/empenhos?ano=${ano}`, { credentials: 'same-origin' })),
+        envelope(await fetch(`/api/orcamento/liquidacoes?ano=${ano}`, { credentials: 'same-origin' }))]);
+      empenhos = emps;
+      selEmpenho.innerHTML = '<option value="">— selecione —</option>';
+      empenhos.filter(e => e.situacao !== 'ANULADO').forEach(e => { const o = document.createElement('option'); o.value = e.id; o.textContent = `${e.numero} — disp. ${brl(e.disponivel)}`; selEmpenho.append(o); });
+      const body = result.querySelector('[data-lista]');
+      body.replaceChildren(...liqs.map(l => {
+        const trEl = document.createElement('tr');
+        [l.numero, l.dataLiquidacao, l.empenhoNumero, l.historico || '—'].forEach(v => { const td = document.createElement('td'); td.textContent = v; trEl.append(td); });
+        [l.valorTotal, l.valorAnulado].forEach(v => { const td = document.createElement('td'); td.className = 'text-end'; td.textContent = brl(v); trEl.append(td); });
+        const tdS = document.createElement('td'); tdS.textContent = l.situacao; trEl.append(tdS);
+        const tdA = document.createElement('td');
+        const bA = document.createElement('button'); bA.className = 'btn btn-outline-danger btn-sm'; bA.textContent = 'Anular';
+        if (l.situacao === 'ANULADA') bA.disabled = true;
+        bA.addEventListener('click', async () => {
+          const j = prompt('Justificativa da anulação (mínimo 10 caracteres):');
+          if (!j) return;
+          try { await envelope(await fetch(`/api/orcamento/liquidacoes/${l.id}/anular?ano=${ano}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ justificativa: j }) })); notice('Liquidação anulada.', 'success'); await carregar(); }
+          catch (err) { notice(err.message); }
+        });
+        tdA.append(bA); trEl.append(tdA);
+        return trEl;
+      }));
+      if (!liqs.length) body.innerHTML = '<tr><td colspan="8">Nenhuma liquidação neste exercício.</td></tr>';
+      result.hidden = false;
+    } catch (e) { notice(e.message); }
+    finally { loading.hidden = true; }
+  }
+  root.querySelector('#form-liquidacao').addEventListener('submit', async e => {
+    e.preventDefault();
+    const itens = [...tbodyItens.querySelectorAll('tr')].map(trEl => ({ empenhoItemId: Number(trEl.querySelector('select').value), valor: Number(trEl.querySelector('input').value) })).filter(i => i.empenhoItemId && i.valor > 0);
+    if (!itens.length) { notice('Informe ao menos um item com valor.'); return; }
+    const f = new FormData(e.target);
+    try {
+      await envelope(await fetch(`/api/orcamento/liquidacoes?ano=${selAno.value}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ numero: f.get('numero'), dataLiquidacao: f.get('dataLiquidacao'), empenhoId: Number(f.get('empenhoId')), historico: f.get('historico'), chaveIdempotencia: 'web-' + crypto.randomUUID(), itens }) }));
+      notice('Liquidação registrada.', 'success'); e.target.reset(); addItensRow(); await carregar();
+    } catch (err) { notice(err.message); }
+  });
+  formFiltro.addEventListener('submit', e => { e.preventDefault(); if (formFiltro.reportValidity()) carregar(); });
+  carregar();
+})();
+</script>

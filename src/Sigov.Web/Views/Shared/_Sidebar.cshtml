@@ -171,6 +171,19 @@
       <a class="sigov-nav-link@(active("/Previdencia/Esocial"))" href="/Previdencia/Esocial"><sigov-icon name="sync" size="18"/><span>eSocial Pública</span></a>
       <a class="sigov-nav-link@(active("/Previdencia/Parametros"))" href="/Previdencia/Parametros"><sigov-icon name="settings" size="18"/><span>Parâmetros da Frente</span></a>
     </details>
+    <details class="sigov-nav-group" @opened(new[]{"/Orcamento"})><summary><sigov-icon name="finance" size="16" />Orçamento e Responsabilidade Fiscal</summary>
+      <a class="sigov-nav-link@(active("/Orcamento"))" href="/Orcamento"><sigov-icon name="dashboard" size="18"/><span>Painel Orçamentário</span></a>
+      <a class="sigov-nav-link@(active("/Orcamento/Estrutura"))" href="/Orcamento/Estrutura"><sigov-icon name="workflow" size="18"/><span>Estrutura: Programas e Ações</span></a>
+      <a class="sigov-nav-link@(active("/Orcamento/Dotacoes"))" href="/Orcamento/Dotacoes"><sigov-icon name="finance" size="18"/><span>Dotações e Créditos Adicionais</span></a>
+      <a class="sigov-nav-link@(active("/Orcamento/Empenhos"))" href="/Orcamento/Empenhos"><sigov-icon name="documents" size="18"/><span>Empenhos (CP)</span></a>
+      <a class="sigov-nav-link@(active("/Orcamento/Liquidacoes"))" href="/Orcamento/Liquidacoes"><sigov-icon name="documents" size="18"/><span>Liquidações (SL)</span></a>
+      <a class="sigov-nav-link@(active("/Orcamento/Receitas"))" href="/Orcamento/Receitas"><sigov-icon name="finance" size="18"/><span>Receitas Previstas e Arrecadação</span></a>
+      <a class="sigov-nav-link@(active("/Orcamento/Lrf"))" href="/Orcamento/Lrf"><sigov-icon name="shield" size="18"/><span>Limites LRF e Apurações</span></a>
+      <a class="sigov-nav-link@(active("/Orcamento/Previsao"))" href="/Orcamento/Previsao"><sigov-icon name="audit" size="18"/><span>Previsão Bimestral</span></a>
+      <a class="sigov-nav-link@(active("/Orcamento/Rreo"))" href="/Orcamento/Rreo"><sigov-icon name="documents" size="18"/><span>RREO Semestral/Anual</span></a>
+      <a class="sigov-nav-link@(active("/Orcamento/Exercicios"))" href="/Orcamento/Exercicios"><sigov-icon name="sync" size="18"/><span>Competências Encerradas</span></a>
+      <a class="sigov-nav-link@(active("/Orcamento/Parametros"))" href="/Orcamento/Parametros"><sigov-icon name="settings" size="18"/><span>Parâmetros da Frente</span></a>
+    </details>
     <details class="sigov-nav-group" @opened(new[]{"/Financeiro","/Tributario","/Compras","/Contratos","/Financeiro/Receitas","/Financeiro/Conferencia"})><summary><sigov-icon name="finance" size="16" />Financeiro / SIAFIC</summary>
       @if (hasPermission("financeiro.dashboard.visualizar")) {
       <a class="sigov-nav-link@(active("/Financeiro/Dashboard"))" href="/Financeiro/Dashboard"><sigov-icon name="dashboard" size="18"/><span>Dashboard Financeiro</span></a>
